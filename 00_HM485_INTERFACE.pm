@@ -253,15 +253,15 @@ sub HM485_INTERFACE_Write($$;$) {
 				)
 			);
 
-			my %logData = (
-				start     => HM485::FRAME_START_LONG,
-				target    => $target,
-				cb        => $ctrl,
-				sender    => $source,
-				data      => $data,
-				formatHex => 1
-			);
-			HM485::Util::logger($name, 3, 'TX: ', \%logData);
+#			my %logData = (
+#				start     => HM485::FRAME_START_LONG,
+#				target    => $target,
+#				cb        => $ctrl,
+#				sender    => $source,
+#				data      => $data,
+#				formatHex => 1
+#			);
+#			HM485::Util::logger($name, 3, 'TX: ', \%logData);
 
 		} elsif ($cmd == HM485::CMD_DISCOVERY) {
 			$sendData = pack('H*',sprintf('%02X%02X00FF', $msgId, $cmd));

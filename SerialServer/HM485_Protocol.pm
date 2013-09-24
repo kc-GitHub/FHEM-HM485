@@ -236,7 +236,6 @@ sub sendQueueNextItem() {
 =cut
 sub sendFrame($$$$;$) {
 	my ($self, $targetAddr, $ctrl, $senderAddr, $data, $sendCount) = @_;
-#main::Log3('',1, 'start');
 	my %logData;
 
 	my $sendByte      = undef;
@@ -294,8 +293,7 @@ sub sendFrame($$$$;$) {
 	$FRAME_SEND_BUFFER = '';
 	
 	$sendCount = (defined($sendCount)) ? '(' . $sendCount . ')' : '';
-#	HM485::Util::logger(LOGTAG, 3, 'TX' . $sendCount . ':', \%logData);
-#	main::Log3('',1, 'stop');
+	HM485::Util::logger(LOGTAG, 3, 'TX' . $sendCount . ':', \%logData);
 }
 
 =head2 NAME
