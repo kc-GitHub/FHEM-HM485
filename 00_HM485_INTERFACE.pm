@@ -253,14 +253,14 @@ sub HM485_INTERFACE_Write($$;$) {
 				)
 			);
 
-#			my %logData = (
-#				start     => HM485::FRAME_START_LONG,
-#				target    => $target,
-#				cb        => $ctrl,
-#				sender    => $source,
-#				data      => $data,
-#				formatHex => 1
-#			);
+			my %logData = (
+				start     => HM485::FRAME_START_LONG,
+				target    => $target,
+				cb        => $ctrl,
+				sender    => $source,
+				data      => $data,
+				formatHex => 1
+			);
 #			HM485::Util::logger($name, 3, 'TX: ', \%logData);
 
 		} elsif ($cmd == HM485::CMD_DISCOVERY) {
@@ -272,8 +272,7 @@ sub HM485_INTERFACE_Write($$;$) {
 
 		if ($sendData) {
 			DevIo_SimpleWrite(
-				$hash,
-				chr(0xFD) . chr(length($sendData)) . $sendData
+				$hash, chr(0xFD) . chr(length($sendData)) . $sendData, 0
 			);
 		} 
 	}
@@ -480,11 +479,13 @@ sub HM485_INTERFACE_Init($) {
 sub HM485_INTERFACE_parseIncommingCommand($$) {
 	my ($hash, $message) = @_;
 	
-	my $msgId       = ord(substr($message, 2, 1));
-	my $msgLen      = ord(substr($message, 1, 1));
-	my $msgCmd      = ord(substr($message, 3, 1));
-	my $msgData     = uc( unpack ('H*', substr($message, 4, $msgLen)));
-	my $canDispatch = 1;
+	my $name           = $hash->{NAME};
+	my $msgId          = ord(substr($message, 2, 1));
+	my $msgLen         = ord(substr($message, 1, 1));
+	my $msgCmd         = ord(substr($message, 3, 1));
+	my $msgData        = uc( unpack ('H*', substr($message, 4, $msgLen)));
+	my $canDispatch    = 1;
+	my $logTxtResponse = '';
 	
 	if ($msgCmd == HM485::CMD_DISCOVERY_END) {
 		my $foundDevices = hex($msgData);
@@ -502,6 +503,7 @@ sub HM485_INTERFACE_parseIncommingCommand($$) {
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
 		Log3 ($hash, 3, 'ACK: ' . $msgId . ' ' . $msgData);
+		$logTxtResponse = ' Response';
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $alifeStatus = substr($msgData, 0, 2);
@@ -523,6 +525,24 @@ sub HM485_INTERFACE_parseIncommingCommand($$) {
 	}		
 
 	if ($canDispatch) {
+
+#			my $start     => HM485::FRAME_START_LONG,
+#			my $target    => substr($msgData, 0,7),
+#			my $cb        => substr($msgData, 8,2),
+#			my $sender    => substr($msgData, 10,7),
+#			my $data      => substr($msgData, 18),
+
+		
+		my %logData = (
+			start     => HM485::FRAME_START_LONG,
+			target    => substr($msgData, 0,7),
+			cb        => substr($msgData, 8,2),
+			sender    => substr($msgData, 10,7),
+			data      => substr($msgData, 18),
+			formatHex => 1
+		);
+		
+#		HM485::Util::logger($name, 3, 'RX: ' . $logTxtResponse, \%logData);
 		Dispatch($hash, $message, '');
 	}
 }

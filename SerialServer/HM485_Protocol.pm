@@ -293,7 +293,7 @@ sub sendFrame($$$$;$) {
 	$FRAME_SEND_BUFFER = '';
 	
 	$sendCount = (defined($sendCount)) ? '(' . $sendCount . ')' : '';
-#	HM485::Util::logger(LOGTAG, 3, 'TX' . $sendCount . ':', \%logData);
+	HM485::Util::logger(LOGTAG, 3, 'TX' . $sendCount . ':', \%logData);
 }
 
 =head2 NAME
@@ -532,7 +532,7 @@ sub parseFrame() {
 		my $event = uc(substr(unpack ('H*', $RD{data}), 0, -4));
 	}
 
-#	HM485::Util::logger(LOGTAG, 3, 'RX:' . $txtResponse, \%RD);
+	HM485::Util::logger(LOGTAG, 3, 'RX:' . $txtResponse, \%RD);
 
 	# TODO: maybe we want ack messages from all sender adress
 	if ( HM485::Util::ctrlIsIframe($RD{cb}) && $RD{target} eq pack('H*', $hmwId) ) {
