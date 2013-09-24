@@ -533,14 +533,14 @@ sub HM485_INTERFACE_parseIncommingCommand($$) {
 #			my $data      => substr($msgData, 18),
 
 		
-		my %logData = (
-			start     => HM485::FRAME_START_LONG,
-			target    => substr($msgData, 0,7),
-			cb        => substr($msgData, 8,2),
-			sender    => substr($msgData, 10,7),
-			data      => substr($msgData, 18),
-			formatHex => 1
-		);
+#		my %logData = (
+#			start     => HM485::FRAME_START_LONG,
+#			target    => substr($msgData, 0,7),
+#			cb        => substr($msgData, 8,2),
+#			sender    => substr($msgData, 10,7),
+#			data      => substr($msgData, 18),
+#			formatHex => 1
+#		);
 		
 #		HM485::Util::logger($name, 3, 'RX: ' . $logTxtResponse, \%logData);
 		Dispatch($hash, $message, '');
