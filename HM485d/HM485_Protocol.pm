@@ -33,11 +33,8 @@ use constant {
 	DISCOVERY_TIMEOUT		=> 30,		# 15ms
 
 	STATE_IDLE				=> 0x00,
-	STATE_TRANSMITTING		=> 0x01,
-	STATE_SEND_ACK			=> 0x02,
 	STATE_WAIT_ACK			=> 0x03,
 	STATE_ACKNOWLEDGED		=> 0x04,
-	STATE_CHANNEL_BUSY		=> 0x05,
 	STATE_DISCOVERY			=> 0x06,
 	STATE_DISCOVERY_WAIT	=> 0x07,
 	
@@ -52,13 +49,12 @@ use constant {
 	CMD_DISCOVERY_RESULT	=> 0x64,
 	CMD_DISCOVERY_END		=> 0x63,
 
-	MIN_BUSY_TIME_MS		=> 5,
-	WORST_CASE_BUSY_TIME_MS	=> 100,		# 100ms
 	LOGTAG                  => 'HM485d'
 };
 
 my %sendQueue;
 my %discoveryData;
+my %addressLastMsgMap;
 
 my $queueRunning = 0;
 
@@ -73,7 +69,6 @@ my $gpioTxenCmd1 = '';
 my $hmwId;
 my $checkResendQueueItemsTimeout;
 my $globalQueueId = 0;
-
 
 ###############################################################################
 # Define prototypes
@@ -491,86 +486,100 @@ sub parseFrame() {
 	my $responseId = -1;
 	my $frameFromOtherCentralUnit = 0;
 	
-	if($RD{start} == FRAME_START_LONG) {
-		if ( ord(substr($RD{sender},0,1)) == 0 &&
-			 ord(substr($RD{sender},1,1)) == 0 &&
-			 ord(substr($RD{sender},2,1)) == 0) {
-			 	
-			# This is an echo frame. from an other central unit (CCU)
-			$frameFromOtherCentralUnit = 1;
-		}
-		
-		if (exists($self->{sendQueue}{$currentQueueId}{STATE}) &&
-			$self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK &&
-			$self->{sendQueue}{$currentQueueId}{TARGET} eq $RD{sender} &&
-			HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
-
-			# This ist the ACK - Frame of last sent frame
-			$responseId = $self->{sendQueue}{$currentQueueId}{MSG_ID};
-			$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
-		}
-	} else {
-		if (exists($self->{sendQueue}{$currentQueueId}{STATE}) &&
-			$self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK &&
-			!HM485::Util::ctrlHasSender($self->{sendQueue}{$currentQueueId}{CTRL}) &&
-			HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
-
-			# This ist the ACK - Frame of last sent frame
-			$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
-		}
-	}
-
-	### for logging
-	my $txtResponse = '';
-	if ($responseId > -1) {
-		if ( !HM485::Util::ctrlIsAck($RD{cb}) ) {
-			$txtResponse = ' Response: (' . $responseId . ')';
-		}
-		my $response = uc(substr(unpack ('H*', $RD{data}), 0, -4));
-	} else {
-		my $event = uc(substr(unpack ('H*', $RD{data}), 0, -4));
-	}
-
-	HM485::Util::logger(LOGTAG, 3, 'RX:' . $txtResponse, \%RD);
-
-	# TODO: maybe we want ack messages from all sender adress
-	if ( HM485::Util::ctrlIsIframe($RD{cb}) && $RD{target} eq pack('H*', $hmwId) ) {
-		# IFRAME received with receiver address eq this hmwId, we must ack it
-		$self->sendAck($RD{target}, $RD{sender}, HM485::Util::ctrlTxNum($RD{cb}));
-	}
-
-	if ($responseId != -1) {
-		$self->sendResponse(
-			$self->{sendQueue}{$currentQueueId}{MSG_ID}, 
-			$RD{cb},
-			substr($RD{data}, 0, -2)
-		);
-
-		# Messages acknowleded, we can delet the resend timer
-		if ($checkResendQueueItemsTimeout) {
-			main::clearTimeout($checkResendQueueItemsTimeout);
-			$checkResendQueueItemsTimeout = undef;
+	if (exists($addressLastMsgMap{$RD{sender}}) &&
+	    $addressLastMsgMap{$RD{sender}}{cb} == $RD{cb} &&
+	    $addressLastMsgMap{$RD{sender}}{data} eq $RD{data} &&
+	    !HM485::Util::ctrlSynSet($RD{cb}) ) {
 			
-			# Check queue item
-			$self->deleteCurrentItemFromQueue();
-			$self->sendQueueCheckItems();
-		}
+		HM485::Util::logger(LOGTAG, 3, 'RX: dup frame: ', \%RD);
+			
 	} else {
-
-		# If I-Frame, Message should dispatch
-#		if ( HM485::Util::ctrlIsIframe($RD{cb}) ) {
-
-			# Dont dispatch frames from other CCU
-			if (!$frameFromOtherCentralUnit) {
-
-				# Dispatch frame
-				$self->sendEvent(
-					$RD{target}, $RD{cb}, $RD{sender}, substr($RD{data}, 0, -2)
-				);
-			}
+		$addressLastMsgMap{$RD{sender}} = {
+			cb   => $RD{cb},
+			data => $RD{data}
+		};
 		
-#		}
-
+		if($RD{start} == FRAME_START_LONG) {
+			if ( ord(substr($RD{sender},0,1)) == 0 &&
+				 ord(substr($RD{sender},1,1)) == 0 &&
+				 ord(substr($RD{sender},2,1)) == 0) {
+				 	
+				# This is an echo frame. from an other central unit (CCU)
+				$frameFromOtherCentralUnit = 1;
+			}
+			
+			if (exists($self->{sendQueue}{$currentQueueId}{STATE}) &&
+				$self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK &&
+				$self->{sendQueue}{$currentQueueId}{TARGET} eq $RD{sender} &&
+				HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
+	
+				# This ist the ACK - Frame of last sent frame
+				$responseId = $self->{sendQueue}{$currentQueueId}{MSG_ID};
+				$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
+			}
+		} else {
+			if (exists($self->{sendQueue}{$currentQueueId}{STATE}) &&
+				$self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK &&
+				!HM485::Util::ctrlHasSender($self->{sendQueue}{$currentQueueId}{CTRL}) &&
+				HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
+	
+				# This ist the ACK - Frame of last sent frame
+				$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
+			}
+		}
+	
+		### for logging
+		my $txtResponse = '';
+		if ($responseId > -1) {
+			if ( !HM485::Util::ctrlIsAck($RD{cb}) ) {
+				$txtResponse = ' Response: (' . $responseId . ')';
+			}
+			my $response = uc(substr(unpack ('H*', $RD{data}), 0, -4));
+		} else {
+			my $event = uc(substr(unpack ('H*', $RD{data}), 0, -4));
+		}
+	
+		HM485::Util::logger(LOGTAG, 3, 'RX:' . $txtResponse, \%RD);
+	
+		# TODO: maybe we want ack messages from all sender adress
+		if ( HM485::Util::ctrlIsIframe($RD{cb}) && $RD{target} eq pack('H*', $hmwId) ) {
+			# IFRAME received with receiver address eq this hmwId, we must ack it
+			$self->sendAck($RD{target}, $RD{sender}, HM485::Util::ctrlTxNum($RD{cb}));
+		}
+	
+		if ($responseId != -1) {
+			$self->sendResponse(
+				$self->{sendQueue}{$currentQueueId}{MSG_ID}, 
+				$RD{cb},
+				substr($RD{data}, 0, -2)
+			);
+	
+			# Messages acknowleded, we can delet the resend timer
+			if ($checkResendQueueItemsTimeout) {
+				main::clearTimeout($checkResendQueueItemsTimeout);
+				$checkResendQueueItemsTimeout = undef;
+				
+				# Check queue item
+				$self->deleteCurrentItemFromQueue();
+				$self->sendQueueCheckItems();
+			}
+		} else {
+	
+			# If I-Frame, Message should dispatch
+	#		if ( HM485::Util::ctrlIsIframe($RD{cb}) ) {
+	
+				# Dont dispatch frames from other CCU
+				if (!$frameFromOtherCentralUnit) {
+	
+					# Dispatch frame
+					$self->sendEvent(
+						$RD{target}, $RD{cb}, $RD{sender}, substr($RD{data}, 0, -2)
+					);
+				}
+			
+	#		}
+	
+		}
 	}
 }
 

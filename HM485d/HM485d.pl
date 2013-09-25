@@ -191,7 +191,7 @@ use Data::Dumper;
 use constant {
 	HM485D_NAME      => 'HM485d',
 	INTERFACE_NAME   => 'HMW-SOFT-GW',
-	VERSION          => '0.1.0',
+	VERSION          => '0.2.0',
 	SERIALNUMBER_DEF => 'SGW0123456',
 	CRLF             => "\r\n"
 };
