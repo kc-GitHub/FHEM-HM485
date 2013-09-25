@@ -8,7 +8,7 @@
 
 =head1 DESCRIPTION
 	10_HM485 handle individual HomeMatic Wired (HM485) devices via the
-	00_HM485_INTERFACE interface
+	00_HM485_LAN interface
 
 =head1 AUTHOR - Dirk Hoffmann
 	dirk@FHEM_Forum (forum.fhem.de)

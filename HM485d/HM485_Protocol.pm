@@ -22,32 +22,32 @@ use Time::HiRes qw(gettimeofday);
 use bytes;
 
 use constant {
-	FRAME_START_SHORT		=> 0xFE,
-	FRAME_START_LONG		=> 0xFD,
-	ESCAPE_CHAR				=> 0xFC,
+	FRAME_START_SHORT       => 0xFE,
+	FRAME_START_LONG        => 0xFD,
+	ESCAPE_CHAR             => 0xFC,
 
-	MAX_SEND_RETRY			=> 3,
-	SEND_RETRY_TIMEOUT		=> 200,		# die CCU macht nach 200ms eine Neusendung? 	
-	DISCOVERY_TRIES			=> 3,
-#	DISCOVERY_TIMEOUT		=> 20,		# 15ms
-	DISCOVERY_TIMEOUT		=> 30,		# 15ms
+	MAX_SEND_RETRY          => 3,
+	SEND_RETRY_TIMEOUT      => 200,  # die CCU macht nach 200ms eine Neusendung? 	
+	DISCOVERY_TRIES         => 3,
+#	DISCOVERY_TIMEOUT       => 20,   # 15ms
+	DISCOVERY_TIMEOUT       => 30,
 
-	STATE_IDLE				=> 0x00,
-	STATE_WAIT_ACK			=> 0x03,
-	STATE_ACKNOWLEDGED		=> 0x04,
-	STATE_DISCOVERY			=> 0x06,
-	STATE_DISCOVERY_WAIT	=> 0x07,
+	STATE_IDLE              => 0x00,
+	STATE_WAIT_ACK          => 0x03,
+	STATE_ACKNOWLEDGED      => 0x04,
+	STATE_DISCOVERY         => 0x06,
+	STATE_DISCOVERY_WAIT    => 0x07,
 	
 	### Commands from client
-	CMD_SEND				=> 0x53,
-	CMD_DISCOVERY			=> 0x44,
+	CMD_SEND                => 0x53,
+	CMD_DISCOVERY           => 0x44,
 
 	### Commands to client
-	CMD_RESPONSE			=> 0x72,
-	CMD_ERROR				=> 0x61,
-	CMD_EVENT				=> 0x65,
-	CMD_DISCOVERY_RESULT	=> 0x64,
-	CMD_DISCOVERY_END		=> 0x63,
+	CMD_RESPONSE            => 0x72,
+	CMD_ERROR               => 0x61,
+	CMD_EVENT               => 0x65,
+	CMD_DISCOVERY_RESULT    => 0x64,
+	CMD_DISCOVERY_END       => 0x63,
 
 	LOGTAG                  => 'HM485d'
 };
@@ -251,7 +251,7 @@ sub sendFrame($$$$;$) {
 	$logData{cb} = $ctrl;
 	$crc16Register = $self->crc16Shift($ctrl , $crc16Register);
 
-	if (!HM485::Util::ctrlIsDiscovery($ctrl) && HM485::Util::ctrlHasSender($ctrl)) {          # check if message has sender
+	if (!HM485::Util::ctrlIsDiscovery($ctrl) && HM485::Util::ctrlHasSender($ctrl)) { # check if message has sender
 		for (my $i = 0; $i < length($senderAddr); $i++) {                       # sender address
 			$sendByte = ord(substr($senderAddr, $i, 1));
 			$logData{sender}.= $self->bufferFrameByte($sendByte, 0);
@@ -522,7 +522,7 @@ sub parseFrame() {
 				$self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK &&
 				!HM485::Util::ctrlHasSender($self->{sendQueue}{$currentQueueId}{CTRL}) &&
 				HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
-	
+
 				# This ist the ACK - Frame of last sent frame
 				$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
 			}
@@ -758,9 +758,6 @@ sub discoveryFound() {
 	$self->{discoveryData}{discoveryFound} = $buffer;
 }
 
-
-
-
 sub sendDiscoveryResult($$$) {
 	my ($self, $msgId, $address) = @_;
 	$address = pack('H*', sprintf('%08X', $address));
@@ -814,7 +811,6 @@ sub checkStateDiscoveryWait() {
 	my ($self) = @_;
 	return ($stateTx == STATE_DISCOVERY_WAIT) ? 1 : 0
 }
-
 
 =head2 NAME
 # Daten senden

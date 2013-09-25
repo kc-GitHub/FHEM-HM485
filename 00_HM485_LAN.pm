@@ -1,5 +1,5 @@
 =head1
-	00_HM485_INTERFACE.pm
+	00_HM485_LAN.pm
 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -7,7 +7,7 @@
 	$Id$
 
 =head1 DESCRIPTION
-	00_HM485_INTERFACE is the interface for communicate with HomeMatic Wired (HM485) devices
+	00_HM485_LAN is the interface for communicate with HomeMatic Wired (HM485) devices
 	over USB / UART / RS232 -> RS485 Converter
 
 =head1 AUTHOR - Dirk Hoffmann
@@ -31,23 +31,23 @@ use vars qw {%attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC 
 # Function prototypes
 
 # FHEM Inteface related functions
-sub HM485_INTERFACE_Initialize($);
-sub HM485_INTERFACE_Define($$);
-sub HM485_INTERFACE_Ready($);
-sub HM485_INTERFACE_Undef($$);
-sub HM485_INTERFACE_Read($);
-sub HM485_INTERFACE_Write($$;$);
-sub HM485_INTERFACE_Set($@);
-sub HM485_INTERFACE_Attr(@);
+sub HM485_LAN_Initialize($);
+sub HM485_LAN_Define($$);
+sub HM485_LAN_Ready($);
+sub HM485_LAN_Undef($$);
+sub HM485_LAN_Read($);
+sub HM485_LAN_Write($$;$);
+sub HM485_LAN_Set($@);
+sub HM485_LAN_Attr(@);
 
 # Helper functions
-sub HM485_INTERFACE_Init($);
-sub HM485_INTERFACE_parseIncommingCommand($$);
-sub HM485_INTERFACE_Connect($);
-sub HM485_INTERFACE_RemoveValuesFromAttrList($@);
-sub HM485_INTERFACE_openDev($;$);
-sub HM485_INTERFACE_checkAndCreateHM485d($);
-sub HM485_INTERFACE_getHM485dPid($$);
+sub HM485_LAN_Init($);
+sub HM485_LAN_parseIncommingCommand($$);
+sub HM485_LAN_Connect($);
+sub HM485_LAN_RemoveValuesFromAttrList($@);
+sub HM485_LAN_openDev($;$);
+sub HM485_LAN_checkAndCreateHM485d($);
+sub HM485_LAN_getHM485dPid($$);
 
 use constant {
 	SERIALNUMBER_DEF   => 'SGW0123456',
@@ -62,7 +62,7 @@ use constant {
 	
 	@param	hash	hash of device addressed
 =cut
-sub HM485_INTERFACE_Initialize($) {
+sub HM485_LAN_Initialize($) {
 	my ($hash) = @_;
 	my $dev  = $hash->{DEF};
 	
@@ -73,13 +73,13 @@ sub HM485_INTERFACE_Initialize($) {
 
 		require $attr{global}{modpath} . '/FHEM/DevIo.pm';
 
-		$hash->{DefFn}     = 'HM485_INTERFACE_Define';
-		$hash->{ReadyFn}   = 'HM485_INTERFACE_Ready';
-		$hash->{UndefFn}   = 'HM485_INTERFACE_Undef';
-		$hash->{ReadFn}    = 'HM485_INTERFACE_Read';
-		$hash->{WriteFn}   = 'HM485_INTERFACE_Write';
-		$hash->{SetFn}     = 'HM485_INTERFACE_Set';
-		$hash->{AttrFn}    = "HM485_INTERFACE_Attr";
+		$hash->{DefFn}     = 'HM485_LAN_Define';
+		$hash->{ReadyFn}   = 'HM485_LAN_Ready';
+		$hash->{UndefFn}   = 'HM485_LAN_Undef';
+		$hash->{ReadFn}    = 'HM485_LAN_Read';
+		$hash->{WriteFn}   = 'HM485_LAN_Write';
+		$hash->{SetFn}     = 'HM485_LAN_Set';
+		$hash->{AttrFn}    = "HM485_LAN_Attr";
 	
 		$hash->{AttrList}  = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
 		                     'HM485d_startTimeout HM485d_device ' . 
@@ -102,7 +102,7 @@ sub HM485_INTERFACE_Initialize($) {
 	
 	@return string | undef
 =cut
-sub HM485_INTERFACE_Define($$) {
+sub HM485_LAN_Define($$) {
 	my ($hash, $def) = @_;
 	my @a = split('[ \t][ \t]*', $def);
 
@@ -123,8 +123,8 @@ sub HM485_INTERFACE_Define($$) {
 		if($hash->{DEF} eq 'none') {
 			Log3 ($hash, 1, 'HM485 device is none, commands will be echoed only');
 		} else {
-			# Make shure HM485_INTERFACE_Connect starts after HM485_INTERFACE_Define is ready 
-			InternalTimer(gettimeofday(), 'HM485_INTERFACE_ConnectOrStartHM485d', $hash, 0);
+			# Make shure HM485_LAN_Connect starts after HM485_LAN_Define is ready 
+			InternalTimer(gettimeofday(), 'HM485_LAN_ConnectOrStartHM485d', $hash, 0);
 		}
 				
 	} else {
@@ -141,12 +141,12 @@ sub HM485_INTERFACE_Define($$) {
 	Implements ReadyFn function.
 
 	@param	hash    hash of device addressed
-	@return mixed   return value of the HM485_INTERFACE_Init function
+	@return mixed   return value of the HM485_LAN_Init function
 =cut
-sub HM485_INTERFACE_Ready($) {
+sub HM485_LAN_Ready($) {
 	my ($hash) = @_;
 
-	return HM485_INTERFACE_openDev($hash, 1);
+	return HM485_LAN_openDev($hash, 1);
 }
 
 =head2
@@ -159,7 +159,7 @@ sub HM485_INTERFACE_Ready($) {
 
 	@return undef
 =cut
-sub HM485_INTERFACE_Undef($$) {
+sub HM485_LAN_Undef($$) {
 	my ($hash, $name) = @_;
 
 	DevIo_CloseDev($hash);
@@ -173,7 +173,7 @@ sub HM485_INTERFACE_Undef($$) {
 
 	@param	hash    hash of device addressed
 =cut
-sub HM485_INTERFACE_Read($) {
+sub HM485_LAN_Read($) {
 	my ($hash) = @_;
 
 	my $buffer = DevIo_SimpleRead($hash);
@@ -202,11 +202,11 @@ sub HM485_INTERFACE_Read($) {
 				RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
 			
 				InternalTimer(
-					gettimeofday() + 1, 'HM485_INTERFACE_KeepAlive', KEEPALIVE_TIMER . $name, 1
+					gettimeofday() + 1, 'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
 				);
 
 			} elsif ($msgStart eq chr(0xFD)) {
-				HM485_INTERFACE_parseIncommingCommand($hash, $buffer);
+				HM485_LAN_parseIncommingCommand($hash, $buffer);
 
 			}
 		}
@@ -224,7 +224,7 @@ sub HM485_INTERFACE_Read($) {
 	
 	@return integer   the message id of the sended message
 =cut
-sub HM485_INTERFACE_Write($$;$) {
+sub HM485_LAN_Write($$;$) {
 	my ($hash, $cmd, $params) = @_;
 	my $name = $hash->{NAME};
 	my $msgId = 0;
@@ -284,7 +284,7 @@ sub HM485_INTERFACE_Write($$;$) {
 	
 	@return    return error message on failure
 =cut
-sub HM485_INTERFACE_Set($@) {
+sub HM485_LAN_Set($@) {
 	my ($hash, @a) = @_;
 
 	# All allowed set commands
@@ -331,7 +331,7 @@ sub HM485_INTERFACE_Set($@) {
 					source => $a[4],
 					data   => $a[5]
 				);
-				HM485_INTERFACE_Write($hash, HM485::CMD_SEND, \%params);
+				HM485_LAN_Write($hash, HM485::CMD_SEND, \%params);
 	
 			} else {
 				$msg = '"set HM485 raw" needs 5 parameter Sample: TTTTTTTT CC SSSSSSSS D...' . "\n" .
@@ -340,10 +340,10 @@ sub HM485_INTERFACE_Set($@) {
 			}
 
 		} elsif ($cmd eq 'discovery' && $a[2] eq 'start' ) {
-			HM485_INTERFACE_discoveryStart($hash);
+			HM485_LAN_discoveryStart($hash);
 
 		} elsif ($cmd eq 'broadcastSleepMode' && $a[2] eq 'off') {
-			HM485_INTERFACE_setBroadcastSleepMode($hash, 0)
+			HM485_LAN_setBroadcastSleepMode($hash, 0)
 		}
 	}	
 
@@ -363,7 +363,7 @@ sub HM485_INTERFACE_Set($@) {
 
 	@return undef | string    if attr value was wrong
 =cut
-sub HM485_INTERFACE_Attr (@) {
+sub HM485_LAN_Attr (@) {
 	my (undef, $name, $attr, $val) =  @_;
 	my $hash = $defs{$name};
 	my $msg = '';
@@ -378,7 +378,7 @@ sub HM485_INTERFACE_Attr (@) {
 			foreach my $d (keys %defs) {
 				next if($d eq $name);
 		
-				if($defs{$d}{TYPE} eq 'HM485_INTERFACE') {
+				if($defs{$d}{TYPE} eq 'HM485_LAN') {
 					if(AttrVal($d, 'hmwId', '00000001') eq $val) {
 						$msg = 'hmwId ' . $val . ' already used. Please use another one.';
 					}
@@ -391,21 +391,21 @@ sub HM485_INTERFACE_Attr (@) {
 	return ($msg) ? $msg : undef;
 }
 
-sub HM485_INTERFACE_discoveryStart($) {
+sub HM485_LAN_discoveryStart($) {
 	my ($hash) =  @_;
 
 	$hash->{discoveryRunning} = 1;
-	HM485_INTERFACE_setBroadcastSleepMode($hash, 1);
-	InternalTimer(gettimeofday() + 1, 'HM485_INTERFACE_doDiscovery', $hash, 0);
+	HM485_LAN_setBroadcastSleepMode($hash, 1);
+	InternalTimer(gettimeofday() + 1, 'HM485_LAN_doDiscovery', $hash, 0);
 }
 
-sub HM485_INTERFACE_doDiscovery($) {
+sub HM485_LAN_doDiscovery($) {
 	my ($hash) =  @_;
-	HM485_INTERFACE_Write($hash, HM485::CMD_DISCOVERY);
+	HM485_LAN_Write($hash, HM485::CMD_DISCOVERY);
 }
 
 # Todo: We should set timer for discovery must have finish
-sub HM485_INTERFACE_discoveryEnd($) {
+sub HM485_LAN_discoveryEnd($) {
 	my ($hash) =  @_;
 	my $name = $hash->{NAME};
 
@@ -434,7 +434,7 @@ sub HM485_INTERFACE_discoveryEnd($) {
 	$hash->{discoveryRunning} = 0;
 }
 
-sub HM485_INTERFACE_setBroadcastSleepMode($$) {
+sub HM485_LAN_setBroadcastSleepMode($$) {
 	my ($hash, $value) =  @_;
 	
 	my %params = (
@@ -443,8 +443,8 @@ sub HM485_INTERFACE_setBroadcastSleepMode($$) {
 		source => $hash->{hmwId},
 		data   => int($value) ? '7A' : '5A'
 	);
-	HM485_INTERFACE_Write($hash, HM485::CMD_SEND, \%params);
-	HM485_INTERFACE_Write($hash, HM485::CMD_SEND, \%params);
+	HM485_LAN_Write($hash, HM485::CMD_SEND, \%params);
+	HM485_LAN_Write($hash, HM485::CMD_SEND, \%params);
 }
 
 =head2
@@ -453,7 +453,7 @@ sub HM485_INTERFACE_setBroadcastSleepMode($$) {
 	@param	hash    hash of device addressed
 	@return undef
 =cut
-sub HM485_INTERFACE_Init($) {
+sub HM485_LAN_Init($) {
 	my ($hash) = @_;
 
 	my $dev  = $hash->{DEF};
@@ -472,7 +472,7 @@ sub HM485_INTERFACE_Init($) {
 	@param	hash    hash of device addressed
 	@param	string  the binary message to parse
 =cut
-sub HM485_INTERFACE_parseIncommingCommand($$) {
+sub HM485_LAN_parseIncommingCommand($$) {
 	my ($hash, $message) = @_;
 	
 	my $name           = $hash->{NAME};
@@ -486,8 +486,8 @@ sub HM485_INTERFACE_parseIncommingCommand($$) {
 		my $foundDevices = hex($msgData);
 		Log3 ($hash, 4, 'Do action after discovery Found Devices: ' . $foundDevices);
 		
-		HM485_INTERFACE_setBroadcastSleepMode($hash, 0);
-		InternalTimer(gettimeofday() + 1, 'HM485_INTERFACE_discoveryEnd', $hash, 0);
+		HM485_LAN_setBroadcastSleepMode($hash, 0);
+		InternalTimer(gettimeofday() + 1, 'HM485_LAN_discoveryEnd', $hash, 0);
 		$canDispatch = 0;
 
 	} elsif ($msgCmd == HM485::CMD_DISCOVERY_RESULT) {
@@ -530,23 +530,23 @@ sub HM485_INTERFACE_parseIncommingCommand($$) {
 	
 	@param	hash    hash of device addressed
 =cut
-sub HM485_INTERFACE_ConnectOrStartHM485d($) {
+sub HM485_LAN_ConnectOrStartHM485d($) {
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 	my $dev  = $hash->{DEF};
 
 	if (!AttrVal($name, 'HM485d_bind',0)) {
-		HM485_INTERFACE_RemoveValuesFromAttrList(
+		HM485_LAN_RemoveValuesFromAttrList(
 			$hash,
 			('HM485d_detatch', 'HM485d_device', 'HM485d_serialNumber',
 			 'HM485d_logfile', 'HM485d_logVerbose:0,1,2,3,4,5', 'HM485d_startTimeout',
 			 'HM485d_gpioTxenInit', 'HM485d_gpioTxenCmd0', 'HM485d_gpioTxenCmd1')
 		);
 		
-		HM485_INTERFACE_openDev($hash);
+		HM485_LAN_openDev($hash);
 		
 	} else {
-		HM485_INTERFACE_checkAndCreateHM485d($hash);
+		HM485_LAN_checkAndCreateHM485d($hash);
 	}
 }
 
@@ -555,7 +555,7 @@ sub HM485_INTERFACE_ConnectOrStartHM485d($) {
 	
 	@param	string    name of keepalive timer
 =cut
-sub HM485_INTERFACE_KeepAlive($) {
+sub HM485_LAN_KeepAlive($) {
 	my($param) = @_;
 
 	my(undef,$name) = split(':',$param);
@@ -567,7 +567,7 @@ sub HM485_INTERFACE_KeepAlive($) {
 
 	if ($hash->{FD}) {
 		Log3($hash, 3, $name . ' keepalive msgNo: ' . $msgCounter);
-		HM485_INTERFACE_Write($hash, HM485::CMD_KEEPALIVE);
+		HM485_LAN_Write($hash, HM485::CMD_KEEPALIVE);
 
 		# Remove timer to avoid duplicates
 		RemoveInternalTimer(KEEPALIVE_TIMER . $name);
@@ -577,12 +577,12 @@ sub HM485_INTERFACE_KeepAlive($) {
 
 		# start timer to check keepalive response
 		InternalTimer(
-			gettimeofday() + $responseTime, 'HM485_INTERFACE_KeepAliveCheck', KEEPALIVECK_TIMER . $name, 1
+			gettimeofday() + $responseTime, 'HM485_LAN_KeepAliveCheck', KEEPALIVECK_TIMER . $name, 1
 		);
 
 		# start timeout for next keepalive check
 		InternalTimer(
-			gettimeofday() + KEEPALIVE_TIMEOUT ,'HM485_INTERFACE_KeepAlive', KEEPALIVE_TIMER . $name, 1
+			gettimeofday() + KEEPALIVE_TIMEOUT ,'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
 		);
 	}
 }
@@ -593,7 +593,7 @@ sub HM485_INTERFACE_KeepAlive($) {
 	
 	@param	string    name of keepalive timer
 =cut
-sub HM485_INTERFACE_KeepAliveCheck($) {
+sub HM485_LAN_KeepAliveCheck($) {
 	my($param) = @_;
 
 	my(undef,$name) = split(':', $param);
@@ -611,7 +611,7 @@ sub HM485_INTERFACE_KeepAliveCheck($) {
 			RemoveInternalTimer(KEEPALIVE_TIMER . $name);
 
 			# start timeout for repeated keepalive check
-			HM485_INTERFACE_KeepAlive(KEEPALIVE_TIMER . $name);
+			HM485_LAN_KeepAlive(KEEPALIVE_TIMER . $name);
 		}
 	} else {
 		$hash->{keepalive}{retry} = 0;
@@ -624,7 +624,7 @@ sub HM485_INTERFACE_KeepAliveCheck($) {
 	@param	hash    hash of device addressed
 	@param	array   array of values to remove
 =cut
-sub HM485_INTERFACE_RemoveValuesFromAttrList($@) {
+sub HM485_LAN_RemoveValuesFromAttrList($@) {
 	my ($hash, @removeArray) = @_;
 	my $name = $hash->{NAME};
 
@@ -639,7 +639,7 @@ sub HM485_INTERFACE_RemoveValuesFromAttrList($@) {
 	
 	@param	hash    hash of device addressed
 =cut
-sub HM485_INTERFACE_openDev($;$) {
+sub HM485_LAN_openDev($;$) {
 	my ($hash, $reconnect) = @_;
 	
 	my $retVal = undef;
@@ -648,7 +648,7 @@ sub HM485_INTERFACE_openDev($;$) {
 
 	if ($hash->{STATE} ne 'open') {
 		# if we must reconnect, connection can reappered after 60 seconds 
-		$retVal = DevIo_OpenDev($hash, $reconnect, 'HM485_INTERFACE_Init');
+		$retVal = DevIo_OpenDev($hash, $reconnect, 'HM485_LAN_Init');
 	}
 
 	return $retVal;
@@ -663,7 +663,7 @@ sub HM485_INTERFACE_openDev($;$) {
 	
 	@param	hash    hash of device addressed
 =cut
-sub HM485_INTERFACE_checkAndCreateHM485d($) {
+sub HM485_LAN_checkAndCreateHM485d($) {
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 	my $dev  = $hash->{DEF};
@@ -694,7 +694,7 @@ sub HM485_INTERFACE_checkAndCreateHM485d($) {
 		$HM485dCommandLine.= ($HM485dLogfile)      ? ' --logfile '      . $HM485dLogfile      : '';
 		$HM485dCommandLine.= ($HM485dLogVerbose)   ? ' --verbose '      . $HM485dLogVerbose   : '';
 	
-		$HM485dPid = HM485_INTERFACE_getHM485dPid($hash, $HM485dCommandLine);
+		$HM485dPid = HM485_LAN_getHM485dPid($hash, $HM485dCommandLine);
 		$HM485dCommandLine = $attr{global}{modpath} . '/FHEM/HM485/HM485d/' .
 		                     $HM485dCommandLine;
 
@@ -713,7 +713,7 @@ sub HM485_INTERFACE_checkAndCreateHM485d($) {
 			}
 		}
 
-		InternalTimer(gettimeofday() + $HM485dStartTimeout, 'HM485_INTERFACE_openDev', $hash, 0);
+		InternalTimer(gettimeofday() + $HM485dStartTimeout, 'HM485_LAN_openDev', $hash, 0);
 
 	} elsif ($HM485dBind && !$HM485dDevice) {
 		my $msg = 'HM485d not started. Attr "HM485d_device" for ' . $name . ' is not set!';
@@ -722,7 +722,7 @@ sub HM485_INTERFACE_checkAndCreateHM485d($) {
 	} else {
 
 		DevIo_CloseDev($hash);
-		HM485_INTERFACE_openDev($hash);
+		HM485_LAN_openDev($hash);
 	}
 }
 
@@ -736,7 +736,7 @@ sub HM485_INTERFACE_checkAndCreateHM485d($) {
 
 	@return integer   PID of a running HM485d, else 0
 =cut
-sub HM485_INTERFACE_getHM485dPid($$) {
+sub HM485_LAN_getHM485dPid($$) {
 	my ($hash, $HM485dCommandLine) = @_;
 	my $retVal = 0;
 	
