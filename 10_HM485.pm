@@ -89,7 +89,7 @@ sub HM485_Initialize($) {
 	);
 	
 	%gets = (
-		'info'       => ' ',
+		'info'         => ' ',
 #		'config'     => ' ',
 #		'devicepair' => ' ',
 #		'regRaw'     => ' ',
@@ -458,7 +458,7 @@ sub HM485_parseModuleType($) {
 sub HM485_parseSerialNumber($) {
 	my ($data) = @_;
 	
-	my $retVal = pack('H*',$data);
+	my $retVal = substr(pack('H*',$data), 0, 10);
 	
 	return $retVal;
 }

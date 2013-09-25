@@ -72,7 +72,7 @@ sub logger ($$$;$) {
 	my $logDiscovery = 1;
 	my $formatHex = (!defined($dataHash->{formatHex}) || !$dataHash->{formatHex}) ? 0 : 1; 
 	
-	if (defined($dataHash)) {
+	if (defined($dataHash) && exists($dataHash->{data})) {
 		my $data = printByte($dataHash->{data}, $formatHex);
 
 		if ($logCCU) {

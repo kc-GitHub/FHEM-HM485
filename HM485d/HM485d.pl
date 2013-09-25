@@ -2,11 +2,11 @@
 
 =head1 NAME
 
-HM485_SerialServer.pl
+HM485d.pl
 
 =head1 SYNOPSIS
 
-HM485_SerialServer.pl --serialDevice <serial device> [options]
+HM485d.pl --device <device> [options]
 
 =head1 OPTIONS
 
@@ -26,11 +26,11 @@ The HMW-ID (8 digit hex value) hmwId must be 8 digit hex address within 00000001
 
 =item B<-localPort>
 
-The port for the local server listening on localhost.
+The local port of HM485d listening on localhost.
 
-=item B<-serialDevice>
+=item B<-device>
 
-the device for the serial interface e.g. /dev/ttyUSB0, 179.168.178.10:5000 or so on
+the device for the interface e.g. /dev/ttyUSB0, 179.168.178.10:5000 or so on
 
 =item B<-serialNumber>
 
@@ -60,7 +60,7 @@ verbose level
 
 =head1 DESCRIPTION
 
-This is the HM485 communication stack for raw communication via stupid serial
+This is the HM485 communication stack for raw communication via "stupid" serial
 interface devices for instance simple USB-RS485 or Network-RS485 adaptor.
 Contributed by Dirk Hoffmann 2013
 
@@ -189,8 +189,8 @@ use Data::Dumper;
 ##################################################
 # Constants:
 use constant {
-	SERVER_NAME      => 'HM485_SerialServer',
-	INTERFACE_NAME   => 'HMW-SERIAL-SOFT-GW',
+	HM485D_NAME      => 'HM485d',
+	INTERFACE_NAME   => 'HMW-SOFT-GW',
 	VERSION          => '0.1.0',
 	SERIALNUMBER_DEF => 'SGW0123456',
 	CRLF             => "\r\n"
@@ -198,9 +198,9 @@ use constant {
 
 ##################################################
 # Variables:
-my $hm485Interface;
+my $hm485Protocoll;
 
-my $serialDevice   = '';
+my $device         = '';
 my $gpioTxenInit   = '';
 my $gpioTxenCmd1   = '';
 my $gpioTxenCmd0   = '';
@@ -229,8 +229,8 @@ sub init() {
 	my $localPort = 2000;
 	GetOptions (
 		'hmwId=s'        => \$hmwId,        # The HMW-ID (8 digit hex value)
-		'localPort=i'    => \$localPort,    # The port for the local server lustening on localhost
-		'serialDevice=s' => \$serialDevice, # the device for the serial interface e.g. /dev/ttyUSB0, 179.168.178.10:5000 or so on
+		'localPort=i'    => \$localPort,    # The local port of HM485d listening on localhost.
+		'device=s'       => \$device,       # the device for the interface e.g. /dev/ttyUSB0, 179.168.178.10:5000 or so on
 		'serialNumber=s' => \$serialNumber, # Should be a unique alphanumerical identifyer for identifying the running process.
 		'gpioTxenInit=s' => \$gpioTxenInit, # command to init the gpio pin to controll txen
 		'gpioTxenCmd1=s' => \$gpioTxenCmd1, # command to set txen gpio pin
@@ -246,21 +246,21 @@ sub init() {
 
 	my $res;
 	if (!defined($hmwId) || $hmwId !~ m/^[A-F0-9]{8}$/i || hex($hmwId) > 255 || hex($hmwId) < 1) {
-		$res = 'Wrong hmwId defined. hmwId must be 8 digit hex address within 00000001 and 000000FF';
+		$res = 'Wrong hmwId given. hmwId must be 8 digit hex address within 00000001 and 000000FF';
 	}
 
 	ServerTools_init(
-		SERVER_NAME,
+		HM485D_NAME,
 		$pathFHEM,
 		$logFile,
 		$logVerbose,
 		$localPort,
-		'serverParseCommand',
-		'clientWelcomeCommand',
-		'clientCloseCommand',
-		$serialDevice,
-		'serialRead',
-		'serialDeviceInit'
+		'clientRead',
+		'clientWelcome',
+		'clientClose',
+		$device,
+		'interfaceRead',
+		'interfaceInit'
 	);
 
 	# Init for GPIO usage (e.g. on Raspberry Pi)
@@ -268,8 +268,8 @@ sub init() {
 		parseCommand($gpioTxenInit);
 	}
 
-	$hm485Interface = HM485_Protocol->new($hmwId);
-	$hm485Interface->setStateIdle();
+	$hm485Protocoll = HM485_Protocol->new($hmwId);
+	$hm485Protocoll->setStateIdle();
 }
 
 =head2 NAME
@@ -289,7 +289,7 @@ sub init() {
 # -- -- -- -- ----------- -- -- -------- -----------
 # FD 0F 15 65 00 00 00 01 5E 00 00 8F 14 69 02 C8 00
 =cut
-sub serverParseCommand($) {
+sub clientRead($) {
 	my ($msg) = @_;
 	my @messages = split(chr(0xFD), $msg);
 
@@ -313,14 +313,14 @@ sub serverParseCommand($) {
 			}
 			
 			if ($msgCmd eq 'K') {                                 # Keepalive
-				sendToClient($msgId, 0x61, chr(0x00));
+				clientWrite($msgId, 0x61, chr(0x00));
 		
-			# Todo: brauchen wir ein quit command???
 			} elsif ($message eq chr(0xFD) . chr(0x51) . chr(0x0D). chr(0x0A)) { # send Q + CR + LF in telnet
+				# Quit command for telnet connection
 				ServerTools_serverShutdown();
 		
 			} elsif ($msgFirstByte ne '>' && $msgCmd) {	
-				$hm485Interface->parseCommand(
+				$hm485Protocoll->parseCommand(
 					unescapeMessage($message), $msgId
 				);
 			}
@@ -328,73 +328,7 @@ sub serverParseCommand($) {
 	}
 }
 
-# Dispatch Welcome Message
-sub clientWelcomeCommand($) {
-	my ($cHash, $clientNum) = @_;
-	my $retVal = 0;
-	
-	if ($clientNum == 1) {
-		ServerTools_serverWriteClient(
-			clientWelcome()
-		);
-		
-		if (scalar(@deviceRxBuffer) > 0) {
-			foreach (@deviceRxBuffer){
-				ServerTools_serverWriteClient ($_);
-			}
-			@deviceRxBuffer = ();
-		}
-		
-		$clientCount = $clientNum;
-		$retVal = 1;
-	} else {
-		ServerTools_serverWriteClient('Connection refused. Only on Client allowed');
-	}
-	
-	return $retVal;
-}
-
-# Generate Welcome message incl switch protokol command
-sub clientWelcome() {
-	# Welcome Header
-	my $retVal = sprintf(
-		'H00,%02X,%s,%s,%s%s',
-		$msgCounter, INTERFACE_NAME, VERSION , $serialNumber, CRLF
-	); 
-
-	# switch protocol command
-	$retVal.= sprintf('S%02X%s', $msgCounter, CRLF); 
-
-	return $retVal;
-}
-
-sub clientCloseCommand($) {
-	my ($cHash) = @_;
-	$clientCount = ($clientCount>0) ? $clientCount-1 : 0;
-}
-
-sub serialRead($) {
-	my ($hash) = @_;
-
-	my $rawMsg = '';
-	my $msg = '';
-	my $buffer = DevIo_SimpleRead($hash);
-
-	if (defined($buffer)) {
-		if ($hm485Interface->checkStateDiscoveryWait()) {
-			# We found a discovery ACK
-			$hm485Interface->discoveryFound(
-				ord(substr($buffer, 0, 1))
-			);
-		} else {
-			if ($hm485Interface->checkStateIdle()) {
-				$hm485Interface->readFrame($buffer);
-			}
-		}
-	}
-}
-
-sub sendToClient($$$) {
+sub clientWrite($$$) {
 	my ($msgId, $msgCmd, $msgData) = @_;
 	my $len = 2 + length($msgData);
 
@@ -420,16 +354,74 @@ sub sendToClient($$$) {
 	}	
 }
 
-sub serialWrite($) {
-	my ($buffer) = @_;
+# Dispatch Welcome Message
+sub clientWelcome($) {
+	my ($cHash, $clientNum) = @_;
+	my $retVal = 0;
+	
+	if ($clientNum == 1) {
+		my $welcomeMsg = sprintf(
+			'H00,%02X,%s,%s,%s%s',
+			$msgCounter, INTERFACE_NAME, VERSION , $serialNumber, CRLF
+		); 
 
-	setGpio(1);                        # set gpio pin for RS485 TX enable if necesarry
-	ServerTools_serialWrite($buffer);  # send out buffer to IO device
-	setGpio(0);                        # reset gpio pin for RS485 TX enable if necesarry
+		# switch protocol command
+		$welcomeMsg.= sprintf('S%02X%s', $msgCounter, CRLF); 
+		
+		ServerTools_serverWriteClient($welcomeMsg);
+		
+		if (scalar(@deviceRxBuffer) > 0) {
+			foreach (@deviceRxBuffer){
+				ServerTools_serverWriteClient ($_);
+			}
+			@deviceRxBuffer = ();
+		}
+		
+		$clientCount = $clientNum;
+		$retVal = 1;
+	} else {
+		ServerTools_serverWriteClient('Connection refused. Only on Client allowed');
+	}
+	
+	return $retVal;
 }
 
-=head2 setGpio
-	Title:		setGpio
+sub clientClose($) {
+	my ($cHash) = @_;
+	$clientCount = ($clientCount>0) ? $clientCount-1 : 0;
+}
+
+sub interfaceRead($) {
+	my ($hash) = @_;
+
+	my $rawMsg = '';
+	my $msg = '';
+	my $buffer = DevIo_SimpleRead($hash);
+
+	if (defined($buffer)) {
+		if ($hm485Protocoll->checkStateDiscoveryWait()) {
+			# We found a discovery ACK
+			$hm485Protocoll->discoveryFound(
+				ord(substr($buffer, 0, 1))
+			);
+		} else {
+			if ($hm485Protocoll->checkStateIdle()) {
+				$hm485Protocoll->readFrame($buffer);
+			}
+		}
+	}
+}
+
+sub interfaceWrite($) {
+	my ($buffer) = @_;
+
+	interfaceSetGpio(1);               # set gpio pin for RS485 TX enable if necesarry
+	ServerTools_serialWrite($buffer);  # send out buffer to IO device
+	interfaceSetGpio(0);               # reset gpio pin for RS485 TX enable if necesarry
+}
+
+=head2 interfaceSetGpio
+	Title:		interfaceSetGpio
 	Function:	Set or reset specific gpio line for enable the transmitter in RS485 tranceiver.
 				Set or reset executes only if attr "gpioTxenCmd_0" and "gpioTxenCmd_1" are defined.
 				If you use a USB-RS485 converter or a Network-RS485 converter no set or reset are required. 
@@ -437,7 +429,7 @@ sub serialWrite($) {
 	Args:		named arguments:
 				-argument1 => int:	$value			1: execute set comand, 0: execute reset comand
 =cut
-sub setGpio ($) {
+sub interfaceSetGpio ($) {
 	my ($value) = @_;
 
 	if ($gpioTxenCmd0 ne '' && $gpioTxenCmd0 ne '') {
@@ -448,15 +440,15 @@ sub setGpio ($) {
 
 ################################################################################
 
-=head2 serialDeviceInit
+=head2 interfaceInit
 
- Title    : serialDeviceInit
- Function : Implements DoInit function. Initialize the serial device
+ Title    : interfaceInit
+ Function : Implements DoInit function. Initialize the interface device
  Returns  : string | undef
  Args     : named arguments:
             -argument1 => hash: hash of device addressed
 =cut
-sub serialDeviceInit($) {
+sub interfaceInit($) {
 	my ($hash) = @_;
 
 	my $name = $hash->{NAME};
@@ -484,14 +476,14 @@ sub serialDeviceInit($) {
 	}
 
 	Log3 ($hash, 2, $name . ' connected to device ' . $dev);
-	$hash->{ReadFn} = 'serialRead';
+	$hash->{ReadFn} = 'interfaceRead';
 	$hash->{STATE} = 'open';
 	
 	return undef;
 }
 
 sub checkResendQueueItems () {
-	$hm485Interface->checkResendQueueItems();
+	$hm485Protocoll->checkResendQueueItems();
 }
 
 sub escapeMessage($) {
@@ -517,10 +509,8 @@ sub unescapeMessage($) {
 	return $message
 }
 
-
-
 ################################################################################
-# Server initialization
+# HM485d initialization
 
 init();
 ServerTools_main();

@@ -54,7 +54,7 @@ use constant {
 
 	MIN_BUSY_TIME_MS		=> 5,
 	WORST_CASE_BUSY_TIME_MS	=> 100,		# 100ms
-	LOGTAG                  => 'HM485-serialServer'
+	LOGTAG                  => 'HM485d'
 };
 
 my %sendQueue;
@@ -159,7 +159,7 @@ sub sendRawQueue($$$$;$) {
 	# Messages to broadcast, messages with z or Z command must not acked
 	if ( (uc( unpack ('H*', $targetAddr)) eq 'FFFFFFFF') || $data eq 'z' || $data eq 'Z') {
 		$self->{sendQueue}{$queueId}{STATE}	= STATE_IDLE;
-		main::Log3('', 1, '$data: ' . $data); 
+		
 	} else {
 		$self->{sendQueue}{$queueId}{STATE}	= STATE_WAIT_ACK;
 	}
@@ -287,7 +287,7 @@ sub sendFrame($$$$;$) {
 
 	if (defined($FRAME_SEND_BUFFER)) {
 		# send out buffer to IO device
-		main::serialWrite($FRAME_SEND_BUFFER);
+		main::interfaceWrite($FRAME_SEND_BUFFER);
 	}
 
 	$FRAME_SEND_BUFFER = '';
@@ -356,7 +356,6 @@ sub sendQueueCheckItems() {
 
 sub deleteCurrentItemFromQueue() {
 	my ($self) = @_;
-main::Log3 ('', 1, 'deleteQueueItem: ' . $currentQueueId);
 	
 	delete ($self->{sendQueue}{$currentQueueId});
 	$currentQueueId = 0;
@@ -464,7 +463,7 @@ sub readFrame($$) {
 							if (!HM485::Util::ctrlIsDiscovery($RD{cb})) {
 								$self->parseFrame();
 							} else {
-#								HM485::Util::logger(LOGTAG, 3, 'RX:', \%RD);
+								HM485::Util::logger(LOGTAG, 3, 'RX:', \%RD);
 								
 								# Receiving external discovery frame
 								# Nothing to do yet
@@ -525,7 +524,7 @@ sub parseFrame() {
 	my $txtResponse = '';
 	if ($responseId > -1) {
 		if ( !HM485::Util::ctrlIsAck($RD{cb}) ) {
-			$txtResponse = ' Response';
+			$txtResponse = ' Response: (' . $responseId . ')';
 		}
 		my $response = uc(substr(unpack ('H*', $RD{data}), 0, -4));
 	} else {
@@ -537,16 +536,10 @@ sub parseFrame() {
 	# TODO: maybe we want ack messages from all sender adress
 	if ( HM485::Util::ctrlIsIframe($RD{cb}) && $RD{target} eq pack('H*', $hmwId) ) {
 		# IFRAME received with receiver address eq this hmwId, we must ack it
-#		main::Log3('',1, '-------------- ACK ------------'); 
 		$self->sendAck($RD{target}, $RD{sender}, HM485::Util::ctrlTxNum($RD{cb}));
-		main::Log3('', 1,'HM485::Util::ctrlTxNum($RD{cb}: ' . HM485::Util::ctrlTxNum($RD{cb}));
 	}
 
-#	if (exists($self->{sendQueue}{$currentQueueId}{STATE}) &&
-#	    $self->{sendQueue}{$currentQueueId}{STATE} == STATE_ACKNOWLEDGED) {
 	if ($responseId != -1) {
-#		main::Log3('',1, '-------------- Response ------------'); 
-
 		$self->sendResponse(
 			$self->{sendQueue}{$currentQueueId}{MSG_ID}, 
 			$RD{cb},
@@ -571,7 +564,6 @@ sub parseFrame() {
 			if (!$frameFromOtherCentralUnit) {
 
 				# Dispatch frame
-#				main::Log3('',1, '-------------- Event ------------'); 
 				$self->sendEvent(
 					$RD{target}, $RD{cb}, $RD{sender}, substr($RD{data}, 0, -2)
 				);
@@ -614,11 +606,11 @@ sub cmdDiscovery ($$$) {
 	
 	# Check if self->{sendQueue} running and wait
 	if ($queueRunning) {
-		main::Log(3,'Send queue is already running. Pleas start discovery later again.');
+		main::Log3('', 3, 'Send queue is already running. Pleas start discovery later again.');
 
 	} else {
 		$retVal = 1;
-		main::Log(3, 'Discovery mode started.');
+		main::Log3('', 3, 'Discovery mode started.');
 
 		# TODO: txState handling
 		$self->setStateIdle();
@@ -755,8 +747,6 @@ sub discoveryFound() {
 	$self->setStateDiscovery();
 	
 	$self->{discoveryData}{discoveryFound} = $buffer;
-#	main::Log(3, '~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ $self->{discoveryData}{discoveryFound} (discoveryFound): ' . $self->{discoveryData}{discoveryFound});
-	
 }
 
 
@@ -798,10 +788,8 @@ sub sendEvent($$$$$) {
 
 sub sendToClient($$$$) {
 	my ($self, $msgId, $msgCmd, $msgData) = @_;
-	main::sendToClient($msgId, $msgCmd, $msgData);
+	main::clientWrite($msgId, $msgCmd, $msgData);
 }
-
-
 
 sub checkStateIdle() {
 	my ($self) = @_;

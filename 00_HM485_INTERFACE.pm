@@ -46,11 +46,10 @@ sub HM485_INTERFACE_parseIncommingCommand($$);
 sub HM485_INTERFACE_Connect($);
 sub HM485_INTERFACE_RemoveValuesFromAttrList($@);
 sub HM485_INTERFACE_openDev($;$);
-sub HM485_INTERFACE_checkAndCreateSerialServer($);
-sub HM485_INTERFACE_getSerialServerPid($$);
+sub HM485_INTERFACE_checkAndCreateHM485d($);
+sub HM485_INTERFACE_getHM485dPid($$);
 
 use constant {
-	SERIAL_SERVER_NAME => 'HM485_SerialServer.pl',
 	SERIALNUMBER_DEF   => 'SGW0123456',
 	KEEPALIVE_TIMER    => 'keepAlive:',
 	KEEPALIVECK_TIMER  => 'keepAliveCk:',
@@ -82,12 +81,12 @@ sub HM485_INTERFACE_Initialize($) {
 		$hash->{SetFn}     = 'HM485_INTERFACE_Set';
 		$hash->{AttrFn}    = "HM485_INTERFACE_Attr";
 	
-		$hash->{AttrList}  = 'hmwId do_not_notify:0,1 server_bind:0,1 ' .
-		                     'server_startTimeout server_device ' . 
-		                     'server_serialNum server_logfile ' .
-		                     'server_detatch:0,1 server_logVerbose:0,1,2,3,4,5 ' . 
-		                     'server_gpioTxenInit server_gpioTxenCmd0 ' . 
-		                     'server_gpioTxenCmd1';
+		$hash->{AttrList}  = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
+		                     'HM485d_startTimeout HM485d_device ' . 
+		                     'HM485d_serialNumber HM485d_logfile ' .
+		                     'HM485d_detatch:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
+		                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
+		                     'HM485d_gpioTxenCmd1';
 		
 		my %mc = ('1:HM485' => '^.*');
 		$hash->{Clients}    = ':HM485:';
@@ -125,7 +124,7 @@ sub HM485_INTERFACE_Define($$) {
 			Log3 ($hash, 1, 'HM485 device is none, commands will be echoed only');
 		} else {
 			# Make shure HM485_INTERFACE_Connect starts after HM485_INTERFACE_Define is ready 
-			InternalTimer(gettimeofday(), 'HM485_INTERFACE_ConnectOrStartserver', $hash, 0);
+			InternalTimer(gettimeofday(), 'HM485_INTERFACE_ConnectOrStartHM485d', $hash, 0);
 		}
 				
 	} else {
@@ -153,7 +152,7 @@ sub HM485_INTERFACE_Ready($) {
 =head2
 	Implements UndefFn function.
 
-	Todo: maybe we must implement kill term for the serial server
+	Todo: maybe we must implement kill term for HM485d
 
 	@param	hash    hash of device addressed
 	@param	string  name of device
@@ -187,10 +186,10 @@ sub HM485_INTERFACE_Read($) {
 			my $msgStart = substr($buffer,0,1);
 			if ($msgStart eq 'H') {
 				# we got an answer to keepalive request
-				my (undef, $msgCounter, $interfaceType, $version, $serial) = split(',', $buffer);
+				my (undef, $msgCounter, $interfaceType, $version, $serialNumber) = split(',', $buffer);
 				$hash->{InterfaceType} = $interfaceType;
 				$hash->{Version} = $version;
-				$hash->{Serial} = $serial;
+				$hash->{SerialNumber} = $serialNumber;
 				$hash->{msgCounter} = hex($msgCounter);
 
 				# initialize keepalive flags
@@ -247,21 +246,18 @@ sub HM485_INTERFACE_Write($$;$) {
 				'%s %s %s %s', $target, $ctrl, $source, $data
 			);
 
+			# Debug
+#			HM485::Util::logger(
+#				$name, 3, 'TX: (' . $msgId . ') ' . sprintf (
+#					'T:%s C:%s S:%s D:%s', $target, $ctrl, $source, $data
+#				)
+#			);
+
 			$sendData = pack('H*',
 				sprintf(
 					'%02X%02X%s%s%s%s%s', $msgId, $cmd, 'C8', $target, $ctrl, $source, $data
 				)
 			);
-
-			my %logData = (
-				start     => HM485::FRAME_START_LONG,
-				target    => $target,
-				cb        => $ctrl,
-				sender    => $source,
-				data      => $data,
-				formatHex => 1
-			);
-#			HM485::Util::logger($name, 3, 'TX: ', \%logData);
 
 		} elsif ($cmd == HM485::CMD_DISCOVERY) {
 			$sendData = pack('H*',sprintf('%02X%02X00FF', $msgId, $cmd));
@@ -465,7 +461,7 @@ sub HM485_INTERFACE_Init($) {
 
 	Log3 ($hash, 3, $name . ' connected to device ' . $dev);
 	$hash->{STATE} = 'open';
-	delete ($hash->{serverStartTimeout});
+	delete ($hash->{HM485dStartTimeout});
 
 	return undef;
 }
@@ -485,7 +481,6 @@ sub HM485_INTERFACE_parseIncommingCommand($$) {
 	my $msgCmd         = ord(substr($message, 3, 1));
 	my $msgData        = uc( unpack ('H*', substr($message, 4, $msgLen)));
 	my $canDispatch    = 1;
-	my $logTxtResponse = '';
 	
 	if ($msgCmd == HM485::CMD_DISCOVERY_END) {
 		my $foundDevices = hex($msgData);
@@ -502,8 +497,8 @@ sub HM485_INTERFACE_parseIncommingCommand($$) {
 
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
-		Log3 ($hash, 3, 'ACK: ' . $msgId . ' ' . $msgData);
-		$logTxtResponse = ' Response';
+		# Debug
+#		HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ') ' . $msgData);
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $alifeStatus = substr($msgData, 0, 2);
@@ -518,57 +513,40 @@ sub HM485_INTERFACE_parseIncommingCommand($$) {
 		}
 		
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
-		Log3 ($hash, 3, 'Event: '. $msgData . ' ' . $msgData);
+		# Debug
+#		HM485::Util::logger($name, 3, 'EVENT: (' . $msgId . ') ' . $msgData);
 
 	} else {
 		$canDispatch = 0;
 	}		
 
 	if ($canDispatch) {
-
-#			my $start     => HM485::FRAME_START_LONG,
-#			my $target    => substr($msgData, 0,7),
-#			my $cb        => substr($msgData, 8,2),
-#			my $sender    => substr($msgData, 10,7),
-#			my $data      => substr($msgData, 18),
-
-		
-#		my %logData = (
-#			start     => HM485::FRAME_START_LONG,
-#			target    => substr($msgData, 0,7),
-#			cb        => substr($msgData, 8,2),
-#			sender    => substr($msgData, 10,7),
-#			data      => substr($msgData, 18),
-#			formatHex => 1
-#		);
-		
-#		HM485::Util::logger($name, 3, 'RX: ' . $logTxtResponse, \%logData);
 		Dispatch($hash, $message, '');
 	}
 }
 
 =head2
-	Connect to the defined device or start the serial server
+	Connect to the defined device or start HM485d
 	
 	@param	hash    hash of device addressed
 =cut
-sub HM485_INTERFACE_ConnectOrStartserver($) {
+sub HM485_INTERFACE_ConnectOrStartHM485d($) {
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 	my $dev  = $hash->{DEF};
 
-	if (!AttrVal($name, 'server_bind',0)) {
+	if (!AttrVal($name, 'HM485d_bind',0)) {
 		HM485_INTERFACE_RemoveValuesFromAttrList(
 			$hash,
-			('server_detatch', 'server_device', 'server_serialNum',
-			 'server_logfile', 'server_logVerbose:0,1,2,3,4,5', 'server_startTimeout',
-			 'server_gpioTxenInit', 'server_gpioTxenCmd0', 'server_gpioTxenCmd1')
+			('HM485d_detatch', 'HM485d_device', 'HM485d_serialNumber',
+			 'HM485d_logfile', 'HM485d_logVerbose:0,1,2,3,4,5', 'HM485d_startTimeout',
+			 'HM485d_gpioTxenInit', 'HM485d_gpioTxenCmd0', 'HM485d_gpioTxenCmd1')
 		);
 		
 		HM485_INTERFACE_openDev($hash);
 		
 	} else {
-		HM485_INTERFACE_checkAndCreateSerialServer($hash);
+		HM485_INTERFACE_checkAndCreateHM485d($hash);
 	}
 }
 
@@ -677,68 +655,68 @@ sub HM485_INTERFACE_openDev($;$) {
 }
 	
 =head2
-	Check if serial server running.
-	Start the Server if no matchig pid exists
+	Check if HM485d running.
+	Start HM485d if no matchig pid exists
 	
 	Todo: Bulletproof Startr and restart
 	      Maybe this can move to Servertools
 	
 	@param	hash    hash of device addressed
 =cut
-sub HM485_INTERFACE_checkAndCreateSerialServer($) {
+sub HM485_INTERFACE_checkAndCreateHM485d($) {
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 	my $dev  = $hash->{DEF};
 
-	my $serverBind   = AttrVal($name, 'server_bind', 0);
-	my $serverDevice = AttrVal($name, 'server_device'   , undef);
+	my $HM485dBind   = AttrVal($name, 'HM485d_bind', 0);
+	my $HM485dDevice = AttrVal($name, 'HM485d_device'   , undef);
 
-	if ($serverBind && $serverDevice) {
-		my (undef, $serverPort) = split(',', $hash->{DEF});
+	if ($HM485dBind && $HM485dDevice) {
+		my (undef, $HM485dPort) = split(',', $hash->{DEF});
 		
-		my $serverSerial       = AttrVal($name, 'server_serialNum',    SERIALNUMBER_DEF);
-		my $serverDetatch      = AttrVal($name, 'server_detatch',      undef);
-		my $serverGpioTxenInit = AttrVal($name, 'server_gpioTxenInit', undef);
-		my $serverGpioTxenCmd0 = AttrVal($name, 'server_gpioTxenCmd0', undef);
-		my $serverGpioTxenCmd1 = AttrVal($name, 'server_gpioTxenCmd1', undef);
-		my $serverLogfile      = AttrVal($name, 'server_logfile',      undef);
-		my $serverLogVerbose   = AttrVal($name, 'server_logVerbose',   undef);
-		my $serverPid          = undef;
+		my $HM485dSerialNumber = AttrVal($name, 'HM485d_serialNumber', SERIALNUMBER_DEF);
+		my $HM485dDetatch      = AttrVal($name, 'HM485d_detatch',      undef);
+		my $HM485dGpioTxenInit = AttrVal($name, 'HM485d_gpioTxenInit', undef);
+		my $HM485dGpioTxenCmd0 = AttrVal($name, 'HM485d_gpioTxenCmd0', undef);
+		my $HM485dGpioTxenCmd1 = AttrVal($name, 'HM485d_gpioTxenCmd1', undef);
+		my $HM485dLogfile      = AttrVal($name, 'HM485d_logfile',      undef);
+		my $HM485dLogVerbose   = AttrVal($name, 'HM485d_logVerbose',   undef);
+		my $HM485dPid          = undef;
 	
-		my $serverCommandLine = SERIAL_SERVER_NAME;
-		$serverCommandLine.= ($serverSerial)       ? ' --serialNumber ' . $serverSerial       : '';
-		$serverCommandLine.= ($serverDevice)       ? ' --serialDevice ' . $serverDevice       : '';
-		$serverCommandLine.= ($serverPort)         ? ' --localPort '    . $serverPort         : '';
-		$serverCommandLine.= ($serverDetatch)      ? ' --daemon '       . $serverDetatch      : '';
-		$serverCommandLine.= ($serverGpioTxenInit) ? ' --gpioTxenInit ' . $serverGpioTxenInit : '';
-		$serverCommandLine.= ($serverGpioTxenCmd0) ? ' --gpioTxenCmd0 ' . $serverGpioTxenCmd0 : '';
-		$serverCommandLine.= ($serverGpioTxenCmd1) ? ' --gpioTxenCmd1 ' . $serverGpioTxenCmd1 : '';
-		$serverCommandLine.= ($serverLogfile)      ? ' --logfile '      . $serverLogfile      : '';
-		$serverCommandLine.= ($serverLogVerbose)   ? ' --verbose '      . $serverLogVerbose   : '';
+		my $HM485dCommandLine = 'HM485d.pl';
+		$HM485dCommandLine.= ($HM485dSerialNumber) ? ' --serialNumber ' . $HM485dSerialNumber : '';
+		$HM485dCommandLine.= ($HM485dDevice)       ? ' --device '       . $HM485dDevice       : '';
+		$HM485dCommandLine.= ($HM485dPort)         ? ' --localPort '    . $HM485dPort         : '';
+		$HM485dCommandLine.= ($HM485dDetatch)      ? ' --daemon '       . $HM485dDetatch      : '';
+		$HM485dCommandLine.= ($HM485dGpioTxenInit) ? ' --gpioTxenInit ' . $HM485dGpioTxenInit : '';
+		$HM485dCommandLine.= ($HM485dGpioTxenCmd0) ? ' --gpioTxenCmd0 ' . $HM485dGpioTxenCmd0 : '';
+		$HM485dCommandLine.= ($HM485dGpioTxenCmd1) ? ' --gpioTxenCmd1 ' . $HM485dGpioTxenCmd1 : '';
+		$HM485dCommandLine.= ($HM485dLogfile)      ? ' --logfile '      . $HM485dLogfile      : '';
+		$HM485dCommandLine.= ($HM485dLogVerbose)   ? ' --verbose '      . $HM485dLogVerbose   : '';
 	
-		$serverPid = HM485_INTERFACE_getSerialServerPid($hash, $serverCommandLine);
-		$serverCommandLine = $attr{global}{modpath} . '/FHEM/HM485/SerialServer/' .
-		                     $serverCommandLine;
+		$HM485dPid = HM485_INTERFACE_getHM485dPid($hash, $HM485dCommandLine);
+		$HM485dCommandLine = $attr{global}{modpath} . '/FHEM/HM485/HM485d/' .
+		                     $HM485dCommandLine;
 
-		my $serverStartTimeout = 0.1; 
-		if ($serverPid) {
-			Log3($hash, 1, 'HM485 serial server already running with PID ' . $serverPid. '. We re use this process!');
+		my $HM485dStartTimeout = 0.1; 
+		if ($HM485dPid) {
+			Log3($hash, 1, 'HM485d already running with PID ' . $HM485dPid. '. We re use this process!');
 		} else {
-			# Start the serial server
-			Log3($hash, 3, 'Start HM485 serial server with command line: ' . $serverCommandLine);
-			system($serverCommandLine . '&');
+			# Start HM485d
+			Log3($hash, 3, 'Start HM485d with command line: ' . $HM485dCommandLine);
+			system($HM485dCommandLine . '&');
 
-			$serverStartTimeout = int(AttrVal($name, 'server_startTimeout', '2'));
-			if ($serverStartTimeout) {
-				Log3($hash, 3, 'Connect to HM485 serial server delayed for ' . $serverStartTimeout . ' seconds');
-				$hash->{serverStartTimeout} = $serverStartTimeout;
+			$HM485dStartTimeout = int(AttrVal($name, 'HM485d_startTimeout', '2'));
+			if ($HM485dStartTimeout) {
+				Log3($hash, 3, 'Connect to HM485d delayed for ' . $HM485dStartTimeout . ' seconds');
+				$hash->{HM485dStartTimeout} = $HM485dStartTimeout;
 			}
 		}
 
-		InternalTimer(gettimeofday() + $serverStartTimeout, 'HM485_INTERFACE_openDev', $hash, 0);
+		InternalTimer(gettimeofday() + $HM485dStartTimeout, 'HM485_INTERFACE_openDev', $hash, 0);
 
-	} elsif ($serverBind && !$serverDevice) {
-		my $msg = 'Serial server not started. Attr "server_device" for serial server is not set!';
+	} elsif ($HM485dBind && !$HM485dDevice) {
+		my $msg = 'HM485d not started. Attr "HM485d_device" for ' . $name . ' is not set!';
 		Log3 ($hash, 1, $msg);
 		$hash->{ERROR} = $msg;
 	} else {
@@ -749,20 +727,20 @@ sub HM485_INTERFACE_checkAndCreateSerialServer($) {
 }
 
 =head2
-	Get the PID of a running serial server depends on the commandline
+	Get the PID of a running HM485d depends on the commandline
 
-	Todo: maybe the server sould identifyed on its serial number only?	
+	Todo: maybe the HM485d sould identifyed on its serial number only?	
 
-	@param	hash    hash of device addressed
-	@param	string    $serverCommandLine
+	@param	hash      hash of device addressed
+	@param	string    $HM485dCommandLine
 
-	@return integer   PID of a running server, else 0
+	@return integer   PID of a running HM485d, else 0
 =cut
-sub HM485_INTERFACE_getSerialServerPid($$) {
-	my ($hash, $serverCommandLine) = @_;
+sub HM485_INTERFACE_getHM485dPid($$) {
+	my ($hash, $HM485dCommandLine) = @_;
 	my $retVal = 0;
 	
-	my $ps = 'ps ao pid,args | grep "' . $serverCommandLine . '" | grep -v grep';
+	my $ps = 'ps ao pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
 	my @result = `$ps`;
 	foreach my $psResult (@result) {
 		$psResult =~ s/[\n\r]//g;

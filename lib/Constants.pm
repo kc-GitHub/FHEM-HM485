@@ -72,8 +72,6 @@ use constant {
 	CMD_EVENT            => 0x65,
 	CMD_DISCOVERY_RESULT => 0x64,
 	CMD_DISCOVERY_END    => 0x63,
-	
-	CRLF                 => "\r\n",
 };
 
 1;
