@@ -461,7 +461,79 @@ our %definition = (
 								},
 							},
 						},
-					}
+					},
+					'Values' => {
+						'State'	=> {
+							'operations'=> 'read,write,event',
+							'control'	=> 'SWITCH.STATE',
+							'logical'	=> {
+								'type'	=> 'boolean',
+								'default'	=> 0,
+							},
+							'physical'	=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'STATE',
+								'set'	=> {
+									'request'	=> 'LEVEL_SET',
+								},
+								'get'	=> {
+									'request'	=> 'LEVEL_GET',
+									'response'	=> 'INFO_LEVEL',
+								},
+								'event'	=> {
+									'frame'	=> 'INFO_LEVEL',
+								},
+							},
+							'conversion'	=> {
+								'type'		=> 'boolean_integer',
+								'threshold'	=> 1,
+								'false'		=> 0,
+								'true'		=> 200,
+							},
+						},
+						'Working' => {
+							'operations'=> 'read,event',
+							'ui_flags'	=> 'internal',
+							'logical'	=> {
+								'type'	=> 'boolean',
+								'default'	=> 0,
+							},
+							'physical'	=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'STATE',
+								'get'	=> {
+									'request'	=> 'LEVEL_GET',
+									'response'	=> 'INFO_LEVEL',
+								},
+								'event'	=> {
+									'frame_1'	=> 'INFO_LEVEL',
+									'frame_2'	=> 'ACK_STATUS',
+								},
+							},
+							'conversion'	=> {
+								'type'		=> 'boolean_integer',
+							},
+						},
+						'Inhibit' => {
+							'operations'=> 'read,write,event',
+							'control'	=> 'none',
+							'loopback'	=> 1,
+							'logical'	=> {
+								'type'	=> 'boolean',
+								'default'	=> 0,
+							},
+							'physical'	=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'STATE',
+								'set'	=> {
+									'request'	=> 'SET_LOCK',
+								},
+							},
+						},
+					},
 				},
 			},
 		}
