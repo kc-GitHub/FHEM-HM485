@@ -139,6 +139,20 @@ sub printByte($$) {
 	}
 }
 
+sub removeValuesFromList($$@) {
+	my ($hash, $list, @removeArray) = @_;
+	my $name = $hash->{NAME};
+	
+	my $retVal = $list;
+
+	foreach my $item (@removeArray){
+		$retVal =~ s/$item//;
+	}
+	
+	return $retVal;
+}
+
+
 ###############################################################################
 # ctrlByte related stuff
 ###############################################################################

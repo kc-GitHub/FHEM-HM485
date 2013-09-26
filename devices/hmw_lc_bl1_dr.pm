@@ -5,15 +5,13 @@ our %definition = (
 		'version'		=> 13,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
-			'HMW-LC-Bl1-DR'	=> {
+			'HMW_LC_Bl1_DR'	=> {
 				'name'	=> 'RS485 blind actuator 1-channel (DIN rails)',
-				'priority'	=> 2,												# ???
-				'type'		=> 21,												# Device type
+				'type'		=> 21,
 			},
 		},
 		'params' => {
-			'HMW-LC-Bl1-DR_dev_master'	=> {
-				'type'				=> 'master',
+			'master'	=> {
 				'LOGGING_TIME'	=> {											# parameter id
 					'logical'		=> {										# time after state changes reeported by device via message
 						'type'		=> 'float',									# parameter value type
@@ -34,17 +32,17 @@ our %definition = (
 						'offset'	=> 0.0,										# ???
 					},
 				},
-				'CENTRAL_ADDRESS'	=> {										# parameter id
-					'hidden'		=> TRUE,									# should not vidible in UI ???
-					'enforce'		=> 0x00000001,								# sould always set to this value ???
+				'CENTRAL_ADDRESS'	=> {
+					'hidden'		=> TRUE,
+					'enforce'		=> 0x00000001,
 					'logical'		=> {
-						'type'		=> 'int',									# parameter value type
+						'type'		=> 'int',
 					},
 					'physical'		=> {
-						'type'		=> 'int',									# parameter value type
-						'size'		=> 4,										# 4 bytes
-						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> 0x0002,									# location of central adress in device
+						'type'		=> 'int',
+						'size'		=> 4,
+						'interface'	=> 'eeprom',
+						'address'	=> 0x0002,
 					},
 				},
 				'DIRECT_LINK_DEACTIVATE'	=> {								# no direct link available
@@ -213,17 +211,17 @@ our %definition = (
 			},
 		},
 		'channels'	=> {
-			'0' => {
-				'type'	=> 'MAINTENANCE',
+			'Maintenance' => {
+				'id'	=> 0,
 				'count'	=> 1,
 			},
-			'1' => {
-				'type'	=> 'KEY',
+			'Key' => {
+				'id'	=> 1,
 				'physical_index_offset' => -1,
 				'count'	=> 2,
 			},
-			'3' => {
-				'type'	=> 'BLIND',
+			'Blind' => {
+				'id'	=> 3,
 				'physical_index_offset' => -1,
 				'count'	=> 1,
 			},

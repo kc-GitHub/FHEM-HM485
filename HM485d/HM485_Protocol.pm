@@ -29,8 +29,8 @@ use constant {
 	MAX_SEND_RETRY          => 3,
 	SEND_RETRY_TIMEOUT      => 200,  # die CCU macht nach 200ms eine Neusendung? 	
 	DISCOVERY_TRIES         => 3,
-#	DISCOVERY_TIMEOUT       => 20,   # 15ms
-	DISCOVERY_TIMEOUT       => 30,
+	DISCOVERY_TIMEOUT       => 20,   # 15ms
+#	DISCOVERY_TIMEOUT       => 50,
 
 	STATE_IDLE              => 0x00,
 	STATE_WAIT_ACK          => 0x03,

@@ -4,27 +4,25 @@ our %definition = (
 	'HMW-IO-12-Sw14'	=>{
 		'version'		=> 12,													# ???
 		'eeprom-size'	=> 1024,												# eprom size of the device
-		'models'	=> {														# hash with all different models of the device
-			'HMW-Sen-SC-12-DR'	=> {											# the model id
-				'name'	=> 'RS485 I/O module 12-channel in and switch actuator 14-channel (DIN rails)',	# the name
-				'priority'	=> 2,												# ???
-				'type'		=> 28,												# the model type (1 byte)
+		'models'	=> {
+			'HMW_IO_12_Sw14_DR'	=> {
+				'name'	=> 'RS485 I/O module 12-channel in and switch actuator 14-channel (DIN rails)',
+				'type'		=> 28,
 			},
 		},
 		'params' => {															# the device params
-			'HMW-IO-12-Sw14-DR_dev_master'	=> {
-				'type'				=> 'master',
-				'CENTRAL_ADDRESS'	=> {										# parameter id
-					'hidden'		=> TRUE,									# should not vidible in UI ???
-					'enforce'		=> 0x00000001,								# sould always set to this value ???
+			'master'	=> {
+				'CENTRAL_ADDRESS'	=> {
+					'hidden'		=> TRUE,
+					'enforce'		=> 0x00000001,
 					'logical'		=> {
-						'type'			=> 'int',								# parameter value type
+						'type'		=> 'int',
 					},
 					'physical'		=> {
-						'type'		=> 'int',									# parameter value type
-						'size'		=> 4,										# 4 bytes
-						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> 0x0002,									# location of central adress in device
+						'type'		=> 'int',
+						'size'		=> 4,
+						'interface'	=> 'eeprom',
+						'address'	=> 0x0002,
 					},
 				},
 			},
@@ -76,17 +74,15 @@ our %definition = (
 			},
 		},
 		'channels'	=> {
-			0	=> {												
-				'type'		=> 'MAINTENANCE',									# Channel Type
+			'Maintenance'	=> {												
+				'id'		=> 0,
 				'ui-flags'	=> 'internal',										# flages for UI rendering ???
 				'class'		=> 'maintenance',
 				'count'	=> 1,													# count of channels of this type it the device
 				'params'	=> {
-					'maint_ch_master'	=> {									# paramset id
-						'type'	=> 'master',
+					'Master'	=> {									# paramset id
 					},
-					'maint_ch_values'	=> {									# paramset id
-						'type'	=> 'values',
+					'Values'	=> {									# paramset id
 						'UNREACH'	=> {										# this parameter is set when device is not reachable
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
@@ -123,17 +119,15 @@ our %definition = (
 					},
 				},
 			},
-			1	=> {
-				'type'	=> 'DIGITAL_OUTPUT',										# Channel Type (simple on / off switch)
+			'DigitalOutput'	=> {
+				'id'	=> 1,
 				'count'	=> 6,													# count of channels of this type it the device
 				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 0 
 				'params'	=> {
-					'hmw_io_ch_master'	=> {									# why the master channel?
-						'type'	=> 'MASTER',
+					'Master'	=> {									# why the master channel?
 					},
-					'hmw_digital_output_values'	=> {
-						'type'	=> 'VALUES',
-						'STATE'	=> {
+					'Values'	=> {
+						'State'	=> {
 							'operations'	=> 'read,write,event',				# which type of actions supports the channel ??? 
 							'ctrl'			=> 'SWITCH.STATE',					# ui related ???
 							'logical'		=> {
@@ -164,8 +158,8 @@ our %definition = (
 					},
 				}
 			},
-			7	=> {
-				'type'	=> 'DIGITAL_ANALOG_OUTPUT',								# Channel Type (frequency otput)
+			'DigitalAnalogOutput'	=> {
+				'id'	=> 7,
 				'count'	=> 8,													# count of channels of this type it the device
 				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 6
 				'spechial_param'	=> {										# ???
@@ -185,8 +179,7 @@ our %definition = (
 					},
 				}, 
 				'params'	=> {
-					'hmw_io_ch_master'	=> {
-						'type'	=> 'MASTER',
+					'Master'	=> {
 						'BEHAVIOUR'	=> {
 							'ui-flags'	=> 'transform', 
 							'logical'		=> {
@@ -235,8 +228,7 @@ our %definition = (
 							}
 						},
 					},
-					'hmw_analog_output_values'	=> {
-						'type'	=> 'VALUES',
+					'Values'	=> {
 						'FREQUENCY' => {
 							'operations'	=> 'read,write,event',				# which type of actions supports the channel ??? 
 							'ctrl'			=> 'DIGITAL_ANALOG_OUTPUT.FREQUENCY', # ui related ???
@@ -269,8 +261,8 @@ our %definition = (
 				'subconfig-params'	=> {										# Was steht hier drinn ???
 				},
 			},
-			15	=> {
-				'type'	=> 'DIGITAL_INPUT',										# Channel Type (digital input)
+			'DigitalInput'	=> {
+				'id'	=> 15,
 				'count'	=> 6,													# count of channels of this type it the device
 				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 6
 				'spechial_param'	=> {										# ???
@@ -290,8 +282,7 @@ our %definition = (
 					},
 				}, 
 				'params'	=> {
-					'hmw_io_ch_master'	=> {
-						'type'	=> 'MASTER',
+					'Master'	=> {
 						'BEHAVIOUR'	=> {
 							'ui-flags'	=> 'transform', 
 							'logical'		=> {
@@ -309,8 +300,7 @@ our %definition = (
 							},
 						},
 					},
-					'hmw_analog_input_values'	=> {
-						'type'	=> 'VALUES',
+					'Values'	=> {
 						'FREQUENCY' => {
 							'operations'	=> 'read,event',					# which type of actions supports the channel ??? 
 							'logical'		=> {
@@ -340,8 +330,8 @@ our %definition = (
 				'subconfig-params'	=> {										# Was steht hier drinn ???
 				},
 			},
-			21	=> {
-				'type'	=> 'DIGITAL_ANALOG_INPUT',								# Channel Type (frequency input)
+			'DigiatlAnalogInput'	=> {
+				'id'	=> 21,
 				'count'	=> 6,													# count of channels of this type it the device
 				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 6
 				'spechial_param'	=> {										# ???
@@ -361,8 +351,7 @@ our %definition = (
 					},
 				}, 
 				'params'	=> {
-					'hmw_io_ch_master'	=> {
-						'type'	=> 'MASTER',
+					'Master'	=> {
 						'BEHAVIOUR'	=> {
 							'ui-flags'	=> 'transform', 
 							'logical'		=> {
@@ -400,8 +389,7 @@ our %definition = (
 							},
 						},
 					},
-					'hmw_analog_input_values'	=> {
-						'type'	=> 'VALUES',
+					'Values'	=> {
 						'VALUE' => {
 							'operations'	=> 'read,event',					# which type of actions supports the channel ??? 
 							'logical'		=> {

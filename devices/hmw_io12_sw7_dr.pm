@@ -5,15 +5,13 @@ our %definition = (
 		'version'		=> 11,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
-			'HMW-IO-12-Sw7-DR'	=> {
+			'HMW_IO_12_Sw7_DR'	=> {
 				'name'	=> 'RS485 I/O module 12-channel in and switch actuator 7-channel (DIN rails)',
-				'priority'	=> 2,												# ???
-				'type'		=> 18,												# Device type
+				'type'		=> 18,
 			},
 		},
 		'params' => {
-			'HMW-IO-12-Sw7-DR_dev_master'	=> {
-				'type'				=> 'master',
+			'master'	=> {
 				'LOGGING_TIME'	=> {											# parameter id
 					'logical'		=> {										# time after state changes reeported by device via message
 						'type'		=> 'float',									# parameter value type
@@ -34,17 +32,17 @@ our %definition = (
 						'offset'	=> 0.0,										# ???
 					},
 				},
-				'CENTRAL_ADDRESS'	=> {										# parameter id
-					'hidden'		=> TRUE,									# should not vidible in UI ???
-					'enforce'		=> 0x00000001,								# sould always set to this value ???
+				'CENTRAL_ADDRESS'	=> {
+					'hidden'		=> TRUE,
+					'enforce'		=> 0x00000001,
 					'logical'		=> {
-						'type'		=> 'int',									# parameter value type
+						'type'		=> 'int',
 					},
 					'physical'		=> {
-						'type'		=> 'int',									# parameter value type
-						'size'		=> 4,										# 4 bytes
-						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> 0x0002,									# location of central adress in device
+						'type'		=> 'int',
+						'size'		=> 4,
+						'interface'	=> 'eeprom',
+						'address'	=> 0x0002,
 					},
 				},
 				'DIRECT_LINK_DEACTIVATE'	=> {								# no direct link available
@@ -202,17 +200,269 @@ our %definition = (
 			},
 		},
 		'channels'	=> {
-			'0' => {
-				'type'	=> 'MAINTENANCE',
-				'count'	=> 1,
+			'Maintenance' => {
+				'id'		=> 0,
+				'ui-flags'	=> 'internal',										# flages for UI rendering ???
+				'class'		=> 'maintenance',
+				'count'	=> 1,													# count of channels of this type it the device
+				'params'	=> {
+					'maint_ch_master'	=> {									# paramset id
+						'type'	=> 'master',
+					},
+					'maint_ch_values'	=> {									# paramset id
+						'type'	=> 'values',
+						'UNREACH'	=> {										# this parameter is set when device is not reachable
+							'operations'	=> 'read,event',
+							'ui-flags'		=> 'service',
+							'logical'		=> {
+								'type'		=> 'boolean',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+							},
+						},
+						'STICKY_UNREACH'	=> {								# this parameter is set when device is not reachable again
+							'operations'	=> 'read,write,event',
+							'ui-flags'		=> 'service',
+							'logical'		=> {
+								'type'		=> 'boolean',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+							}
+						},
+						'CONFIG_PENDING'	=> {								# not used this time with FHEM
+							'operations'	=> 'read,event',
+							'ui-flags'		=> 'service',
+							'logical'		=> {
+								'type'		=> 'boolean',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+							}
+						},
+					},
+				},
 			},
-			'1' => {
-				'type'	=> 'KEY',
-				'count'	=> 12,
+			'Key'	=> {
+				'id'	=> 1,
+				'count'	=> 12,													# count of channels of this type it the device
+				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 0
+				'link_roles'	=> {
+					'source'	=> 'SWITCH',
+				},
+				'params'	=> {
+					'Master'	=> {
+						'address_start'	=> 0x07,
+						'address_step'	=> 2,
+						'INPUT_TYPE'	=> {
+							'logical'	=> {
+								'type'	=> 'option',
+								'options' 	=> 'Switch, Pushbutton',
+								'default'	=> 'Pushbutton',
+							},
+							'physical'	=> {
+								'type'	=> 'int',
+								'size'	=> 0.1,
+								'interface'	=> 'eeprom',
+								'address'	=> {
+									'index'	=> 0.0
+								},
+							},
+						},
+						'INPUT_LOCKED'	=> {
+							'logical'	=> {
+								'type'	=> 'boolean',
+								'default'	=> 0,
+							},
+							'physical'	=> {
+								'type'		=> 'int',
+								'size'		=> 0.1,
+								'interface'	=> 'eeprom',
+								'address'	=> {
+									'index'	=> 0.1
+								},
+							},
+							'conversion'	=> {
+								'type'	=> 'boolean_integer',
+								'invert'	=> 1
+							},
+						},
+						'LONG_PRESS_TIME'	=> {
+							'logical'	=> {
+								'type'		=> 'float',
+								'min'		=> 0.4,
+								'max'		=> 5,
+								'default'	=> 1.0,
+								'unit'		=> 's',
+							},
+							'physical'	=> {
+								'type'		=> 'int',
+								'size'		=> 0.1,
+								'interface'	=> 'eeprom',
+								'address'	=> {
+									'index'	=> 1
+								},
+							},
+							'conversion'	=> {
+								'type'	=> 'float_integer_scale',
+								'factor'	=> 10
+							},
+							# ToDo: conversion integer_integer_map @see xml file
+						},
+					},
+					'Link'	=> {
+						'peer_param'	=> 'ACTUATOR',
+						'channel_param'	=> 'CHANNEL',
+						'count'			=> 27,
+						'address_start'	=> 0x359,
+						'address_start'	=> 0x359,
+						'address_step'	=> 6,
+						'CHANNEL'	=> {
+							'operations'	=> 'none',							# which type of actions supports the channel ??? 
+							'hidden'		=> 1,
+							'logical'		=> {
+								'type'		=> 'int',
+								'min'		=> 0,
+								'max'		=> 255,
+								'default'	=> 255,
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'size'		=> 1,
+								'interface'	=> 'eeprom',
+								'address'	=> {
+									'index'	=> 0,
+								},
+							},
+						},
+						'ACTUATOR'	=> {
+							'operations'	=> 'none',							# which type of actions supports the channel ??? 
+							'hidden'		=> 1,
+							'logical'		=> {
+								'type'		=> 'address',
+							},
+							'physical'		=> {
+								'array'		=> {
+									'size'		=> 1,
+									'interface'	=> 'eeprom',
+									'address'	=> {
+										'index'	=> 0,
+									},
+								},
+								'integer'	=> {
+									'size'		=> 1,
+									'interface'	=> 'eeprom',
+									'address'	=> {
+										'index'	=> 5,
+									},
+								},
+							},
+						}
+					},
+					'Values'	=> {
+						'Press_Short'	=> {
+							'operations'	=> 'event,read,write', 
+							'control'		=> 'BUTTON.SHORT',
+							'logical'		=> {
+								'type'		=> 'action',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'COUNTER',
+								'event'		=> {
+									'frame'	=> 'KEY_EVENT_SHORT',
+								},
+								'set'		=> {
+									'request'	=> 'KEY_SIM_SHORT',
+								},
+							},
+							'conversion'	=> {
+								'type'			=> 'action_key_counter',
+								'sim_counter'	=> 'SIM_COUNTER',
+								'counter_size'	=> 6,
+							},
+						},
+						'Press_Long'	=> {
+							'operations'	=> 'event,read,write', 
+							'control'		=> 'BUTTON.LONG',
+							'logical'		=> {
+								'type'		=> 'action',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'COUNTER',
+								'event'		=> {
+									'frame'	=> 'KEY_EVENT_LONG',
+								},
+								'set'		=> {
+									'request'	=> 'KEY_SIM_LONG',
+								},
+							},
+							'conversion'	=> {
+								'type'			=> 'action_key_counter',
+								'sim_counter'	=> 'SIM_COUNTER',
+								'counter_size'	=> 6,
+							},
+						},
+					},
+				}
 			},
-			'2' => {
-				'type'	=> 'SWITCH',
+			'Switch' => {
+				'id'	=> 13,
 				'count'	=> 7,
+				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 0
+				'link_roles'	=> {
+					'target'	=> 'SWITCH',
+				},
+				'params'	=> {
+					'Master'	=> {
+						'address_start'	=> 0x1F,
+						'address_step'	=> 2,
+						'LOGGING'	=> {
+							'logical'	=> {
+								'type'	=> 'option',
+								'options' 	=> 'On,Off',
+								'default'	=> 'On',
+							},
+							'physical'	=> {
+								'type'	=> 'int',
+								'size'	=> 0.1,
+								'interface'	=> 'eeprom',
+								'address'	=> {
+									'index'	=> 0.0
+								},
+							},
+						},
+					},
+					'Link'	=> {
+						'peer_param'	=> 'SENSOR',
+						'channel_param'	=> 'CHANNEL',
+						'count'			=> 29,
+						'address_start'	=> 0x2D,
+						'address_step'	=> 28,
+						'LOGGING'	=> {
+							'logical'	=> {
+								'type'	=> 'option',
+								'options' 	=> 'On,Off',
+								'default'	=> 'On',
+							},
+							'physical'	=> {
+								'type'	=> 'int',
+								'size'	=> 0.1,
+								'interface'	=> 'eeprom',
+								'address'	=> {
+									'index'	=> 0.0
+								},
+							},
+						},
+					}
+				},
 			},
 		}
 	}

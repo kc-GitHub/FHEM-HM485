@@ -5,20 +5,17 @@ our %definition = (
 		'version'		=> 7,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
-			'HMW-Sen-SC-12-DR'	=> {
+			'HMW_Sen_SC_12_DR'	=> {
 				'name'	=> 'RS485 shutter contact 12-channel (DIN rails)',
-				'priority'	=> 2,												# ???
-				'type'		=> 25,												# Device type
+				'type'		=> 25,
 			},
-			'HMW-Sen-SC-12-FM'	=> {
+			'HMW_Sen_SC_12_FM'	=> {
 				'name'	=> 'RS485 shutter contact 12-channel (flush-mount)',
-				'priority'	=> 2,												# ???
-				'type'		=> 26,												# Device type
+				'type'		=> 26,
 			},
 		},
 		'params' => {
-			'HMW-Sen-SC-12_dev_master'	=> {
-				'type'				=> 'master',
+			'master'	=> {
 				'CENTRAL_ADDRESS'	=> {										# parameter id
 					'hidden'		=> TRUE,									# should not vidible in UI ???
 					'enforce'		=> 0x00000001,								# sould always set to this value ???
@@ -32,18 +29,17 @@ our %definition = (
 						'address'	=> 0x0002,									# location of central adress in device
 					},
 				},
-				'DIRECT_LINK_DEACTIVATE'	=> {								# no direct link available
-					'hidden'		=> TRUE,									# should not vidible in UI ???
-					'enforce'		=> TRUE,									# sould always set to this value ???
+				'CENTRAL_ADDRESS'	=> {
+					'hidden'		=> TRUE,
+					'enforce'		=> 0x00000001,
 					'logical'		=> {
-						'type'		=> 'boolean',								# parameter value type
-						'default'	=> FALSE,
+						'type'		=> 'int',
 					},
 					'physical'		=> {
-						'type'		=> 'int',									# parameter value type
-						'size'		=> 0.1,										# 1 bit
-						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> 0x0006,									# location of central adress in device
+						'type'		=> 'int',
+						'size'		=> 4,
+						'interface'	=> 'eeprom',
+						'address'	=> 0x0002,
 					},
 				},
 			},
@@ -69,17 +65,15 @@ our %definition = (
 			},
 		},
 		'channels'	=> {
-			0	=> {												
-				'type'		=> 'MAINTENANCE',									# Channel Type
+			'Maintenance'	=> {												
+				'id'		=> 0,
 				'ui-flags'	=> 'internal',										# flages for UI rendering ???
 				'class'		=> 'maintenance',
 				'count'	=> 1,													# count of channels of this type it the device
 				'params'	=> {
-					'maint_ch_master'	=> {									# paramset id
-						'type'	=> 'master',
+					'Master'	=> {
 					},
-					'maint_ch_values'	=> {									# paramset id
-						'type'	=> 'values',
+					'Values'	=> {
 						'UNREACH'	=> {										# this parameter is set when device is not reachable
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
@@ -116,13 +110,12 @@ our %definition = (
 					},
 				},
 			},
-			1	=> {
-				'type'	=> 'SENSOR',											# Channel Type (simple on / off switch)
+			'Sensor'	=> {
+				'id'	=> 1,
 				'count'	=> 12,													# count of channels of this type it the device
 				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 0 
 				'params'	=> {
-					'hmw_sensor_ch_master'	=> {								# why the master channel?
-						'type'			=> 'MASTER',
+					'Master'	=> {
 						'address_start'	=> 0x07,
 						'address_step'	=> 2,
 						'INPUT_LOCKED'	=> {
@@ -144,8 +137,7 @@ our %definition = (
 							}
 						}
 					},
-					'hmw_sensor_ch_values'	=> {
-						'type'	=> 'VALUES',
+					'Values'	=> {
 						'SENSOR'	=> {
 							'operations'	=> 'read,event',					# which type of actions supports the channel ??? 
 							'ctrl'			=> 'DOOR_SENSOR.STATE',				# ui related ???

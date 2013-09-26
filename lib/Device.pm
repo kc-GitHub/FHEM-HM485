@@ -42,7 +42,7 @@ sub init () {
 	}
 	%HM485::devices::definition = ();
 	closedir(DH);
-	
+
 	if (scalar(keys %deviceDefinitions) < 1 ) {
 		return 'HM485: Warning, no device definitions loaded!';
 	}
@@ -68,31 +68,33 @@ sub initModels () {
 		if ( defined($deviceDefinitions{$modelGroupKey}{'models'}) ) {
 			foreach my $modelKey (keys (%{$deviceDefinitions{$modelGroupKey}{'models'}})) {
 				if (defined ($deviceDefinitions{$modelGroupKey}{'models'}{$modelKey}{'type'}) ) {
-					my $type = $deviceDefinitions{$modelGroupKey}{'models'}{$modelKey}{'type'};
-					$models{$type}{'MODELKEY'} = $modelGroupKey;
-					$models{$type}{'MODEL'} = $modelKey;
-					$models{$type}{'NAME'} = $deviceDefinitions{$modelGroupKey}{'models'}{$modelKey}{'name'};
+					$models{$modelKey}{MODELKEY} = $modelGroupKey;
+					$models{$modelKey}{MODEL} = $modelKey;
+					$models{$modelKey}{NAME} = $deviceDefinitions{$modelGroupKey}{'models'}{$modelKey}{'name'};
+					$models{$modelKey}{TYPE} = $deviceDefinitions{$modelGroupKey}{'models'}{$modelKey}{'type'};
 				}
 			}
 		}
 	}
 }
 
-=head2 getModel
-	Title		: getModel
-	Usage		: my $model = getModel();
-	Function	: Get the model from $models hash
-	Returns 	: string
-	Args 		: nothing
+=head2
+	Get the model from numeric hardware type
+	
+	@param	int      the numeric hardware type
+	@return	string   the model
 =cut
-sub getModel($) {
+sub getModelFromType($) {
 	my ($hwType) = @_;
-	
-	my $retVal = $hwType;
-	if (defined($models{$hwType}{'MODEL'})) {
-		$retVal = $models{$hwType}{'MODEL'};
+
+	my $retVal = undef;
+	foreach my $model (keys (%models)) {
+		if (exists($models{$model}{TYPE}) && $models{$model}{TYPE} == $hwType) {
+			$retVal = $model;
+			last;
+		}
 	}
-	
+
 	return $retVal;
 }
 
@@ -105,7 +107,13 @@ sub getModel($) {
 =cut
 sub getModelName($) {
 	my ($hwType) = @_;
-	return $models{$hwType}{'NAME'} if defined($models{$hwType}{'NAME'});
+	
+	my $retVal = $hwType;
+	if (defined($models{$hwType}{'NAME'})) {
+		$retVal = $models{$hwType}{'NAME'};
+	}
+	
+	return $retVal;
 }
 
 =head2 getModelGroup
@@ -117,7 +125,13 @@ sub getModelName($) {
 =cut
 sub getModelGroup($) {
 	my ($hwType) = @_;
-	return $models{$hwType}{'MODELKEY'} if defined($models{$hwType}{'MODELKEY'});
+
+	my $retVal = $hwType;
+	if (defined($models{$hwType}{'MODELKEY'})) {
+		$retVal = $models{$hwType}{'MODELKEY'};
+	}
+	
+	return $retVal; 
 }
 
 =head2 getModelList
@@ -129,8 +143,11 @@ sub getModelGroup($) {
 =cut
 sub getModelList() {
 	my @modelList;
+	
 	foreach my $type (keys %models) {
-		push (@modelList, $models{$type}{'MODEL'});
+		if ($models{$type}{'MODEL'}) {
+			push (@modelList, $models{$type}{'MODEL'});
+		}
 	}
 
 	return join(',', @modelList);
@@ -147,45 +164,6 @@ sub getHwTypeList() {
 	return join(',', sort keys %models);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-################################################################################
-### We ned this anymore?
-################################################################################
-
-# ???
-sub parseDefinitions($){
-	foreach my $dev (keys %{$modules{HM485}{defptr}}) {
-		my $name = $modules{HM485}{defptr}{$dev}{NAME};
-		my $adr = $modules{HM485}{defptr}{$dev}{DEF};
-		my $model = $attr{$name}{model};
-		
-		if (defined($model)) {
-			my $modelGroup = HM485_getModelFromDefinition($model);
-
-			my %hash = %{$modules{HM485}{defptr}{$dev}};
-			$hash{hmwTYPE} = getValueFromDefinitions($modelGroup . '/models/' . $model . '/type');
-			$hash{hmwTYPE_NAME} = $model;
-			$hash{hmwDESCR} = getValueFromDefinitions($modelGroup . '/models/' . $model . '/name');
-			$hash{hmwAddress} = $adr;
-			$hash{hmwSerial} = $attr{$name}{serialNr};
-			$hash{hmwHardwareVer} = $attr{$name}{hardware};
-			$hash{hmwFirmwareVer} = $attr{$name}{firmware};
-			%{$modules{HM485}{defptr}{$dev}} = %hash;
-		}
-	}
-}
-
-# ???
 sub getValueFromDefinitions ($) {
 	my ($path) = @_;
 	my $retVal = undef;
@@ -208,34 +186,28 @@ sub getValueFromDefinitions ($) {
 	return $retVal
 }
 
+sub getSubtypeFromChannelNo($$) {
+	my ($modelGroup, $chNo) = @_;
+	$chNo = int($chNo);
+	
+	my $retVal = undef;
 
-=head2 HM485_getModelFromDefinition
-	Title		: HM485_getModelFromDefinition
-	Usage		: my $var = HM485_getModelFromDefinition($model);
-	Function	: returns model hash (name, priorty, type) from device definitions with given model group
-	Returns 	: string
-	Args 		: named arguments:
-				: -argument1 => string:	$model
-=cut
-sub HM485_getModelFromDefinition ($) {
-	my ($model) = @_;
+	my $channels = getValueFromDefinitions($modelGroup . '/channels/');
+	my @chArray = ();
+	foreach my $subType (keys $channels) {
+		push (@chArray, sprintf ('%02d' , $channels->{$subType}{id}) . '_' . $subType);
+	}
 
-	if (defined ($model)) {
-		foreach my $modelGroupKey (keys %deviceDefinitions) {
-			if ( defined($deviceDefinitions{$modelGroupKey}{'models'}) ) {
-				foreach my $modelKey (keys (%{$deviceDefinitions{$modelGroupKey}{'models'}})) {
-					if ($modelKey eq $model) {
-						return $modelGroupKey;
-					}
-				}
-			}
+	foreach my $chSubType (sort @chArray) {
+		my ($ch, $subType) = split('_', $chSubType);
+		if ($chNo < int($ch)) {
+			last;
+		} else {
+			$retVal = $subType;
 		}
 	}
 	
-	return '';
+	return $retVal;
 }
-
-
-
 
 1;

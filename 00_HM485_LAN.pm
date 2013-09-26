@@ -30,7 +30,7 @@ use vars qw {%attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC 
 
 # Function prototypes
 
-# FHEM Inteface related functions
+# FHEM Interface related functions
 sub HM485_LAN_Initialize($);
 sub HM485_LAN_Define($$);
 sub HM485_LAN_Ready($);
@@ -53,7 +53,7 @@ use constant {
 	SERIALNUMBER_DEF   => 'SGW0123456',
 	KEEPALIVE_TIMER    => 'keepAlive:',
 	KEEPALIVECK_TIMER  => 'keepAliveCk:',
-	KEEPALIVE_TIMEOUT  => 25,                      # Todo: check if we need to modify the timeout via attribute
+	KEEPALIVE_TIMEOUT  => 25, # Todo: check if we need to modify the timeout via attribute
 	KEEPALIVE_MAXRETRY => 3,
 };
 
@@ -391,6 +391,11 @@ sub HM485_LAN_Attr (@) {
 	return ($msg) ? $msg : undef;
 }
 
+=head2
+	Start the discovery command
+
+	@param	hash    hash of device addressed
+=cut
 sub HM485_LAN_discoveryStart($) {
 	my ($hash) =  @_;
 
@@ -399,13 +404,25 @@ sub HM485_LAN_discoveryStart($) {
 	InternalTimer(gettimeofday() + 1, 'HM485_LAN_doDiscovery', $hash, 0);
 }
 
+=head2
+	Send the discovery command to the interface
+
+	@param	hash    hash of device addressed
+=cut
 sub HM485_LAN_doDiscovery($) {
 	my ($hash) =  @_;
 	HM485_LAN_Write($hash, HM485::CMD_DISCOVERY);
 }
 
-# Todo: We should set timer for discovery must have finish
+=head2
+	Complete the discovery
+
+
+	@param	hash    hash of device addressed
+=cut
 sub HM485_LAN_discoveryEnd($) {
+	# Todo: We should set timer for discovery must have finish
+
 	my ($hash) =  @_;
 	my $name = $hash->{NAME};
 
@@ -434,6 +451,15 @@ sub HM485_LAN_discoveryEnd($) {
 	$hash->{discoveryRunning} = 0;
 }
 
+=head2
+	Set sleep command via broadcast to all bus devices
+	
+	Before discover can start, we must send sleep command to all bus devices.
+	After discovery the sleep command must revert.
+
+	@param	hash   hash of device addressed
+	@param	int    1 => setSleepMode, 0 => resetSleepMode
+=cut
 sub HM485_LAN_setBroadcastSleepMode($$) {
 	my ($hash, $value) =  @_;
 	
@@ -760,14 +786,30 @@ sub HM485_LAN_getHM485dPid($$) {
 =pod
 =begin html
 
-<a name="HM485"></a>
-	<h3>HM485</h3>
-	<p> FHEM module to commmunicate with HM485 devices</p>
+<a name="HM485_LAN"></a>
+<h3>HM485_LAN</h3>
+<ul>
+	HM485_LAN FHEM module is the interface for controlling eQ-3 HomeMatic-Wired devices<br>
+	The folowing hardware interfaces can used with this modul.
+	<ul>
+		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
+		<li>Ethernet to RS485 converter like WIZ108SR.<br>
+			See http://forum.fhem.de/index.php?t=msg&th=14096&start=0&rid=42</li>
+		<li>RS232/USB to RS485 converter like DIGITUS DA-70157</li>
+	</ul>
+	
+	For HomeMatic Wired RS485 LAN Gateway, the module communicate with the interface.
+	The HM485 protocol was built in the interface<br><br>
+	
+	For Ethernet to RS485 or RS232/USB to RS485 converter the module starts a 
+	dedicated server process (HM485d.pl) The HM485d.pl is part of this module and
+	assumes translation of the HM485 protokol to serial data.<br><br>
 	<ul>
 		<li>...</li>
 		<li>...</li>
 		<li>...</li>
 	</ul>
+</ul>
 
 =end html
 =cut

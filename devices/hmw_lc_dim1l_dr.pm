@@ -5,14 +5,13 @@ our %definition = (
 		'version'		=> 11,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
-			'HMW-LC-Dim1L-DR'	=> {
+			'HMW_LC_Dim1L_DR'	=> {
 				'name'	=> 'RS485 dimming actuator 1-channel leading edge (DIN rails)',
-				'priority'	=> 2,												# ???
-				'type'		=> 20,												# Device type
+				'type'		=> 20,
 			},
 		},
 		'params' => {
-			'HMW-LC-Dim1L-DR_dev_master'	=> {
+			'master'	=> {
 				'type'				=> 'master',
 				'LOGGING_TIME'	=> {											# parameter id
 					'logical'		=> {										# time after state changes reeported by device via message
@@ -34,17 +33,17 @@ our %definition = (
 						'offset'	=> 0.0,										# ???
 					},
 				},
-				'CENTRAL_ADDRESS'	=> {										# parameter id
-					'hidden'		=> TRUE,									# should not vidible in UI ???
-					'enforce'		=> 0x00000001,								# sould always set to this value ???
+				'CENTRAL_ADDRESS'	=> {
+					'hidden'		=> TRUE,
+					'enforce'		=> 0x00000001,
 					'logical'		=> {
-						'type'		=> 'int',									# parameter value type
+						'type'		=> 'int',
 					},
 					'physical'		=> {
-						'type'		=> 'int',									# parameter value type
-						'size'		=> 4,										# 4 bytes
-						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> 0x0002,									# location of central adress in device
+						'type'		=> 'int',
+						'size'		=> 4,
+						'interface'	=> 'eeprom',
+						'address'	=> 0x0002,
 					},
 				},
 				'DIRECT_LINK_DEACTIVATE'	=> {								# no direct link available
@@ -202,17 +201,17 @@ our %definition = (
 			},
 		},
 		'channels'	=> {
-			'0' => {
-				'type'	=> 'MAINTENANCE',
+			'Maintenance' => {
+				'id'	=> 0,
 				'count'	=> 1,
 			},
-			'1' => {
-				'type'	=> 'KEY',
+			'Key' => {
+				'id'	=> 1,
 				'physical_index_offset' => -1,
 				'count'	=> 2,
 			},
-			'3' => {
-				'type'	=> 'DIMMER',
+			'Dimmer' => {
+				'id'	=> 3,
 				'physical_index_offset' => -1,
 				'count'	=> 1,
 			},
