@@ -20,11 +20,12 @@ use strict;
 use warnings;
 use Data::Dumper;    # for debugging only
 
-use lib '..';
-use HM485::lib::Constants;
-use HM485::lib::Device;
-use HM485::lib::Command;
-use HM485::lib::Util;
+use lib '.';
+use lib::HM485::Constants;
+use lib::HM485::Device;
+use lib::HM485::Util;
+use lib::HM485::Command;
+
 
 use Scalar::Util qw(looks_like_number);
 

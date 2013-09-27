@@ -26,13 +26,7 @@ Derzeit benutzte und getestete RS485 Adapter:
   http://www.elv.de/homematic-rs485-gateway-1.html
 
 Installation:
-- Der Inhalt vom Branch kommt in das Verzeichniss /FHEM/HM485
-- 3 Symlinks müssen angelegt werden
-	/FHEM/HM485/10_HM485.pm -> /FHEM/10_HM485.pm
-	/FHEM/HM485/00_HM485_LAN.pm -> /FHEM/00_HM485_LAN.pm
-	/FHEM/HM485/ServerTools.pm -> /FHEM/ServerTools.pm
-	
-	Alternativ zum Symlink können diese drei Dateien in das Ziel kopiert werden  
+- Der Inhalt vom Branch kommt in das Verzeichniss /FHEM/
 
 - Je nach verwendetem Interface existiert eine Beispiel cfg-Datei
 	USB -> RS485 Konverter:      fhem_SERIAL.cfg

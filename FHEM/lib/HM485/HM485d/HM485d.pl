@@ -161,7 +161,6 @@ Nachrichten zum HMW-LG (nur Spekulattion)
 
 =cut
 
-
 package main;
 
 use strict;
@@ -172,6 +171,12 @@ use File::Basename;
 use Getopt::Long;
 use Pod::Usage;
 use bytes;
+
+use lib '..';
+use Constants;
+use Device;
+use Util;
+use HM485d::HM485_Protocol;
 
 use vars qw(%selectlist);  # devices which want a "select"
 use vars qw(%readyfnlist); # devices which want a "readyfn"
@@ -215,10 +220,8 @@ sub init() {
 	my $scriptPath = '';
 	$scriptPath = dirname(abs_path($0)) . '/';
 
-	my $pathFHEM = $scriptPath . '../../';
+	my $pathFHEM = $scriptPath . '../../../';
 
-	require $scriptPath . '../lib/Util.pm';
-	require $scriptPath . 'HM485_Protocol.pm';
 	require $pathFHEM . 'ServerTools.pm';
 	
 	my $help = 0;

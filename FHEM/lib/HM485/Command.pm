@@ -4,8 +4,8 @@ use strict;
 use warnings;
 use Data::Dumper;
 
-use lib '../..';
-use HM485::lib::Constants;
+use lib '.';
+use Constants;
 
 # HM485 for all Devices
 sub discovery($$);
@@ -88,9 +88,5 @@ sub parseCommand($) {
 		}
 	}
 }
-
-
-
-	
 
 1;

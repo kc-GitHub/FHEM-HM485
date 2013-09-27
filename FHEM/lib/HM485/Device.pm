@@ -7,7 +7,7 @@ use Data::Dumper;
 use vars qw {%attr %defs %modules}; #supress errors in Eclipse EPIC
 
 use constant {
-	DEVICE_PATH		=> '/FHEM/HM485/devices/',
+	DEVICE_PATH		=> '/FHEM/lib/HM485/devices/',
 };
 
 my %deviceDefinitions;

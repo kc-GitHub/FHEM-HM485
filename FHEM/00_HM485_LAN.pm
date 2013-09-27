@@ -21,10 +21,10 @@ use warnings;
 
 use Data::Dumper;    # for debugging only
 
-use lib '..';
-use HM485::lib::Constants;
-use HM485::lib::Device;
-use HM485::lib::Util;
+use lib '.';
+use lib::HM485::Constants;
+use lib::HM485::Device;
+use lib::HM485::Util;
 
 use vars qw {%attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC IDE
 
@@ -721,7 +721,7 @@ sub HM485_LAN_checkAndCreateHM485d($) {
 		$HM485dCommandLine.= ($HM485dLogVerbose)   ? ' --verbose '      . $HM485dLogVerbose   : '';
 	
 		$HM485dPid = HM485_LAN_getHM485dPid($hash, $HM485dCommandLine);
-		$HM485dCommandLine = $attr{global}{modpath} . '/FHEM/HM485/HM485d/' .
+		$HM485dCommandLine = $attr{global}{modpath} . '/FHEM/lib/HM485/HM485d/' .
 		                     $HM485dCommandLine;
 
 		my $HM485dStartTimeout = 0.1; 
