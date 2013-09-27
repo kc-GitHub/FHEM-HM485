@@ -2,7 +2,7 @@ HM585 - Modul for Homematic Wired (HM485) communication
 =======================================================
 Von Dirk Hoffmann <dirk@FHEM_Forum (forum.fhem.de)>
 
-V 0.0.2
+V 0.0.3
 
 HM485 ist ein Modul für FHEM um mit den Homemaic Wired Modulen komunizieren zu können.
 Homematic Wired bassiert auf der RS485 Schnittstelle.
@@ -25,6 +25,9 @@ Derzeit benutzte und getestete RS485 Adapter:
 
 - HMW-LAN-GW (der Test ist noch nicht bestätigt)
   http://www.elv.de/homematic-rs485-gateway-1.html
+
+- RS485 Tranceiver z.B. direkt am UART des Raspberry Pi angeschlossen
+  http://forum.fhem.de/index.php?t=msg&th=12854&start=0&rid=42
 
 Installation:
 - Der Inhalt vom Branch kommt in das Verzeichniss /FHEM/
