@@ -41,7 +41,7 @@ Installation:
 
 - Hardware Protokoll (HM485d)
 
-- FHEM-Intervace-Modul (00_HM485_LAN.pm)
+- FHEM-Interface-Modul (00_HM485_LAN.pm)
 	- discovery nur ausführen wenn das Interface verbunden ist
 	- Timeout nach dem der Discovery-Mode automatisch abgebrochen wird.
 	
@@ -49,3 +49,8 @@ Installation:
 	- txState für Line richtig setzen bzw. interpretieren
 	- Beim RAW Senden ggf. fremde Absenderadressen angeben können bzw. verbieten
 	- Firmwareupdate der Module
+
+- FHEM-Device-Modul (10_HM485.pm)
+	- States richtig verarbeiten
+	- Channel-Peering
+	- Device- / Channel-Settings
