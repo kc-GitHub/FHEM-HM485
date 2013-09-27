@@ -264,7 +264,7 @@ sub HM485_Parse($$$) {
 sub HM485_ProcessResponse($$$$) {
 	my ($ioHash, $msgId, $ack, $msgData) = @_;
 
-Log3('', 1, "msgId: $msgId");
+#Log3('', 1, "msgId: $msgId");
 	if (exists($ioHash->{'.waitForInfo'}{$msgId})) {
 		my $type   = $ioHash->{'.waitForInfo'}{$msgId}{requestType};
 		my $target = $ioHash->{'.waitForInfo'}{$msgId}{target};
@@ -347,7 +347,7 @@ Log3('', 1, "msgId: $msgId");
 			readingsSingleUpdate(
 				$hash, 'lastError', 'RESPONSE TIMEOUT: ' . $HM485::commands{$type}, 1
 			);
-#			print Dumper($HM485::commands);
+
 			# We got an NACK
 			Log3 ($hash, 1, 'NACK from ' . $target . ' | ' . $type);
 		}
@@ -430,10 +430,11 @@ sub HM485_ProcessEvent() {
 	my $data    = substr($msgData, 18);
 
 	my $devHash = $modules{HM485}{defptr}{$target};
-	if(!exists($devHash->{DEF}) ) {
+	if(!defined($devHash) || !exists($devHash->{DEF}) ) {
 
 		# Module not defined yet. We must query some informations for autocreate
 		Log3 ($hash, 1, "Device ($target) not defined yet. Query aditional informations.");
+		
 		HM485_sendCommand($hash, $target, '68');   # (h) request the module type
 		HM485_sendCommand($hash, $target, '6E');   # (n) request the module serial number
 		
@@ -517,6 +518,14 @@ sub HM485_parseFirmwareVersion($) {
 sub HM485_sendCommand($$$) {
 	my ($hash, $target, $data) = @_;
 	my $ioHash = $hash->{IODev};
+
+	if (exists($hash->{msgCounter})) {
+		# we recocnise the IODev hash with msgCounter
+		$ioHash = $hash;
+		$hash = $modules{HM485}{defptr}{$target};
+		$hash->{IODev} = $ioHash;
+		$hash->{NAME} = '.tmp';
+	}
 
 	my %params = (target => $target, data   => $data);
 	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
