@@ -20,7 +20,10 @@ use strict;
 use warnings;
 use Data::Dumper;    # for debugging only
 
-use lib '.';
+use Cwd qw(abs_path);
+use FindBin;
+use lib abs_path("$FindBin::Bin");
+
 use lib::HM485::Constants;
 use lib::HM485::Device;
 use lib::HM485::Util;
