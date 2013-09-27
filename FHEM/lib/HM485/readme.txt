@@ -4,13 +4,14 @@ Von Dirk Hoffmann <dirk@FHEM_Forum (forum.fhem.de)>
 
 V 0.0.2
 
-HM585 ist ein Modul für FHEM um mit den Homemaic Wired Modulen komunizieren zu können.
+HM485 ist ein Modul für FHEM um mit den Homemaic Wired Modulen komunizieren zu können.
 Homematic Wired bassiert auf der RS485 Schnittstelle.
 
 History:
 -----------
 V0.0.1 - Initiale Version
 V0.0.2 - Überarbeitete Version mit eigenem Prozess
+V0.0.3 - Angepasste Verzeichnissstruktur für bessere Integration in FHEM
 
 RS485 Hardware:
 --------------
@@ -35,28 +36,13 @@ Installation:
 
 ### TODOs ###
 
-Derzeit wird nur das Senden von RAW-Befehlen unterstützt.
-
-- Hardware Protokoll (HM485_SerialServer.pl)
-	x Sendframe
-	x SendQueue
-	x SendFrame über eigenen Prozess
-	x Discovery über eigenen Prozess
-	x ack nach parse frame
-	x Discovery: Bekannte Geräte nicht mit als neu anzeigen
+- Hardware Protokoll (HM485d)
 
 - FHEM-Intervace-Modul (00_HM485_LAN.pm)
-	x timeout zum Starten des HM485d als Attribut hinzugefügt. Ggf. muss dieser
-	  auf langsamen Geräten (Fritzbox, Raspberry Pi) erhöht werdenst.
-	- discovery nur ausführen wenn das interface verbunden ist
-	- Timeout nach dem der Discovery mode automatisch abgebrochen wird.
+	- discovery nur ausführen wenn das Interface verbunden ist
+	- Timeout nach dem der Discovery-Mode automatisch abgebrochen wird.
 	
-	x Duplicate frame detection
-	x model anhand von config setzen
-	x Senden während discovery verhindern (globales lock?)
-	x event nach discovery und autocreate
-
 	- ctrl-byte richtig setzen
 	- txState für Line richtig setzen bzw. interpretieren
 	- Beim RAW Senden ggf. fremde Absenderadressen angeben können bzw. verbieten
-	- firmware update der Module
+	- Firmwareupdate der Module
