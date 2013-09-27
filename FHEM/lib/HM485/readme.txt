@@ -16,7 +16,7 @@ V0.0.3 - Angepasste Verzeichnissstruktur für bessere Integration in FHEM
 RS485 Hardware:
 --------------
 Derzeit benutzte und getestete RS485 Adapter:
-- DIGITUS DA-70157: USB-Serial Adapter mit RS485 Schnittstelle, Funktioniert auch an der FritzBox, ca. 11€ bei Reichelt
+- DIGITUS DA-70157: USB-Serial Adapter mit RS485 Schnittstelle, Funktioniert auch an der FritzBox
   http://www.reichelt.de/USB-Konverter/DIGITUS-DA-70157/3//index.html?ARTICLE=122187
 
 - Wiznet - WIZ108SR Compact RS422/RS485-to-Ethernet module
