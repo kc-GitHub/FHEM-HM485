@@ -24,8 +24,7 @@ use lib '.';
 use lib::HM485::Constants;
 use lib::HM485::Device;
 use lib::HM485::Util;
-use lib::HM485::Command;
-
+#use lib::HM485::Command;
 
 use Scalar::Util qw(looks_like_number);
 
@@ -262,6 +261,7 @@ sub HM485_Parse($$$) {
 sub HM485_ProcessResponse($$$$) {
 	my ($ioHash, $msgId, $ack, $msgData) = @_;
 
+Log3('', 1, "msgId: $msgId");
 	if (exists($ioHash->{'.waitForInfo'}{$msgId})) {
 		my $type   = $ioHash->{'.waitForInfo'}{$msgId}{requestType};
 		my $target = $ioHash->{'.waitForInfo'}{$msgId}{target};
@@ -322,6 +322,8 @@ sub HM485_ProcessResponse($$$$) {
 					# ToDo: this should create only on deiscovery?
 					HM485_CreateSubdevices($hash, $model);
 				}
+				
+				HM485_ProcessChannelState($hash, $target, $msgData);
 	
 			} else {
 				$ioHash->{'.forAutocreate'}{$target}{$attrName} = $msgData;
@@ -351,8 +353,32 @@ sub HM485_ProcessResponse($$$$) {
 	delete ($ioHash->{'.waitForInfo'}{$msgId});
 }
 
-
-
+sub HM485_ProcessChannelState($$$) {
+	my ($hash, $target, $msgData) = @_;
+	
+	my $name      = $hash->{NAME};
+	my $frameType = substr($msgData, 0,2);
+	my $data      = substr($msgData, 2);
+	my $model     = AttrVal($name, 'model', undef);
+	
+#	if (defined($model) && $model) {
+#		my $affectedChannel = HM485::Device::getChannelfieldByModelAndFrametype(
+#			$model, $frameType
+#		);
+#		print Dumper($hash);
+#
+#		Log3('', 1, "msgData: $msgData, target: $target, frameType: $frameType, data: $data");
+#	}
+	
+#	my $chHash = $modules{HM485}{defptr}{$target};
+#	my $hmwId  = $chHash->{DEF};
+#	my $name   = $chHash->{NAME};
+#	my $addr   = substr($hmwId, 0, 8);
+#	my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
+#	
+#	print Dumper($ioHash);
+	
+}
 
 sub HM485_getHmwidByName(@) { #in: name or HMid ==>out: HMid, "" if no match
 	my ($name) = @_;
@@ -405,12 +431,13 @@ sub HM485_ProcessEvent() {
 
 		# Module not defined yet. We must query some informations for autocreate
 		Log3 ($hash, 1, "Device ($target) not defined yet. Query aditional informations.");
-		HM485_requestInfo($hash, $target, '68');   # (h) request the module type
-		HM485_requestInfo($hash, $target, '6E');   # (n) request the module serial number
+		HM485_sendCommand($hash, $target, '68');   # (h) request the module type
+		HM485_sendCommand($hash, $target, '6E');   # (n) request the module serial number
 		
 	} else {
 
 		Log3('', 1, 'Prozess Events');
+		HM485_ProcessChannelState($hash, $target, $data);
 	}
 }
 
@@ -441,15 +468,15 @@ sub HM485_getInfos($$$) {
 	Log3 ($hash, 1, "Request aditional informations for device ($target).");
 
 	if ($infoMask & 0b0001) {
-		HM485_requestInfo($hash, $target, '68');   # (h) request module type
+		HM485_sendCommand($hash, $target, '68');   # (h) request module type
 	}
 	
 	if ($infoMask & 0b0010) {
-		HM485_requestInfo($hash, $target, '6E');   # (n) request serial number
+		HM485_sendCommand($hash, $target, '6E');   # (n) request serial number
 	}
 	
 	if ($infoMask & 0b0100) {
-		HM485_requestInfo($hash, $target, '76');   # (v) request firmware version
+		HM485_sendCommand($hash, $target, '76');   # (v) request firmware version
 	}
 
 	if ($infoMask & 0b1000) {
@@ -484,39 +511,20 @@ sub HM485_parseFirmwareVersion($) {
 	return $retVal;
 }
 
-sub HM485_requestInfo($$$) {
-	my ($hash, $target, $frameType) = @_;
-	my $ioHash;
+sub HM485_sendCommand($$$) {
+	my ($hash, $target, $data) = @_;
+	my $ioHash = $hash->{IODev};
 
-	if ($hash->{DEF} ne $target) {
-		$ioHash = $hash;
-		$hash = $modules{HM485}{defptr}{$target};
-		$hash->{IODev} = $ioHash;
-		$hash->{NAME} = '.tmp';
-	} else {
-		$ioHash = $hash->{IODev};
-	}
-
-	# request module type
-	my $requestId = HM485_sendCommand($hash, $target, $frameType);
-	if ($requestId) {
-		$ioHash->{'.waitForInfo'}{$requestId}{requestType} = $frameType;
+	my %params = (target => $target, data   => $data);
+	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
+	
+	my @validRequestTypes = ('4B', '52', '53', '52', '68', '6E', '70', '72', '76', '78', 'CB');
+	my $requestType = substr($data, 0,2); 
+	if ($requestId && grep $_ eq $requestType, @validRequestTypes) {
+		$ioHash->{'.waitForInfo'}{$requestId}{requestType} = $requestType;
 		$ioHash->{'.waitForInfo'}{$requestId}{target}      = $target;
 	}
 } 
-
-sub HM485_sendCommand($$$) {
-	my ($ioHash, $target, $data) =  @_;
-	
-	my %params = (
-		target => $target,
-		data   => $data
-	);
-	
-	my $msgId = IOWrite($ioHash, HM485::CMD_SEND, \%params);
-
-	return $msgId;
-}
 
 sub HM485_CreateSubdevices($$) {
 	my ($hash, $hwType) = @_;

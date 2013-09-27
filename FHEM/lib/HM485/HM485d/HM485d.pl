@@ -166,13 +166,15 @@ package main;
 use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
-use Cwd 'abs_path';
+use Cwd qw(abs_path);
 use File::Basename;
 use Getopt::Long;
 use Pod::Usage;
 use bytes;
 
-use lib '..';
+use FindBin;
+use lib abs_path("$FindBin::Bin/..");
+
 use Constants;
 use Device;
 use Util;

@@ -17,3 +17,4 @@ pm_to_blib
 tmp/
 FHEM/TcpServerUtils.pm
 FHEM/DevIo.pm
+.project

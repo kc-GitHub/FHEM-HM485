@@ -61,7 +61,7 @@ our %definition = (
 				},
 			},
 		},
-		'frames'	=> {														# supported frames ???
+		'frames'	=> {
 			'level_set'	=> {
 				'type'		=> 'x',
 				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
