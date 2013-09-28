@@ -254,8 +254,9 @@ sub HM485_Parse($$$) {
 		HM485_ProcessResponse($ioHash, $msgId, $ack, $msgData);
 
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
-		HM485_ProcessEvent($ioHash, $msgId, $msgData);
 
+		# Todo check events trigger on ack?
+		HM485_ProcessEvent($ioHash, $msgId, $msgData);
 	}
 	
 	return $ioHash->{NAME};
@@ -264,14 +265,12 @@ sub HM485_Parse($$$) {
 sub HM485_ProcessResponse($$$$) {
 	my ($ioHash, $msgId, $ack, $msgData) = @_;
 
-#Log3('', 1, "msgId: $msgId");
 	if (exists($ioHash->{'.waitForInfo'}{$msgId})) {
 		my $type   = $ioHash->{'.waitForInfo'}{$msgId}{requestType};
 		my $target = $ioHash->{'.waitForInfo'}{$msgId}{target};
 
 		my $hash = $modules{HM485}{defptr}{$target};
 		my $name = $hash->{NAME};
-		
 		my $attrName  = $HM485::responseAttrMap{$type};
 		my $model = '';
 
@@ -327,7 +326,7 @@ sub HM485_ProcessResponse($$$$) {
 				}
 				
 				HM485_ProcessChannelState($hash, $target, $msgData);
-	
+				
 			} else {
 				$ioHash->{'.forAutocreate'}{$target}{$attrName} = $msgData;
 		
@@ -360,27 +359,31 @@ sub HM485_ProcessChannelState($$$) {
 	my ($hash, $target, $msgData) = @_;
 	
 	my $name      = $hash->{NAME};
-	my $frameType = substr($msgData, 0,2);
-	my $data      = substr($msgData, 2);
-	my $model     = AttrVal($name, 'model', undef);
+
+#	print Dumper($msgData);
+
+	if ($msgData) {
+		my $data      = substr($msgData, 2);
+		my $model     = AttrVal($name, 'model', undef);
+		
+		Log3('', 1, 'Prozess Events: ' . $name);
+		
+		if (defined($model) && $model) {
+			my $valueHash = HM485::Device::parseFrameData($model, $msgData, 1);
 	
-#	if (defined($model) && $model) {
-#		my $affectedChannel = HM485::Device::getChannelfieldByModelAndFrametype(
-#			$model, $frameType
-#		);
-#		print Dumper($hash);
-#
-#		Log3('', 1, "msgData: $msgData, target: $target, frameType: $frameType, data: $data");
-#	}
+			my $modelGroup = HM485::Device::getModelGroup($model);
+			my $subType = HM485::Device::getSubtypeFromChannelNo($modelGroup, $valueHash->{ch});
+			
+			my $value = HM485::Device::getValue($valueHash, $modelGroup, $subType);
 	
-#	my $chHash = $modules{HM485}{defptr}{$target};
-#	my $hmwId  = $chHash->{DEF};
-#	my $name   = $chHash->{NAME};
-#	my $addr   = substr($hmwId, 0, 8);
-#	my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
-#	
-#	print Dumper($ioHash);
-	
+			if ($value->{val}{'state'}) {
+				my $chHash = HM485_getHashByHmwid($hash->{DEF} . '_' . $value->{ch});
+				readingsSingleUpdate($chHash, 'state', $value->{val}{'state'}, 1);
+				
+#				print Dumper($chHash);
+			}
+		}
+	}
 }
 
 sub HM485_getHmwidByName(@) { #in: name or HMid ==>out: HMid, "" if no match
@@ -439,9 +442,7 @@ sub HM485_ProcessEvent() {
 		HM485_sendCommand($hash, $target, '6E');   # (n) request the module serial number
 		
 	} else {
-
-		Log3('', 1, 'Prozess Events');
-		HM485_ProcessChannelState($hash, $target, $data);
+		HM485_ProcessChannelState($devHash, $target, $data);
 	}
 }
 
@@ -521,6 +522,8 @@ sub HM485_sendCommand($$$) {
 
 	if (exists($hash->{msgCounter})) {
 		# we recocnise the IODev hash with msgCounter
+		# Todo: we should change this
+		
 		$ioHash = $hash;
 		$hash = $modules{HM485}{defptr}{$target};
 		$hash->{IODev} = $ioHash;

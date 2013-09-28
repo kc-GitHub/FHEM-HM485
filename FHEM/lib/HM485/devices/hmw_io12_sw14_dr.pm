@@ -13,7 +13,7 @@ our %definition = (
 		'params' => {															# the device params
 			'master'	=> {
 				'CENTRAL_ADDRESS'	=> {
-					'hidden'		=> TRUE,
+					'hidden'		=> 1,
 					'enforce'		=> 0x00000001,
 					'logical'		=> {
 						'type'		=> 'int',
@@ -37,7 +37,7 @@ our %definition = (
 			'info_level'	=> {
 				'type'		=> 'i',
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
-				'event'		=> TRUE,											# frame should triger event???
+				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
 					'state'		=> {											# aditional frame parameter (state)
@@ -50,7 +50,7 @@ our %definition = (
 			'info_frequency'	=> {
 				'type'		=> 'i',
 				'dir'		=> '>',
-				'event'		=> TRUE,
+				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
 					'state'		=> {
@@ -127,12 +127,12 @@ our %definition = (
 					'Master'	=> {									# why the master channel?
 					},
 					'Values'	=> {
-						'State'	=> {
+						'state'	=> {
 							'operations'	=> 'read,write,event',				# which type of actions supports the channel ??? 
 							'ctrl'			=> 'SWITCH.STATE',					# ui related ???
 							'logical'		=> {
 								'type'		=> 'boolean',						# logical type (the availabe states) boolean -> on/off
-								'default'	=> FALSE,								# the default state after power on the device ???
+								'default'	=> 0,								# the default state after power on the device ???
 							},
 							'physical'		=> {								# physical parameters
 								'type'		=> 'int',							# the locical type mapped to this physical type
@@ -187,7 +187,7 @@ our %definition = (
 								'options'	=> {
 									'ANALOG_OUTPUT' 	=> {},
 									'DIGITAL_OUTPUT'	=> {
-										'default'	=> TRUE,
+										'default'	=> 1,
 									},
 								},
 							},
@@ -222,8 +222,8 @@ our %definition = (
 								'value_map'		=> {
 									'device_value'		=> 0xffff,				# ???
 									'parameter_value'	=> 0,					# ???
-									'from_device'		=> TRUE,				# ???
-									'to_device'			=> FALSE,				# ???
+									'from_device'		=> 1,					# ???
+									'to_device'			=> 0,					# ???
 								}
 							}
 						},
@@ -290,7 +290,7 @@ our %definition = (
 								'options'	=> {
 									'FREQUENCY_INPUT' 	=> {},
 									'DIGITAL_INPUT'	=> {
-										'default'	=> TRUE,
+										'default'	=> 1,
 									},
 								},
 							},
@@ -359,7 +359,7 @@ our %definition = (
 								'options'	=> {
 									'ANALOG_INPUT' 	=> {},
 									'DIGITAL_INPUT'	=> {
-										'default'	=> TRUE,
+										'default'	=> 1,
 									},
 								},
 							},

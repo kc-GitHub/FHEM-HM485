@@ -17,7 +17,7 @@ our %definition = (
 		'params' => {
 			'master'	=> {
 				'CENTRAL_ADDRESS'	=> {										# parameter id
-					'hidden'		=> TRUE,									# should not vidible in UI ???
+					'hidden'		=> 1,										# should not vidible in UI ???
 					'enforce'		=> 0x00000001,								# sould always set to this value ???
 					'logical'		=> {
 						'type'		=> 'int',									# parameter value type
@@ -30,7 +30,7 @@ our %definition = (
 					},
 				},
 				'CENTRAL_ADDRESS'	=> {
-					'hidden'		=> TRUE,
+					'hidden'		=> 1,
 					'enforce'		=> 0x00000001,
 					'logical'		=> {
 						'type'		=> 'int',
@@ -53,7 +53,7 @@ our %definition = (
 			'info_level'	=> {
 				'type'		=> 'i',
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
-				'event'		=> TRUE,												# frame should triger event???
+				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
 					'state'		=> {											# aditional frame parameter (state)
@@ -121,7 +121,7 @@ our %definition = (
 						'INPUT_LOCKED'	=> {
 							'logical'		=> {
 								'type'		=> 'boolean',						# logical type (the availabe states) boolean -> on/off
-								'default'	=> FALSE,							# the default state after power on the device ???
+								'default'	=> 0,								# the default state after power on the device ???
 							},
 							'physical'		=> {								# physical parameters
 								'type'		=> 'int',							# the locical type mapped to this physical type
@@ -133,7 +133,7 @@ our %definition = (
 							},
 							'conversion'	=> {
 								'type'		=> 'boolean-int',					# conversion type @see logical / physical types 
-								'invert'	=> TRUE,
+								'invert'	=> 1,
 							}
 						}
 					},

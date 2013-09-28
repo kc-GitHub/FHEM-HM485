@@ -33,7 +33,7 @@ our %definition = (
 					},
 				},
 				'CENTRAL_ADDRESS'	=> {
-					'hidden'		=> TRUE,
+					'hidden'		=> 1,
 					'enforce'		=> 0x00000001,
 					'logical'		=> {
 						'type'		=> 'int',
@@ -46,11 +46,11 @@ our %definition = (
 					},
 				},
 				'DIRECT_LINK_DEACTIVATE'	=> {								# no direct link available
-					'hidden'		=> TRUE,									# should not vidible in UI ???
-					'enforce'		=> TRUE,									# sould always set to this value ???
+					'hidden'		=> 1,										# should not vidible in UI ???
+					'enforce'		=> 1,										# sould always set to this value ???
 					'logical'		=> {
 						'type'		=> 'boolean',								# parameter value type
-						'default'	=> FALSE,
+						'default'	=> 0,
 					},
 					'physical'		=> {
 						'type'		=> 'int',									# parameter value type
@@ -65,7 +65,7 @@ our %definition = (
 			'level_set'	=> {
 				'type'		=> 'x',
 				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
-				'event'		=> TRUE,											# frame should triger event???
+				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
 					'state'		=> {											# aditional frame parameter (state)
@@ -83,7 +83,7 @@ our %definition = (
 			'info_level'	=> {
 				'type'		=> 'i',
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
-				'event'		=> TRUE,												# frame should triger event???
+				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
 					'state'		=> {											# aditional frame parameter (state)
@@ -101,7 +101,7 @@ our %definition = (
 			'key_event_short'	=> {
 				'type'		=> 'K',
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
-				'event'		=> TRUE,											# frame should triger event???
+				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
 					'key'	=> {												# aditional frame parameter (state)
@@ -120,7 +120,7 @@ our %definition = (
 			'key_event_long'	=> {
 				'type'		=> 'K',
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
-				'event'		=> TRUE,											# frame should triger event???
+				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
 					'key'	=> {												# aditional frame parameter (state)
@@ -463,7 +463,7 @@ our %definition = (
 						},
 					},
 					'Values' => {
-						'State'	=> {
+						'state'	=> {
 							'operations'=> 'read,write,event',
 							'control'	=> 'SWITCH.STATE',
 							'logical'	=> {
@@ -473,7 +473,7 @@ our %definition = (
 							'physical'	=> {
 								'type'		=> 'int',
 								'interface'	=> 'command',
-								'value_id'	=> 'STATE',
+								'value_id'	=> 'state',
 								'set'	=> {
 									'request'	=> 'LEVEL_SET',
 								},
@@ -502,7 +502,7 @@ our %definition = (
 							'physical'	=> {
 								'type'		=> 'int',
 								'interface'	=> 'command',
-								'value_id'	=> 'STATE',
+								'value_id'	=> 'state',
 								'get'	=> {
 									'request'	=> 'LEVEL_GET',
 									'response'	=> 'INFO_LEVEL',
@@ -527,7 +527,7 @@ our %definition = (
 							'physical'	=> {
 								'type'		=> 'int',
 								'interface'	=> 'command',
-								'value_id'	=> 'STATE',
+								'value_id'	=> 'state',
 								'set'	=> {
 									'request'	=> 'SET_LOCK',
 								},

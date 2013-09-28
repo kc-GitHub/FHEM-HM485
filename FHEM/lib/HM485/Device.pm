@@ -3,6 +3,7 @@ package HM485::Device;
 use strict;
 use warnings;
 use Data::Dumper;
+use Scalar::Util qw(looks_like_number);
 
 use vars qw {%attr %defs %modules}; #supress errors in Eclipse EPIC
 
@@ -170,19 +171,25 @@ sub getValueFromDefinitions ($) {
 	my @pathParts = split('/', $path);
 	
 	my %definitionPart = %deviceDefinitions;
+	my $found = 1;
 	foreach my $part (@pathParts) {
 		if (ref($definitionPart{$part}) eq 'HASH') {
 			%definitionPart = %{$definitionPart{$part}};
 		} else {
-			$retVal = $definitionPart{$part};
+			if ($definitionPart{$part}) {
+				$retVal = $definitionPart{$part};
+			} else {
+				$retVal = undef;
+				$found = 0;			
+			}
 			last;
 		}
 	}
 	
-	if (!defined($retVal)) {
+	if (!defined($retVal) && $found) {
 		$retVal = {%definitionPart};
 	}
-	
+
 	return $retVal
 }
 
@@ -208,6 +215,119 @@ sub getSubtypeFromChannelNo($$) {
 	}
 	
 	return $retVal;
+}
+
+sub parseFrameData($$;$) {
+	my ($model, $data, $onlyEvent) = @_;
+	$onlyEvent = (defined($onlyEvent) && $onlyEvent == 1) ? 1 : 0;
+
+	my $frameType = hex(substr($data, 0,2));
+	my $modelGroup = HM485::Device::getModelGroup($model);
+	my $frames = getValueFromDefinitions($modelGroup . '/frames/');
+
+	my %retVal;
+	if ($frames) {
+		my $params;
+		foreach my $frame (keys $frames) {
+			$frame = lc($frame);
+			my $fType      = ord($frames->{$frame}{type});
+			my $fDirection = $frames->{$frame}{dir};
+			my $fEvent = exists($frames->{$frame}{event}) ? $frames->{$frame}{event} : 0;
+
+			if (($frameType == $fType) && ($fDirection eq '>') && ($onlyEvent == $fEvent)) {
+
+				# returned channel field starts in data part of the frame and based on hex strings (2 digits per byte)
+				my $chField = ($frames->{$frame}{ch_field} - 9) * 2;
+				$params  = $frames->{$frame}{params};
+
+				$retVal{ch} = sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1);
+				$retVal{id} = $frame;
+				last;
+
+
+			}
+		}
+		if ($params) {
+			$retVal{val} = convertDataToValue($data, $params);
+		}
+	}
+
+	return \%retVal;
+}
+
+sub convertDataToValue($$) {
+	my ($data, $params) = @_;
+	$data = pack('H*', $data);
+	
+	my %retVal;
+	foreach my $param (keys $params) {
+		$param = lc($param);
+		my $index = ($params->{$param}{index} - 9);
+		my $size = ($params->{$param}{size});
+
+		if (isInt($index)) {
+			$retVal{$param} = ord(substr($data, $index, $size));
+		} else {
+			my $bitsIndex = ($index - int($index)) * 10;
+			$retVal{$param} = ord(substr($data, int($index), 1));
+			$retVal{$param} = subBit($retVal{$param}, $index, $size);
+		}
+
+		my $dataSize  = $params->{$param}{size};
+		my $type      = $params->{$param}{type};
+	}
+
+	return \%retVal;
+}
+
+sub getValue($$$) {
+	my ($valueHash, $modelGroup, $subType) = @_;
+
+	if (exists($valueHash->{val})) {
+		foreach my $valueKey (keys $valueHash->{val}) {
+			my $valueMap = getValueFromDefinitions(
+				$modelGroup . '/channels/' . $subType . '/params/Values/' . $valueKey . '/'
+			);
+			if ($valueMap) {
+	
+				# state conversion ($value -> conversion type)
+				if ($valueMap->{conversion}{type} eq 'boolean_integer') {
+					if ($valueHash->{val}{$valueKey} > $valueMap->{conversion}{threshold}) {
+						$valueHash->{val}{$valueKey} = 1;
+					} else {
+						$valueHash->{val}{$valueKey} = 0;
+					}
+				}
+	
+				# state conversion ($value -> ui controll)
+				if ($valueMap->{control} eq 'SWITCH.STATE') {
+					if ($valueHash->{val}{$valueKey} == 1) {
+						$valueHash->{val}{$valueKey} = 'on';
+					} else {
+						$valueHash->{val}{$valueKey} = 'off';
+					}
+				}
+			} else {
+				delete ($valueHash->{val}{$valueKey});
+			}
+		}
+	}
+	
+	return $valueHash;
+}
+
+sub isInt($) {
+	my ($value) = @_;
+	$value = (looks_like_number($value)) ? $value : 0;
+	
+	my $retVal = ($value == int($value)) ? 1 : 0;
+	return $retVal;
+}
+
+sub subBit ($$$) {
+	my ($byte, $start, $len) = @_;
+	
+	return (($byte << (8 - $start)) & 0xFF) >> (8 - $len);
 }
 
 1;
