@@ -360,13 +360,9 @@ sub HM485_ProcessChannelState($$$) {
 	
 	my $name      = $hash->{NAME};
 
-#	print Dumper($msgData);
-
 	if ($msgData) {
 		my $data      = substr($msgData, 2);
 		my $model     = AttrVal($name, 'model', undef);
-		
-		Log3('', 1, 'Prozess Events: ' . $name);
 		
 		if (defined($model) && $model) {
 			my $valueHash = HM485::Device::parseFrameData($model, $msgData, 1);
@@ -378,11 +374,31 @@ sub HM485_ProcessChannelState($$$) {
 	
 			if ($value->{val}{'state'}) {
 				my $chHash = HM485_getHashByHmwid($hash->{DEF} . '_' . $value->{ch});
-				readingsSingleUpdate($chHash, 'state', $value->{val}{'state'}, 1);
 				
-#				print Dumper($chHash);
+				HM485_channelUpdate($chHash, $value->{val}{'state'});
 			}
 		}
+	}
+}
+
+sub HM485_channelUpdate($$) {
+	my ($chHash, $value) = @_;
+	
+	my %params = (chHash => $chHash, value => $value);
+	InternalTimer(gettimeofday(), 'HM485_channelDoUpdate', \%params, 1);
+}
+
+sub HM485_channelDoUpdate($$) {
+	my ($hash)    = @_;
+	my $chHash    = $hash->{chHash};
+	my $name      = $chHash->{NAME};
+	my $value     = $hash->{value};
+	my $doTrigger = !exists($hash->{doTrigger}) ? 1 : $hash->{doTrigger};
+
+	# we trigger events only if necesary
+	if ($chHash->{STATE} ne $value) {
+		readingsSingleUpdate($chHash, 'state', $value, $doTrigger);
+		Log3($hash, 2, 'Set state for: ' . $name . ' state: ' . $value);
 	}
 }
 
