@@ -397,10 +397,14 @@ sub HM485_channelDoUpdate($$) {
 	foreach my $valueKey (keys $valueHash) {
 		my $value = $valueHash->{$valueKey}{val};
 
-		# we trigger events only if necesary
-		if (!exists($chHash->{READINGS}{$valueKey}{VAL}) || $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
-			readingsBulkUpdate($chHash, $valueKey, $value);
-			Log3($hash, 2, 'Set state for: ' . $name . ' ' . $valueKey . ': ' . $value);
+		if (defined($value)) {
+			# we trigger events only if necesary
+			if (!exists($chHash->{READINGS}{$valueKey}{VAL}) ||
+			    $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
+
+				readingsBulkUpdate($chHash, $valueKey, $value);
+				Log3($hash, 2, 'Set state for: ' . $name . ' ' . $valueKey . ': ' . $value);
+			}
 		}
 	}
 
@@ -530,9 +534,12 @@ sub HM485_parseSerialNumber($) {
 
 sub HM485_parseFirmwareVersion($) {
 	my ($data) = @_;
+	my $retVal = undef;
 	
-	my $retVal = hex(substr($data,0,2));
-	$retVal = $retVal + (hex(substr($data,2,2))/100);
+	if (length($data) == 4) {
+		$retVal = hex(substr($data,0,2));
+		$retVal = $retVal + (hex(substr($data,2,2))/100);
+	}
 
 	return $retVal;
 }

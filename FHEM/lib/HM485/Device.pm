@@ -231,17 +231,16 @@ sub parseFrameData($$;$) {
 			my $fType      = ord($frames->{$frame}{type});
 			my $fDirection = $frames->{$frame}{dir};
 			my $fEvent = exists($frames->{$frame}{event}) ? $frames->{$frame}{event} : 0;
-			if (($frameType == $fType) && ($fDirection eq '>') && ($onlyEvent == $fEvent)) {
 
-				# returned channel field starts in data part of the frame and based on hex strings (2 digits per byte)
-				my $chField = ($frames->{$frame}{ch_field} - 9) * 2;
+			# returned channel field starts in data part of the frame and based on hex strings (2 digits per byte)
+			my $chField = ($frames->{$frame}{ch_field} - 9) * 2;
+			$retVal{ch} = sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1);
+
+			if (($frameType == $fType) && ($fDirection eq '>') && ($onlyEvent == $fEvent)) {
 				$params  = $frames->{$frame}{params};
 
-				$retVal{ch} = sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1);
 				$retVal{id} = $frame;
 				last;
-
-
 			}
 		}
 		if ($params) {
