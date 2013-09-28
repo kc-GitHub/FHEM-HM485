@@ -18,3 +18,4 @@ tmp/
 FHEM/TcpServerUtils.pm
 FHEM/DevIo.pm
 .project
+.includepath

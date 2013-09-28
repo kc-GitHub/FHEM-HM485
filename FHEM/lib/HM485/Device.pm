@@ -50,8 +50,6 @@ sub init () {
 	
 	initModels();
 	
-#	print Dumper(%models);
-	
 	return undef;
 }
 
@@ -233,7 +231,6 @@ sub parseFrameData($$;$) {
 			my $fType      = ord($frames->{$frame}{type});
 			my $fDirection = $frames->{$frame}{dir};
 			my $fEvent = exists($frames->{$frame}{event}) ? $frames->{$frame}{event} : 0;
-
 			if (($frameType == $fType) && ($fDirection eq '>') && ($onlyEvent == $fEvent)) {
 
 				# returned channel field starts in data part of the frame and based on hex strings (2 digits per byte)
@@ -248,11 +245,29 @@ sub parseFrameData($$;$) {
 			}
 		}
 		if ($params) {
-			$retVal{val} = convertDataToValue($data, $params);
+			$retVal{'values'} = convertDataToValue($data, $params);
+			my $valueMapings = getValueFromDefinitions($modelGroup . '/channels/Switch/params/Values');
+			$retVal{'values'} = mapValues($retVal{'values'}, $valueMapings);
 		}
 	}
 
 	return \%retVal;
+}
+
+sub mapValues($$) {
+	my ($values, $valueMapings) = @_;
+
+	foreach my $valueMap (keys (%{$valueMapings})) {
+		my $valueId = $valueMapings->{$valueMap}{physical}{value_id};
+		if ($values->{$valueId}) {
+			my $val = $values->{$valueId};
+			delete ($values->{$valueId});
+			$values->{$valueMap} = $val;
+			$values->{$valueMap}{id}  = $valueId;
+		}
+	}
+	
+	return $values;
 }
 
 sub convertDataToValue($$) {
@@ -266,11 +281,13 @@ sub convertDataToValue($$) {
 		my $size = ($params->{$param}{size});
 
 		if (isInt($index)) {
-			$retVal{$param} = ord(substr($data, $index, $size));
+			$retVal{$param}{val} = ord(substr($data, $index, $size));
 		} else {
 			my $bitsIndex = ($index - int($index)) * 10;
-			$retVal{$param} = ord(substr($data, int($index), 1));
-			$retVal{$param} = subBit($retVal{$param}, $index, $size);
+			my $bitsSize = ($size - int($size)) * 10;
+			$retVal{$param}{val} = ord(substr($data, int($index), 1));
+
+			$retVal{$param}{val} = subBit($retVal{$param}{val}, $bitsIndex, $bitsSize);
 		}
 
 		my $dataSize  = $params->{$param}{size};
@@ -280,35 +297,48 @@ sub convertDataToValue($$) {
 	return \%retVal;
 }
 
-sub getValue($$$) {
+sub translsteValue($$$) {
 	my ($valueHash, $modelGroup, $subType) = @_;
 
-	if (exists($valueHash->{val})) {
-		foreach my $valueKey (keys $valueHash->{val}) {
+	if (exists($valueHash->{'values'})) {
+		foreach my $valueKey (keys $valueHash->{'values'}) {
+			my $valId = $valueHash->{'values'}{$valueKey}{id};
 			my $valueMap = getValueFromDefinitions(
 				$modelGroup . '/channels/' . $subType . '/params/Values/' . $valueKey . '/'
 			);
+			
 			if ($valueMap) {
-	
 				# state conversion ($value -> conversion type)
 				if ($valueMap->{conversion}{type} eq 'boolean_integer') {
-					if ($valueHash->{val}{$valueKey} > $valueMap->{conversion}{threshold}) {
-						$valueHash->{val}{$valueKey} = 1;
+					if ($valueMap->{conversion}{threshold}) {
+						if ($valueHash->{'values'}{$valueKey}{val} > $valueMap->{conversion}{threshold}) {
+							$valueHash->{'values'}{$valueKey}{val} = 1;
+						} else {
+							$valueHash->{'values'}{$valueKey}{val} = 0;
+						}
 					} else {
-						$valueHash->{val}{$valueKey} = 0;
+						if ($valueHash->{'values'}{$valueKey}{val}) {
+							$valueHash->{'values'}{$valueKey}{val} =1
+						} else {
+							$valueHash->{'values'}{$valueKey}{val} =0
+						}
 					}
 				}
-	
-				# state conversion ($value -> ui controll)
-				if ($valueMap->{control} eq 'SWITCH.STATE') {
-					if ($valueHash->{val}{$valueKey} == 1) {
-						$valueHash->{val}{$valueKey} = 'on';
-					} else {
-						$valueHash->{val}{$valueKey} = 'off';
+
+				if (defined($valueMap->{control})) {
+
+					if ($valueMap->{control} eq 'SWITCH.STATE') {
+						# state conversion ($value -> ui controll)
+						if ($valueHash->{'values'}{$valueKey}{val} == 1) {
+							$valueHash->{'values'}{$valueKey}{val} = 'on';
+						} else {
+							$valueHash->{'values'}{$valueKey}{val} = 'off';
+						}
 					}
 				}
+
 			} else {
-				delete ($valueHash->{val}{$valueKey});
+				delete ($valueHash->{'values'}{$valueKey}{val});
 			}
 		}
 	}
@@ -327,7 +357,7 @@ sub isInt($) {
 sub subBit ($$$) {
 	my ($byte, $start, $len) = @_;
 	
-	return (($byte << (8 - $start)) & 0xFF) >> (8 - $len);
+	return (($byte << (8 - $start - $len)) & 0xFF) >> (8 - $len);
 }
 
 1;

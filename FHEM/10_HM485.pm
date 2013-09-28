@@ -366,40 +366,45 @@ sub HM485_ProcessChannelState($$$) {
 		
 		if (defined($model) && $model) {
 			my $valueHash = HM485::Device::parseFrameData($model, $msgData, 1);
-	
+
 			my $modelGroup = HM485::Device::getModelGroup($model);
 			my $subType = HM485::Device::getSubtypeFromChannelNo($modelGroup, $valueHash->{ch});
-			
-			my $value = HM485::Device::getValue($valueHash, $modelGroup, $subType);
-	
-			if ($value->{val}{'state'}) {
-				my $chHash = HM485_getHashByHmwid($hash->{DEF} . '_' . $value->{ch});
-				
-				HM485_channelUpdate($chHash, $value->{val}{'state'});
-			}
+			$valueHash = HM485::Device::translsteValue($valueHash, $modelGroup, $subType);
+
+			my $chHash = HM485_getHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
+			HM485_channelUpdate($chHash, $valueHash->{'values'});
 		}
 	}
 }
 
 sub HM485_channelUpdate($$) {
-	my ($chHash, $value) = @_;
+	my ($chHash, $valueHash) = @_;
 	
-	my %params = (chHash => $chHash, value => $value);
-	InternalTimer(gettimeofday(), 'HM485_channelDoUpdate', \%params, 1);
+	if ($valueHash) {
+		my %params = (chHash => $chHash, valueHash => $valueHash);
+		InternalTimer(gettimeofday(), 'HM485_channelDoUpdate', \%params, 1);
+	}
 }
 
 sub HM485_channelDoUpdate($$) {
 	my ($hash)    = @_;
 	my $chHash    = $hash->{chHash};
 	my $name      = $chHash->{NAME};
-	my $value     = $hash->{value};
+	my $valueHash = $hash->{valueHash};
 	my $doTrigger = !exists($hash->{doTrigger}) ? 1 : $hash->{doTrigger};
 
-	# we trigger events only if necesary
-	if ($chHash->{STATE} ne $value) {
-		readingsSingleUpdate($chHash, 'state', $value, $doTrigger);
-		Log3($hash, 2, 'Set state for: ' . $name . ' state: ' . $value);
+	readingsBeginUpdate($chHash);
+	foreach my $valueKey (keys $valueHash) {
+		my $value = $valueHash->{$valueKey}{val};
+
+		# we trigger events only if necesary
+		if (!exists($chHash->{READINGS}{$valueKey}{VAL}) || $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
+			readingsBulkUpdate($chHash, $valueKey, $value);
+			Log3($hash, 2, 'Set state for: ' . $name . ' ' . $valueKey . ': ' . $value);
+		}
 	}
+
+	readingsEndUpdate($chHash, $doTrigger);
 }
 
 sub HM485_getHmwidByName(@) { #in: name or HMid ==>out: HMid, "" if no match

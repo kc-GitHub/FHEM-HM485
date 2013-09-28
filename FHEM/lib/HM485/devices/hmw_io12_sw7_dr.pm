@@ -492,7 +492,7 @@ our %definition = (
 								'true'		=> 200,
 							},
 						},
-						'Working' => {
+						'working' => {
 							'operations'=> 'read,event',
 							'ui_flags'	=> 'internal',
 							'logical'	=> {
@@ -502,7 +502,7 @@ our %definition = (
 							'physical'	=> {
 								'type'		=> 'int',
 								'interface'	=> 'command',
-								'value_id'	=> 'state',
+								'value_id'	=> 'state_flags',
 								'get'	=> {
 									'request'	=> 'LEVEL_GET',
 									'response'	=> 'INFO_LEVEL',
@@ -516,7 +516,7 @@ our %definition = (
 								'type'		=> 'boolean_integer',
 							},
 						},
-						'Inhibit' => {
+						'inhibit' => {
 							'operations'=> 'read,write,event',
 							'control'	=> 'none',
 							'loopback'	=> 1,
@@ -527,7 +527,7 @@ our %definition = (
 							'physical'	=> {
 								'type'		=> 'int',
 								'interface'	=> 'command',
-								'value_id'	=> 'state',
+								'value_id'	=> 'inhibit',
 								'set'	=> {
 									'request'	=> 'SET_LOCK',
 								},
