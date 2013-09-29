@@ -220,29 +220,39 @@ sub parseFrameData($$;$) {
 	$onlyEvent = (defined($onlyEvent) && $onlyEvent == 1) ? 1 : 0;
 
 	my $frameType = hex(substr($data, 0,2));
-	my $modelGroup = HM485::Device::getModelGroup($model);
+	my $modelGroup = getModelGroup($model);
 	my $frames = getValueFromDefinitions($modelGroup . '/frames/');
+
+#print Dumper ($frames);
 
 	my %retVal;
 	if ($frames) {
 		my $params;
+
+		my $fType = getFrameType($modelGroup, $data, 1);
+
 		foreach my $frame (keys $frames) {
 			$frame = lc($frame);
 			my $fType      = ord($frames->{$frame}{type});
 			my $fDirection = $frames->{$frame}{dir};
 			my $fEvent = exists($frames->{$frame}{event}) ? $frames->{$frame}{event} : 0;
+#main::Log3('', 1, "modelGroup: $modelGroup, frameType: $frameType, $data ------------------------------------------");		
 
 			# returned channel field starts in data part of the frame and based on hex strings (2 digits per byte)
 			my $chField = ($frames->{$frame}{ch_field} - 9) * 2;
 			$retVal{ch} = sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1);
 
-			if (($frameType == $fType) && ($fDirection eq '>') && ($onlyEvent == $fEvent)) {
+			if (($frameType == $fType) && ($onlyEvent == $fEvent)) {
 				$params  = $frames->{$frame}{params};
 
 				$retVal{id} = $frame;
 				last;
 			}
+#main::Log3('', 1, "fType: $fType, fEvent: $fEvent, frameType: $frameType");
 		}
+
+#print Dumper(%retVal);
+
 		if ($params) {
 			$retVal{'values'} = convertDataToValue($data, $params);
 			my $valueMapings = getValueFromDefinitions($modelGroup . '/channels/Switch/params/Values');
@@ -251,6 +261,30 @@ sub parseFrameData($$;$) {
 	}
 
 	return \%retVal;
+}
+
+sub getFrameType($$;$) {
+	my ($modelGroup, $data, $onlyEvent) = @_;
+	
+	$onlyEvent    = (defined($onlyEvent) && $onlyEvent == 1) ? 1 : 0;
+	my $frameType = hex(substr($data, 0,2));
+	
+
+	my $frames = getValueFromDefinitions($modelGroup . '/frames/');
+	if ($frames) {
+		foreach my $frame (keys $frames) {
+			my $fType  = ord($frames->{$frame}{type});
+			my $fEvent = $frames->{$frame}{event} ? $frames->{$frame}{event} : 0;
+			
+			if (($frameType == $fType) && ($onlyEvent == $fEvent)) {
+				my $params = $frames->{$frame}{params};
+				my $t = convertDataToValue($data, $params);
+main::Log3('', 1, "frame: $frame,  ------------------------------------------");
+print Dumper($t);
+			}
+		}
+	}
+	
 }
 
 sub mapValues($$) {
@@ -272,28 +306,37 @@ sub mapValues($$) {
 sub convertDataToValue($$) {
 	my ($data, $params) = @_;
 	$data = pack('H*', $data);
-	
+
+	my $dataValid = 1;
 	my %retVal;
-	foreach my $param (keys $params) {
-		$param = lc($param);
-		my $index = ($params->{$param}{index} - 9);
-		my $size = ($params->{$param}{size});
+	if ($params) {
+		foreach my $param (keys $params) {
+			$param = lc($param);
+			my $index = ($params->{$param}{'index'} - 9);
+			my $size = ($params->{$param}{size});
+			my $value;
 
-		if (isInt($index)) {
-			$retVal{$param}{val} = ord(substr($data, $index, $size));
-		} else {
-			my $bitsIndex = ($index - int($index)) * 10;
-			my $bitsSize = ($size - int($size)) * 10;
-			$retVal{$param}{val} = ord(substr($data, int($index), 1));
+			if (isInt($index) && $size >=1) {
+				$value = ord(substr($data, $index, $size));
+			} else {
+				my $bitsIndex = ($index - int($index)) * 10;
+				my $bitsSize  = ($size - int($size)) * 10;
+				$value = ord(substr($data, int($index), 1));
+				$value = subBit($value, $bitsIndex, $bitsSize);
+			}
 
-			$retVal{$param}{val} = subBit($retVal{$param}{val}, $bitsIndex, $bitsSize);
+			my $constValue = $params->{$param}{const_value};
+#			print Dumper("defined($constValue) && $constValue eq $retVal{$param}{val}");
+			if (!defined($constValue) || $constValue eq $value) {
+				$retVal{$param}{val} = $value;
+			} else {
+				$dataValid = 0;
+				last
+			}
 		}
-
-		my $dataSize  = $params->{$param}{size};
-		my $type      = $params->{$param}{type};
 	}
-
-	return \%retVal;
+	
+	return $dataValid ? \%retVal : undef;
 }
 
 sub translsteValue($$$) {

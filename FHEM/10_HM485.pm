@@ -358,12 +358,14 @@ sub HM485_ProcessResponse($$$$) {
 sub HM485_ProcessChannelState($$$) {
 	my ($hash, $target, $msgData) = @_;
 	
-	my $name      = $hash->{NAME};
+	my $name = $hash->{NAME};
+#	print Dumper($hash);
 
 	if ($msgData) {
 		my $data      = substr($msgData, 2);
 		my $model     = AttrVal($name, 'model', undef);
-		
+
+
 		if (defined($model) && $model) {
 			my $valueHash = HM485::Device::parseFrameData($model, $msgData, 1);
 
