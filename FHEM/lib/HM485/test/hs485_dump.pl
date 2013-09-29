@@ -3,7 +3,7 @@
 use strict;
 use IO::File;
 
-my $DEV = '/dev/ttyUSB2';
+my $DEV = '/dev/ttyUSB1';
 
 use Device::SerialPort;
 use Time::HiRes qw(gettimeofday tv_interval);

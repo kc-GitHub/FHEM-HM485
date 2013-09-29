@@ -180,6 +180,7 @@ sub HM485_LAN_Read($) {
 	my ($hash) = @_;
 
 	my $buffer = DevIo_SimpleRead($hash);
+	$buffer = HM485::Util::unescapeMessage($buffer);
 
 	if($buffer) {
 		if ($buffer eq 'Connection refused. Only on Client allowed') {
@@ -270,6 +271,7 @@ sub HM485_LAN_Write($$;$) {
 		}
 
 		if ($sendData) {
+			$sendData = HM485::Util::escapeMessage($sendData);
 			DevIo_SimpleWrite(
 				$hash, chr(0xFD) . chr(length($sendData)) . $sendData, 0
 			);
