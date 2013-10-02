@@ -325,7 +325,7 @@ sub HM485_ProcessResponse($$$$) {
 					HM485_CreateSubdevices($hash, $model);
 				}
 				
-				HM485_ProcessChannelState($hash, $target, $msgData);
+				HM485_ProcessChannelState($hash, $target, $msgData, 'get', 'response');
 				
 			} else {
 				$ioHash->{'.forAutocreate'}{$target}{$attrName} = $msgData;
@@ -355,35 +355,35 @@ sub HM485_ProcessResponse($$$$) {
 	delete ($ioHash->{'.waitForInfo'}{$msgId});
 }
 
-sub HM485_ProcessChannelState($$$) {
-	my ($hash, $target, $msgData) = @_;
+sub HM485_ProcessChannelState($$$$$) {
+	my ($hash, $target, $msgData, $type, $action) = @_;
 	
 	my $name = $hash->{NAME};
-#	print Dumper($hash);
-
 	if ($msgData) {
 		my $data      = substr($msgData, 2);
 		my $model     = AttrVal($name, 'model', undef);
 
-
 		if (defined($model) && $model) {
-			my $valueHash = HM485::Device::parseFrameData($model, $msgData, 1);
-
-			my $modelGroup = HM485::Device::getModelGroup($model);
-			my $subType = HM485::Device::getSubtypeFromChannelNo($modelGroup, $valueHash->{ch});
-			$valueHash = HM485::Device::translsteValue($valueHash, $modelGroup, $subType);
-
-			my $chHash = HM485_getHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
-			HM485_channelUpdate($chHash, $valueHash->{'values'});
+			my $valueHash = HM485::Device::parseFrameData($model, $msgData, $type, $action);
+			
+			if ($valueHash->{ch}) {
+				my $chHash = HM485_getHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
+				HM485_channelUpdate($chHash, $valueHash->{value});
+			}
 		}
 	}
 }
 
 sub HM485_channelUpdate($$) {
 	my ($chHash, $valueHash) = @_;
+	my $name = $chHash->{NAME};
 	
-	if ($valueHash) {
+	if ($valueHash && !AttrVal($name, 'ignore', 0)) {
 		my %params = (chHash => $chHash, valueHash => $valueHash);
+		
+		if (AttrVal($name, 'do_not_notify', 0)) {
+			$params{doTrigger} = 0;
+		}
 		InternalTimer(gettimeofday(), 'HM485_channelDoUpdate', \%params, 1);
 	}
 }
@@ -397,11 +397,11 @@ sub HM485_channelDoUpdate($$) {
 
 	readingsBeginUpdate($chHash);
 	foreach my $valueKey (keys $valueHash) {
-		my $value = $valueHash->{$valueKey}{val};
+		my $value = $valueHash->{$valueKey};
 
 		if (defined($value)) {
 			# we trigger events only if necesary
-			if (!exists($chHash->{READINGS}{$valueKey}{VAL}) ||
+			if (!exists($chHash->{READINGS}{$valueKey}) ||
 			    $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
 
 				readingsBulkUpdate($chHash, $valueKey, $value);
@@ -451,7 +451,7 @@ sub HM485_getHashByHmwid ($) {
 
 
 
-sub HM485_ProcessEvent() {
+sub HM485_ProcessEvent($$$) {
 	my ($hash, $msgId, $msgData) = @_;
 
 	my $source  = substr($msgData, 0,8);      # needed?
@@ -469,7 +469,7 @@ sub HM485_ProcessEvent() {
 		HM485_sendCommand($hash, $target, '6E');   # (n) request the module serial number
 		
 	} else {
-		HM485_ProcessChannelState($devHash, $target, $data);
+		HM485_ProcessChannelState($devHash, $target, $data, 'event', 'frame');
 	}
 }
 
@@ -648,6 +648,14 @@ sub HM485_Set($@) {
 			
 			if ($cmd eq 'test') {
 #				$modules{$defs{$name}{TYPE}}{AttrList} =~ s/$item//;
+				# debug
+#				my $valueHash = HM485::Device::parseFrameData(
+#					'HMW_IO_12_Sw7_DR',
+##					'690C01',
+#					'4B0B0032',
+#					'event',
+#					'frame'
+#				);
 				
 			} elsif ($cmd eq 'Press_Long' || $cmd eq 'Press_Short') {
 				#Todo: Make ready

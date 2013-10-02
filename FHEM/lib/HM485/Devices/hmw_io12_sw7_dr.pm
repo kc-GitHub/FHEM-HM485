@@ -1,4 +1,4 @@
-package HM485::devices;
+package HM485::Devices;
 
 our %definition = (
 	'HMW-IO12-SW7'	=> {
@@ -12,7 +12,7 @@ our %definition = (
 		},
 		'params' => {
 			'master'	=> {
-				'LOGGING_TIME'	=> {											# parameter id
+				'logging_time'	=> {											# parameter id
 					'logical'		=> {										# time after state changes reeported by device via message
 						'type'		=> 'float',									# parameter value type
 						'min'		=> 0.5,
@@ -32,7 +32,7 @@ our %definition = (
 						'offset'	=> 0.0,										# ???
 					},
 				},
-				'CENTRAL_ADDRESS'	=> {
+				'central_address'	=> {
 					'hidden'		=> 1,
 					'enforce'		=> 0x00000001,
 					'logical'		=> {
@@ -45,8 +45,8 @@ our %definition = (
 						'address'	=> 0x0002,
 					},
 				},
-				'DIRECT_LINK_DEACTIVATE'	=> {								# no direct link available
-					'hidden'		=> 1,										# should not vidible in UI ???
+				'direct_link_deactivate'	=> {								# no direct link available
+					'hidden'		=> 1,										# should not vidible in ui ???
 					'enforce'		=> 1,										# sould always set to this value ???
 					'logical'		=> {
 						'type'		=> 'boolean',								# parameter value type
@@ -62,8 +62,8 @@ our %definition = (
 			},
 		},
 		'frames'	=> {
-			'level_set'	=> {
-				'type'		=> 'x',
+			'level_set'	=> {			# parameter id, must match to chanel/parameter/physical/value_id
+				'type'		=> 0x78,											# x
 				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
@@ -76,12 +76,12 @@ our %definition = (
 				},
 			},
 			'level_get'	=> {													# frame id
-				'type'		=> 'S',												# frame type
+				'type'		=> 0x73,											# s
 				'dir'		=> '<',												# prefered communication direction < means to-device, we need them??? 
 				'ch_field'	=> 10,												# position in frame ??? we need them???
 			},
 			'info_level'	=> {
-				'type'		=> 'i',
+				'type'		=> 0x69,											# i
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
@@ -99,7 +99,7 @@ our %definition = (
 				},
 			},
 			'key_event_short'	=> {
-				'type'		=> 'K',
+				'type'		=> 0x4B,											# K
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
@@ -108,7 +108,7 @@ our %definition = (
 						'type'			=> 'int',								# value type
 						'index'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
-						'const_value'	=> 0									# Parameter set always tu this value,short (0) long keypress (1)
+						'const_value'	=> 0									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'counter'	=> {											# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
@@ -118,7 +118,7 @@ our %definition = (
 				},
 			},
 			'key_event_long'	=> {
-				'type'		=> 'K',
+				'type'		=> 0x4B,											# K
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
@@ -127,7 +127,7 @@ our %definition = (
 						'type'			=> 'int',								# value type
 						'index'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
-						'const_value'	=> 1									# Parameter set always tu this value,short (0) long keypress (1)
+						'const_value'	=> 1									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'counter'	=> {											# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
@@ -137,7 +137,7 @@ our %definition = (
 				},
 			},
 			'key_sim_short'	=> {
-				'type'			=> 'K',
+				'type'			=> 0x4B,										# K
 				'dir'			=> '>',											# prefered communication direction > means from-device, we need them???
 				'ch_field'		=> 10,											# ???
 				'rec_ch_field'	=> 11,											# ???
@@ -146,7 +146,7 @@ our %definition = (
 						'type'			=> 'int',								# value type
 						'index'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
-						'const_value'	=> 0									# Parameter set always tu this value,short (0) long keypress (1)
+						'const_value'	=> 0									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'sim_counter'	=> {										# aditional frame parameter (sim_counter)
 						'type'	=> 'int',										# value type
@@ -156,7 +156,7 @@ our %definition = (
 				},
 			},
 			'key_sim_long'	=> {
-				'type'			=> 'K',
+				'type'			=> 0x4B,										# K
 				'dir'			=> '>',											# prefered communication direction > means from-device, we need them???
 				'ch_field'		=> 10,											# ???
 				'rec_ch_field'	=> 11,											# ???
@@ -165,7 +165,7 @@ our %definition = (
 						'type'			=> 'int',								# value type
 						'index'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
-						'const_value'	=> 1									# Parameter set always tu this value,short (0) long keypress (1)
+						'const_value'	=> 1									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'sim_counter'	=> {										# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
@@ -175,7 +175,7 @@ our %definition = (
 				},
 			},
 			'set_lock'	=> {
-				'type'		=> 'l',
+				'type'		=> 0x6C,											# l
 				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
 				'ch_field'	=> 10,												# ???
 				'params'	=> {
@@ -187,7 +187,7 @@ our %definition = (
 				},
 			},
 			'toggle_install_test'	=> {
-				'type'		=> 'x',
+				'type'		=> 0x78,											# x
 				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
 				'ch_field'	=> 10,												# ???
 				'params'	=> {
@@ -200,9 +200,9 @@ our %definition = (
 			},
 		},
 		'channels'	=> {
-			'Maintenance' => {
+			'maintenance' => {
 				'id'		=> 0,
-				'ui-flags'	=> 'internal',										# flages for UI rendering ???
+				'ui-flags'	=> 'internal',										# flages for ui rendering ???
 				'class'		=> 'maintenance',
 				'count'	=> 1,													# count of channels of this type it the device
 				'params'	=> {
@@ -211,7 +211,7 @@ our %definition = (
 					},
 					'maint_ch_values'	=> {									# paramset id
 						'type'	=> 'values',
-						'UNREACH'	=> {										# this parameter is set when device is not reachable
+						'unreach'	=> {										# this parameter is set when device is not reachable
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -222,7 +222,7 @@ our %definition = (
 								'interface'	=> 'internal',
 							},
 						},
-						'STICKY_UNREACH'	=> {								# this parameter is set when device is not reachable again
+						'sticky_unreach'	=> {								# this parameter is set when device is not reachable again
 							'operations'	=> 'read,write,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -233,7 +233,7 @@ our %definition = (
 								'interface'	=> 'internal',
 							}
 						},
-						'CONFIG_PENDING'	=> {								# not used this time with FHEM
+						'config_pending'	=> {								# not used this time with fhem
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -247,22 +247,22 @@ our %definition = (
 					},
 				},
 			},
-			'Key'	=> {
+			'key'	=> {
 				'id'	=> 1,
 				'count'	=> 12,													# count of channels of this type it the device
-				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 0
+				'physical_index_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0
 				'link_roles'	=> {
-					'source'	=> 'SWITCH',
+					'source'	=> 'switch',
 				},
 				'params'	=> {
-					'Master'	=> {
+					'master'	=> {
 						'address_start'	=> 0x07,
 						'address_step'	=> 2,
-						'INPUT_TYPE'	=> {
+						'input_type'	=> {
 							'logical'	=> {
 								'type'	=> 'option',
-								'options' 	=> 'Switch, Pushbutton',
-								'default'	=> 'Pushbutton',
+								'options' 	=> 'switch, pushbutton',
+								'default'	=> 'pushbutton',
 							},
 							'physical'	=> {
 								'type'	=> 'int',
@@ -273,7 +273,7 @@ our %definition = (
 								},
 							},
 						},
-						'INPUT_LOCKED'	=> {
+						'input_locked'	=> {
 							'logical'	=> {
 								'type'	=> 'boolean',
 								'default'	=> 0,
@@ -291,7 +291,7 @@ our %definition = (
 								'invert'	=> 1
 							},
 						},
-						'LONG_PRESS_TIME'	=> {
+						'long_press_time'	=> {
 							'logical'	=> {
 								'type'		=> 'float',
 								'min'		=> 0.4,
@@ -311,17 +311,17 @@ our %definition = (
 								'type'	=> 'float_integer_scale',
 								'factor'	=> 10
 							},
-							# ToDo: conversion integer_integer_map @see xml file
+							# todo: conversion integer_integer_map @see xml file
 						},
 					},
-					'Link'	=> {
-						'peer_param'	=> 'ACTUATOR',
-						'channel_param'	=> 'CHANNEL',
+					'link'	=> {
+						'peer_param'	=> 'actuator',
+						'channel_param'	=> 'channel',
 						'count'			=> 27,
 						'address_start'	=> 0x359,
 						'address_start'	=> 0x359,
 						'address_step'	=> 6,
-						'CHANNEL'	=> {
+						'channel'	=> {
 							'operations'	=> 'none',							# which type of actions supports the channel ??? 
 							'hidden'		=> 1,
 							'logical'		=> {
@@ -339,7 +339,7 @@ our %definition = (
 								},
 							},
 						},
-						'ACTUATOR'	=> {
+						'actuator'	=> {
 							'operations'	=> 'none',							# which type of actions supports the channel ??? 
 							'hidden'		=> 1,
 							'logical'		=> {
@@ -363,72 +363,72 @@ our %definition = (
 							},
 						}
 					},
-					'Values'	=> {
-						'Press_Short'	=> {
+					'values'	=> {
+						'press_short'	=> {
 							'operations'	=> 'event,read,write', 
-							'control'		=> 'BUTTON.SHORT',
+							'control'		=> 'button.short',
 							'logical'		=> {
 								'type'		=> 'action',
 							},
 							'physical'		=> {
 								'type'		=> 'int',
 								'interface'	=> 'command',
-								'value_id'	=> 'COUNTER',
+								'value_id'	=> 'counter',
 								'event'		=> {
-									'frame'	=> 'KEY_EVENT_SHORT',
+									'frame'	=> 'key_event_short',
 								},
 								'set'		=> {
-									'request'	=> 'KEY_SIM_SHORT',
+									'request'	=> 'key_sim_short',
 								},
 							},
 							'conversion'	=> {
 								'type'			=> 'action_key_counter',
-								'sim_counter'	=> 'SIM_COUNTER',
+								'sim_counter'	=> 'sim_counter',
 								'counter_size'	=> 6,
 							},
 						},
-						'Press_Long'	=> {
+						'press_long'	=> {
 							'operations'	=> 'event,read,write', 
-							'control'		=> 'BUTTON.LONG',
+							'control'		=> 'button.long',
 							'logical'		=> {
 								'type'		=> 'action',
 							},
 							'physical'		=> {
 								'type'		=> 'int',
 								'interface'	=> 'command',
-								'value_id'	=> 'COUNTER',
+								'value_id'	=> 'counter',
 								'event'		=> {
-									'frame'	=> 'KEY_EVENT_LONG',
+									'frame'	=> 'key_event_long',
 								},
 								'set'		=> {
-									'request'	=> 'KEY_SIM_LONG',
+									'request'	=> 'key_sim_long',
 								},
 							},
 							'conversion'	=> {
 								'type'			=> 'action_key_counter',
-								'sim_counter'	=> 'SIM_COUNTER',
+								'sim_counter'	=> 'sim_counter',
 								'counter_size'	=> 6,
 							},
 						},
 					},
 				}
 			},
-			'Switch' => {
+			'switch' => {
 				'id'	=> 13,
 				'count'	=> 7,
-				'physical_index_offset'	=> -1,									# channel in device starts from INDEX + physical_index_offset => 0
+				'physical_index_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0
 				'link_roles'	=> {
-					'target'	=> 'SWITCH',
+					'target'	=> 'switch',
 				},
 				'params'	=> {
-					'Master'	=> {
-						'address_start'	=> 0x1F,
+					'master'	=> {
+						'address_start'	=> 0x1f,
 						'address_step'	=> 2,
-						'LOGGING'	=> {
+						'logging'	=> {
 							'logical'	=> {
 								'type'	=> 'option',
-								'options' 	=> 'On,Off',
-								'default'	=> 'On',
+								'options' 	=> 'on,off',
+								'default'	=> 'on',
 							},
 							'physical'	=> {
 								'type'	=> 'int',
@@ -440,17 +440,17 @@ our %definition = (
 							},
 						},
 					},
-					'Link'	=> {
-						'peer_param'	=> 'SENSOR',
-						'channel_param'	=> 'CHANNEL',
+					'link'	=> {
+						'peer_param'	=> 'sensor',
+						'channel_param'	=> 'channel',
 						'count'			=> 29,
-						'address_start'	=> 0x2D,
+						'address_start'	=> 0x2d,
 						'address_step'	=> 28,
-						'LOGGING'	=> {
+						'logging'	=> {
 							'logical'	=> {
 								'type'	=> 'option',
-								'options' 	=> 'On,Off',
-								'default'	=> 'On',
+								'options' 	=> 'on,off',
+								'default'	=> 'on',
 							},
 							'physical'	=> {
 								'type'	=> 'int',
@@ -462,10 +462,10 @@ our %definition = (
 							},
 						},
 					},
-					'Values' => {
+					'values' => {
 						'state'	=> {
 							'operations'=> 'read,write,event',
-							'control'	=> 'SWITCH.STATE',
+							'control'	=> 'switch.state',
 							'logical'	=> {
 								'type'	=> 'boolean',
 								'default'	=> 0,
@@ -475,14 +475,14 @@ our %definition = (
 								'interface'	=> 'command',
 								'value_id'	=> 'state',
 								'set'	=> {
-									'request'	=> 'LEVEL_SET',
+									'request'	=> 'level_set',
 								},
 								'get'	=> {
-									'request'	=> 'LEVEL_GET',
-									'response'	=> 'INFO_LEVEL',
+									'request'	=> 'level_get',
+									'response'	=> 'info_level',
 								},
 								'event'	=> {
-									'frame'	=> 'INFO_LEVEL',
+									'frame'	=> 'info_level',
 								},
 							},
 							'conversion'	=> {
@@ -504,12 +504,12 @@ our %definition = (
 								'interface'	=> 'command',
 								'value_id'	=> 'state_flags',
 								'get'	=> {
-									'request'	=> 'LEVEL_GET',
-									'response'	=> 'INFO_LEVEL',
+									'request'	=> 'level_get',
+									'response'	=> 'info_level',
 								},
 								'event'	=> {
-									'frame_1'	=> 'INFO_LEVEL',
-									'frame_2'	=> 'ACK_STATUS',
+									'frame_1'	=> 'info_level',
+									'frame_2'	=> 'ack_status',
 								},
 							},
 							'conversion'	=> {
@@ -529,7 +529,7 @@ our %definition = (
 								'interface'	=> 'command',
 								'value_id'	=> 'inhibit',
 								'set'	=> {
-									'request'	=> 'SET_LOCK',
+									'request'	=> 'set_lock',
 								},
 							},
 						},

@@ -155,12 +155,16 @@ sub removeValuesFromList($$@) {
 sub escapeMessage($) {
 	my ($message) = @_;
 
-	my $start = substr($message, 0,1);
-	$message = substr($message, 1);
-	
-	$message =~ s/\xFC/\xFC\x7C/g;
-	$message =~ s/\xFD/\xFC\x7D/g;
-#	$message =~ s/\xFE/\xFC\x7E/g;
+	my $start;
+
+	if ($message) {
+		$start = substr($message, 0,1);
+		$message = substr($message, 1);
+		
+		$message =~ s/\xFC/\xFC\x7C/g;
+		$message =~ s/\xFD/\xFC\x7D/g;
+	#	$message =~ s/\xFE/\xFC\x7E/g;
+	}
 
 	return $start . $message;
 }
@@ -168,9 +172,11 @@ sub escapeMessage($) {
 sub unescapeMessage($) {
 	my ($message) = @_;
 
-	$message =~ s/\xFC\x7C/\xFC/g;
-	$message =~ s/\xFC\x7D/\xFD/g;
-#	$message =~ s/\xFC\x7E/\xFE/g;
+	if ($message) {
+		$message =~ s/\xFC\x7C/\xFC/g;
+		$message =~ s/\xFC\x7D/\xFD/g;
+	#	$message =~ s/\xFC\x7E/\xFE/g;
+	}
 	
 	return $message
 }

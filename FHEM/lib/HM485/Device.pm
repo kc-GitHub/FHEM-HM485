@@ -8,7 +8,7 @@ use Scalar::Util qw(looks_like_number);
 use vars qw {%attr %defs %modules}; #supress errors in Eclipse EPIC
 
 use constant {
-	DEVICE_PATH		=> '/FHEM/lib/HM485/devices/',
+	DEVICE_PATH		=> '/FHEM/lib/HM485/Devices/',
 };
 
 my %deviceDefinitions;
@@ -31,23 +31,24 @@ sub init () {
 			my $ret=do $deviceFile;
 
 			if($ret) {
-				foreach my $dev (keys %HM485::devices::definition) {
-					$deviceDefinitions{$dev} = $HM485::devices::definition{$dev};
+				foreach my $dev (keys %HM485::Devices::definition) {
+					$deviceDefinitions{$dev} = $HM485::Devices::definition{$dev};
 				}
 			} else {
 				main::Log (1, 'HM485: Error in device file: ' . $deviceFile . ' deactivated:' . "\n $@");
 			}
+
+			%HM485::Devices::definition = ();
 		} else {
 			main::Log (1, 'HM485: Error loading device file: ' .  $deviceFile);
 		}
 	}
-	%HM485::devices::definition = ();
 	closedir(DH);
 
 	if (scalar(keys %deviceDefinitions) < 1 ) {
 		return 'HM485: Warning, no device definitions loaded!';
 	}
-	
+
 	initModels();
 	
 	return undef;
@@ -64,13 +65,13 @@ sub init () {
 sub initModels () {
 	foreach my $modelGroupKey (keys %deviceDefinitions) {
 
-		if ( defined($deviceDefinitions{$modelGroupKey}{'models'}) ) {
-			foreach my $modelKey (keys (%{$deviceDefinitions{$modelGroupKey}{'models'}})) {
-				if (defined ($deviceDefinitions{$modelGroupKey}{'models'}{$modelKey}{'type'}) ) {
-					$models{$modelKey}{MODELKEY} = $modelGroupKey;
-					$models{$modelKey}{MODEL} = $modelKey;
-					$models{$modelKey}{NAME} = $deviceDefinitions{$modelGroupKey}{'models'}{$modelKey}{'name'};
-					$models{$modelKey}{TYPE} = $deviceDefinitions{$modelGroupKey}{'models'}{$modelKey}{'type'};
+		if ( defined($deviceDefinitions{$modelGroupKey}{models}) ) {
+			foreach my $modelKey (keys (%{$deviceDefinitions{$modelGroupKey}{models}})) {
+				if (defined ($deviceDefinitions{$modelGroupKey}{models}{$modelKey}{type}) ) {
+					$models{$modelKey}{modelkey} = $modelGroupKey;
+					$models{$modelKey}{model} = $modelKey;
+					$models{$modelKey}{name} = $deviceDefinitions{$modelGroupKey}{models}{$modelKey}{name};
+					$models{$modelKey}{type} = $deviceDefinitions{$modelGroupKey}{models}{$modelKey}{type};
 				}
 			}
 		}
@@ -88,7 +89,7 @@ sub getModelFromType($) {
 
 	my $retVal = undef;
 	foreach my $model (keys (%models)) {
-		if (exists($models{$model}{TYPE}) && $models{$model}{TYPE} == $hwType) {
+		if (exists($models{$model}{type}) && $models{$model}{type} == $hwType) {
 			$retVal = $model;
 			last;
 		}
@@ -108,8 +109,8 @@ sub getModelName($) {
 	my ($hwType) = @_;
 	
 	my $retVal = $hwType;
-	if (defined($models{$hwType}{'NAME'})) {
-		$retVal = $models{$hwType}{'NAME'};
+	if (defined($models{$hwType}{'name'})) {
+		$retVal = $models{$hwType}{'name'};
 	}
 	
 	return $retVal;
@@ -126,8 +127,8 @@ sub getModelGroup($) {
 	my ($hwType) = @_;
 
 	my $retVal = $hwType;
-	if (defined($models{$hwType}{'MODELKEY'})) {
-		$retVal = $models{$hwType}{'MODELKEY'};
+	if (defined($models{$hwType}{modelkey})) {
+		$retVal = $models{$hwType}{modelkey};
 	}
 	
 	return $retVal; 
@@ -144,8 +145,8 @@ sub getModelList() {
 	my @modelList;
 	
 	foreach my $type (keys %models) {
-		if ($models{$type}{'MODEL'}) {
-			push (@modelList, $models{$type}{'MODEL'});
+		if ($models{$type}{'model'}) {
+			push (@modelList, $models{$type}{'model'});
 		}
 	}
 
@@ -215,92 +216,64 @@ sub getSubtypeFromChannelNo($$) {
 	return $retVal;
 }
 
-sub parseFrameData($$;$) {
-	my ($model, $data, $onlyEvent) = @_;
-	$onlyEvent = (defined($onlyEvent) && $onlyEvent == 1) ? 1 : 0;
+=head2
+	Parse incomming frame data and split to several values
+	
+	@param	hash	the hash of the IO device
+	@param	string	message to parse
+=cut
+sub parseFrameData($$$$) {
+	my ($model, $data, $type, $action) = @_;
 
+	my $modelGroup  = getModelGroup($model);
+	my $frameData   = getFrameInfos($modelGroup, $data, 1, '>');
+	my $retVal      = translateValue($modelGroup, $frameData);
+
+	return $retVal;
+}
+
+=head2
+	Get all infos of current frame data
+	
+	@param	string	the $modelGroup
+	@param	string	the frame data to parse
+	@param	boolean	optinal value identify the frame as event 
+	@param	string	optional frame direction (from or to device)
+=cut
+sub getFrameInfos($$;$$) {
+	my ($modelGroup, $data, $event, $dir) = @_;
+	
 	my $frameType = hex(substr($data, 0,2));
-	my $modelGroup = getModelGroup($model);
-	my $frames = getValueFromDefinitions($modelGroup . '/frames/');
-
-#print Dumper ($frames);
-
 	my %retVal;
-	if ($frames) {
-		my $params;
-
-		my $fType = getFrameType($modelGroup, $data, 1);
-
-		foreach my $frame (keys $frames) {
-			$frame = lc($frame);
-			my $fType      = ord($frames->{$frame}{type});
-			my $fDirection = $frames->{$frame}{dir};
-			my $fEvent = exists($frames->{$frame}{event}) ? $frames->{$frame}{event} : 0;
-#main::Log3('', 1, "modelGroup: $modelGroup, frameType: $frameType, $data ------------------------------------------");		
-
-			# returned channel field starts in data part of the frame and based on hex strings (2 digits per byte)
-			my $chField = ($frames->{$frame}{ch_field} - 9) * 2;
-			$retVal{ch} = sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1);
-
-			if (($frameType == $fType) && ($onlyEvent == $fEvent)) {
-				$params  = $frames->{$frame}{params};
-
-				$retVal{id} = $frame;
-				last;
-			}
-#main::Log3('', 1, "fType: $fType, fEvent: $fEvent, frameType: $frameType");
-		}
-
-#print Dumper(%retVal);
-
-		if ($params) {
-			$retVal{'values'} = convertDataToValue($data, $params);
-			my $valueMapings = getValueFromDefinitions($modelGroup . '/channels/Switch/params/Values');
-			$retVal{'values'} = mapValues($retVal{'values'}, $valueMapings);
-		}
-	}
-
-	return \%retVal;
-}
-
-sub getFrameType($$;$) {
-	my ($modelGroup, $data, $onlyEvent) = @_;
-	
-	$onlyEvent    = (defined($onlyEvent) && $onlyEvent == 1) ? 1 : 0;
-	my $frameType = hex(substr($data, 0,2));
-	
 
 	my $frames = getValueFromDefinitions($modelGroup . '/frames/');
 	if ($frames) {
 		foreach my $frame (keys $frames) {
-			my $fType  = ord($frames->{$frame}{type});
+			my $fType  = $frames->{$frame}{type};
 			my $fEvent = $frames->{$frame}{event} ? $frames->{$frame}{event} : 0;
+			my $fDir   = $frames->{$frame}{dir} ? $frames->{$frame}{dir} : 0;
 			
-			if (($frameType == $fType) && ($onlyEvent == $fEvent)) {
-				my $params = $frames->{$frame}{params};
-				my $t = convertDataToValue($data, $params);
-main::Log3('', 1, "frame: $frame,  ------------------------------------------");
-print Dumper($t);
+			if ($frameType == $fType &&
+			   (!defined($event) || $event == $fEvent) &&
+			   (!defined($event) || $dir eq $fDir) ) {
+
+				my $chField = ($frames->{$frame}{ch_field} - 9) * 2;
+				my $params = convertDataToValue($data, $frames->{$frame}{params});
+				if (defined($params)) {
+					%retVal = (
+						ch     => sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1),
+						params => $params,
+						type   => $fType,
+						event  => $frames->{$frame}{event} ? $frames->{$frame}{event} : 0,
+						id     => $frame
+					);
+					last;
+				}
 			}
 		}
 	}
 	
-}
-
-sub mapValues($$) {
-	my ($values, $valueMapings) = @_;
-
-	foreach my $valueMap (keys (%{$valueMapings})) {
-		my $valueId = $valueMapings->{$valueMap}{physical}{value_id};
-		if ($values->{$valueId}) {
-			my $val = $values->{$valueId};
-			delete ($values->{$valueId});
-			$values->{$valueMap} = $val;
-			$values->{$valueMap}{id}  = $valueId;
-		}
-	}
-	
-	return $values;
+	return \%retVal;
 }
 
 sub convertDataToValue($$) {
@@ -326,7 +299,6 @@ sub convertDataToValue($$) {
 			}
 
 			my $constValue = $params->{$param}{const_value};
-#			print Dumper("defined($constValue) && $constValue eq $retVal{$param}{val}");
 			if (!defined($constValue) || $constValue eq $value) {
 				$retVal{$param}{val} = $value;
 			} else {
@@ -339,53 +311,82 @@ sub convertDataToValue($$) {
 	return $dataValid ? \%retVal : undef;
 }
 
-sub translsteValue($$$) {
-	my ($valueHash, $modelGroup, $subType) = @_;
+sub translateValue($$) {
+	my ($modelGroup, $frameData) = @_;
 
-	if (exists($valueHash->{'values'})) {
-		foreach my $valueKey (keys $valueHash->{'values'}) {
-			my $valId = $valueHash->{'values'}{$valueKey}{id};
-			my $valueMap = getValueFromDefinitions(
-				$modelGroup . '/channels/' . $subType . '/params/Values/' . $valueKey . '/'
-			);
-			
+	if ($frameData->{ch}) {
+		foreach my $valId (keys $frameData->{params}) {
+			my $valueMap = getChannelValueMap($modelGroup, $frameData, $valId);
+
 			if ($valueMap) {
-				# state conversion ($value -> conversion type)
 				if ($valueMap->{conversion}{type} eq 'boolean_integer') {
 					if ($valueMap->{conversion}{threshold}) {
-						if ($valueHash->{'values'}{$valueKey}{val} > $valueMap->{conversion}{threshold}) {
-							$valueHash->{'values'}{$valueKey}{val} = 1;
+						if ($frameData->{params}{$valId}{val} > $valueMap->{conversion}{threshold}) {
+							$frameData->{params}{$valId}{val} = 1;
 						} else {
-							$valueHash->{'values'}{$valueKey}{val} = 0;
+							$frameData->{params}{$valId}{val} = 0;
 						}
 					} else {
-						if ($valueHash->{'values'}{$valueKey}{val}) {
-							$valueHash->{'values'}{$valueKey}{val} =1
+						if ($frameData->{params}{$valId}{val}) {
+							$frameData->{params}{$valId}{val} = 1
 						} else {
-							$valueHash->{'values'}{$valueKey}{val} =0
+							$frameData->{params}{$valId}{val} = 0
 						}
 					}
 				}
 
+				my $valName = $valueMap->{name};
 				if (defined($valueMap->{control})) {
 
-					if ($valueMap->{control} eq 'SWITCH.STATE') {
-						# state conversion ($value -> ui controll)
-						if ($valueHash->{'values'}{$valueKey}{val} == 1) {
-							$valueHash->{'values'}{$valueKey}{val} = 'on';
+					if ($valueMap->{control} eq 'switch.state') {
+						if ($frameData->{params}{$valId}{val} == 1) {
+							$frameData->{value}{$valName} = 'on';
 						} else {
-							$valueHash->{'values'}{$valueKey}{val} = 'off';
+							$frameData->{value}{$valName} = 'off';
 						}
-					}
-				}
 
-			} else {
-				delete ($valueHash->{'values'}{$valueKey}{val});
+					} elsif (index($valueMap->{control}, 'button.') > -1) {
+						$frameData->{value}{'state'} = $valName . ' ' . $frameData->{params}{counter}{val};
+
+					} else {
+						$frameData->{value}{$valName} = $frameData->{params}{$valId}{val};
+					}
+
+				} else {
+					$frameData->{value}{$valName} = $frameData->{params}{$valId}{val};
+				}
+			}
+		}
+	}
+
+	return $frameData;
+}
+
+sub getChannelValueMap($$$) {
+	my ($modelGroup, $frameData, $valId) = @_;
+	
+	my $channel = $frameData->{ch};
+	my $subType = getSubtypeFromChannelNo($modelGroup, $channel);
+	my $values  = getValueFromDefinitions(
+		$modelGroup . '/channels/' . $subType . '/params/values/'
+	);
+
+	my $retVal;
+	if (defined($values)) {
+		foreach my $value (keys $values) {
+			if ($values->{$value}{physical}{value_id} eq $valId) {
+				if (!defined($values->{$value}{physical}{event}{frame}) ||
+					$values->{$value}{physical}{event}{frame} eq $frameData->{id}
+				) {
+					$retVal = $values->{$value};
+					$retVal->{name} = $value;
+					last;
+				}
 			}
 		}
 	}
 	
-	return $valueHash;
+	return $retVal;
 }
 
 sub isInt($) {

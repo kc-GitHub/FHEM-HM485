@@ -38,6 +38,7 @@ sub HM485_LAN_Initialize($);
 sub HM485_LAN_Define($$);
 sub HM485_LAN_Ready($);
 sub HM485_LAN_Undef($$);
+sub HM485_LAN_Shutdown($);
 sub HM485_LAN_Read($);
 sub HM485_LAN_Write($$;$);
 sub HM485_LAN_Set($@);
@@ -50,7 +51,7 @@ sub HM485_LAN_Connect($);
 sub HM485_LAN_RemoveValuesFromAttrList($@);
 sub HM485_LAN_openDev($;$);
 sub HM485_LAN_checkAndCreateHM485d($);
-sub HM485_LAN_getHM485dPid($$);
+sub HM485_LAN_HM485dGetPid($$);
 
 use constant {
 	SERIALNUMBER_DEF   => 'SGW0123456',
@@ -69,22 +70,27 @@ sub HM485_LAN_Initialize($) {
 	my ($hash) = @_;
 	my $dev  = $hash->{DEF};
 	
+	# ToDo: remove after debugging
+#	do '/opt/FHEM/fhem.dev/FHEM/lib/HM485/Device.pm';
+
 	my $ret = HM485::Device::init();
+
 	if (defined($ret)) {
 		Log3 ($hash, 1, $ret);
 	} else {
 
 		require $attr{global}{modpath} . '/FHEM/DevIo.pm';
 
-		$hash->{DefFn}     = 'HM485_LAN_Define';
-		$hash->{ReadyFn}   = 'HM485_LAN_Ready';
-		$hash->{UndefFn}   = 'HM485_LAN_Undef';
-		$hash->{ReadFn}    = 'HM485_LAN_Read';
-		$hash->{WriteFn}   = 'HM485_LAN_Write';
-		$hash->{SetFn}     = 'HM485_LAN_Set';
-		$hash->{AttrFn}    = "HM485_LAN_Attr";
+		$hash->{DefFn}      = 'HM485_LAN_Define';
+		$hash->{ReadyFn}    = 'HM485_LAN_Ready';
+		$hash->{UndefFn}    = 'HM485_LAN_Undef';
+		$hash->{ShutdownFn} = 'HM485_LAN_Shutdown';
+		$hash->{ReadFn}     = 'HM485_LAN_Read';
+		$hash->{WriteFn}    = 'HM485_LAN_Write';
+		$hash->{SetFn}      = 'HM485_LAN_Set';
+		$hash->{AttrFn}     = "HM485_LAN_Attr";
 	
-		$hash->{AttrList}  = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
+		$hash->{AttrList}   = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
 		                     'HM485d_startTimeout HM485d_device ' . 
 		                     'HM485d_serialNumber HM485d_logfile ' .
 		                     'HM485d_detatch:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
@@ -166,8 +172,26 @@ sub HM485_LAN_Undef($$) {
 	my ($hash, $name) = @_;
 
 	DevIo_CloseDev($hash);
+	
+	if (!AttrVal($name, 'HM485d_detatch', 0)) {
+		HM485_LAN_HM485dStop($hash);
+	}
 
 	return undef;
+}
+
+=head2
+	Implements Shutdown function.
+
+	@param	hash    hash of device addressed
+=cut
+sub HM485_LAN_Shutdown($) {
+	my ($hash) = @_;
+	my $name = $hash->{NAME};
+
+	if (!AttrVal($name, 'HM485d_detatch', 0)) {
+		HM485_LAN_HM485dStop($hash);
+	}
 }
 
 =head2
@@ -307,11 +331,16 @@ sub HM485_LAN_Set($@) {
 		$msg = '"set ' . $name . '" needs one or more parameter';
 	
 	} else {
+		if (AttrVal($name, 'HM485d_bind', 0)) {
+			$sets{HM485d} = 'status,stop,start,restart';
+		}
+
 		if(!defined($sets{$cmd})) {
 			my $arguments = ' ';
 			foreach my $arg (sort keys %sets) {
 				$arguments.= $arg . ($sets{$arg} ? (':' . $sets{$arg}) : '') . ' ';
 			}
+						
 			$msg = 'Unknown argument ' . $cmd . ', choose one of ' . $arguments;
 
 		} elsif ($cmd && exists($hash->{discoveryRunning}) && $hash->{discoveryRunning} > 0) {
@@ -349,6 +378,33 @@ sub HM485_LAN_Set($@) {
 
 		} elsif ($cmd eq 'broadcastSleepMode' && $a[2] eq 'off') {
 			HM485_LAN_setBroadcastSleepMode($hash, 0)
+
+		} elsif ($cmd eq 'HM485d') {
+			if (grep $_ eq $a[2], split(',', $sets{HM485d}) ) {
+				if ($a[2] eq 'status') {
+					$hash->{HM485d_PID} = HM485_LAN_HM485dGetPid($hash, $hash->{HM485d_CommandLine});
+					if ($hash->{HM485d_PID}) {
+						$msg = 'HM485d is running with PID ' . $hash->{HM485d_PID};
+					} else {
+						$msg = 'no matching process of HM485d found!';
+					}
+					
+									
+				} elsif ($a[2] eq 'start') {
+					$msg = HM485_LAN_HM485dStart($hash);
+
+				} elsif ($a[2] eq 'stop') {
+					$msg = HM485_LAN_HM485dStop($hash);
+
+				} elsif ($a[2] eq 'restart') {
+					$msg = HM485_LAN_HM485dStop($hash);
+					$msg.= "\n" . HM485_LAN_HM485dStart($hash);
+				}
+
+			} else {
+				$msg = 'Unknown argument ' . $a[2] . ' in "set ' . $name . ' HM485d" ';
+				$msg.= 'choose one of: ' . join(', ', split(',', $sets{HM485d}));
+			}
 		}
 	}	
 
@@ -440,7 +496,7 @@ sub HM485_LAN_discoveryEnd($) {
 				)
 			);
 	
-				### Debug ###
+			### Debug ###
 			my $m = $message;
 			my $l = uc( unpack ('H*', $m) );
 			$m =~ s/^.*CRLF//g;
@@ -712,7 +768,6 @@ sub HM485_LAN_checkAndCreateHM485d($) {
 		my $HM485dGpioTxenCmd1 = AttrVal($name, 'HM485d_gpioTxenCmd1', undef);
 		my $HM485dLogfile      = AttrVal($name, 'HM485d_logfile',      undef);
 		my $HM485dLogVerbose   = AttrVal($name, 'HM485d_logVerbose',   undef);
-		my $HM485dPid          = undef;
 	
 		my $HM485dCommandLine = 'HM485d.pl';
 		$HM485dCommandLine.= ($HM485dSerialNumber) ? ' --serialNumber ' . $HM485dSerialNumber : '';
@@ -725,26 +780,24 @@ sub HM485_LAN_checkAndCreateHM485d($) {
 		$HM485dCommandLine.= ($HM485dLogfile)      ? ' --logfile '      . $HM485dLogfile      : '';
 		$HM485dCommandLine.= ($HM485dLogVerbose)   ? ' --verbose '      . $HM485dLogVerbose   : '';
 	
-		$HM485dPid = HM485_LAN_getHM485dPid($hash, $HM485dCommandLine);
 		$HM485dCommandLine = $attr{global}{modpath} . '/FHEM/lib/HM485/HM485d/' .
 		                     $HM485dCommandLine;
 
-		my $HM485dStartTimeout = 0.1; 
-		if ($HM485dPid) {
-			Log3($hash, 1, 'HM485d already running with PID ' . $HM485dPid. '. We re use this process!');
+		$hash->{HM485d_CommandLine} = $HM485dCommandLine;
+
+		$hash->{HM485d_PID} = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine); 
+		if ($hash->{HM485d_PID}) {
+			Log3(
+				$hash, 1,
+				'HM485d already running with PID ' . $hash->{HM485d_PID}. '. We re use this process!'
+			);
+
+			InternalTimer(gettimeofday() + 0.1, 'HM485_LAN_openDev', $hash, 0);
+			
 		} else {
 			# Start HM485d
-			Log3($hash, 3, 'Start HM485d with command line: ' . $HM485dCommandLine);
-			system($HM485dCommandLine . '&');
-
-			$HM485dStartTimeout = int(AttrVal($name, 'HM485d_startTimeout', '2'));
-			if ($HM485dStartTimeout) {
-				Log3($hash, 3, 'Connect to HM485d delayed for ' . $HM485dStartTimeout . ' seconds');
-				$hash->{HM485dStartTimeout} = $HM485dStartTimeout;
-			}
+			HM485_LAN_HM485dStart($hash);
 		}
-
-		InternalTimer(gettimeofday() + $HM485dStartTimeout, 'HM485_LAN_openDev', $hash, 0);
 
 	} elsif ($HM485dBind && !$HM485dDevice) {
 		my $msg = 'HM485d not started. Attr "HM485d_device" for ' . $name . ' is not set!';
@@ -767,7 +820,7 @@ sub HM485_LAN_checkAndCreateHM485d($) {
 
 	@return integer   PID of a running HM485d, else 0
 =cut
-sub HM485_LAN_getHM485dPid($$) {
+sub HM485_LAN_HM485dGetPid($$) {
 	my ($hash, $HM485dCommandLine) = @_;
 	my $retVal = 0;
 	
@@ -785,6 +838,90 @@ sub HM485_LAN_getHM485dPid($$) {
 	
 	return $retVal;
 }
+
+=head2
+	Stop the HM485 process.
+
+	@param	hash      hash of device addressed
+	@return string
+=cut
+sub HM485_LAN_HM485dStop($) {
+	my ($hash) = @_;
+	
+	my $pid = $hash->{HM485d_PID};
+
+	my $msg;
+	
+	if(kill(0, $pid)) {
+		DevIo_CloseDev($hash);
+		$hash->{STATE} = 'closed';
+
+		kill('TERM', $pid);
+		if(!kill(0, $pid)) {
+			$msg = 'HM485d with PID ' . $pid . ' was terminated sucessfully.';
+			$hash->{HM485d_STATE} = 'stopped';
+			delete($hash->{HM485d_PID});
+		} else {
+			$msg = 'Can\'t terminate HM485d with PID ' . $pid . '.';
+		}
+	} else {
+		$msg = 'There ar no HM485d process with PID ' . $pid . '.';
+		
+	}
+	
+	Log3($hash, 3, $msg);
+	
+	return $msg;
+}
+
+=head2
+	Stop the HM485 process.
+
+	@param	hash      hash of device addressed
+	@return string
+=cut
+sub HM485_LAN_HM485dStart($) {
+	my ($hash) = @_;
+	
+	my $name = $hash->{NAME};
+	my $msg;
+
+	my $HM485dCommandLine = $hash->{HM485d_CommandLine};
+	my $pid = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine);
+	
+	if(!$pid || ($pid && !kill(0, $pid))) {
+		system($HM485dCommandLine . '&');
+		$msg = 'Start HM485d with command line: ' . $HM485dCommandLine;
+		$pid = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine);
+
+		if ($pid) {
+			$msg.= "\n" . 'HM485d was started with PID: ' . $pid;
+			$hash->{HM485d_STATE} = 'started';
+			$hash->{HM485d_PID} = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine);
+			
+			my $HM485dStartTimeout = int(AttrVal($name, 'HM485d_startTimeout', '2'));
+			if ($HM485dStartTimeout) {
+				Log3($hash, 3, 'Connect to HM485d delayed for ' . $HM485dStartTimeout . ' seconds');
+				$hash->{HM485dStartTimeout} = $HM485dStartTimeout;
+			}
+
+			$HM485dStartTimeout = $HM485dStartTimeout + 0.1;
+			InternalTimer(gettimeofday() + $HM485dStartTimeout, 'HM485_LAN_openDev', $hash, 0);
+			
+		} else {
+			$msg.= "\n" . 'HM485d Could nor start';
+		}
+	} else {
+		$msg = 'HM485d with PID ' . $pid . ' already running.';		
+	}
+	
+	foreach my $msgItem (split("\n", $msg)) {
+		Log3($hash, 3, $msgItem);
+	}
+
+	return $msg;
+}
+
 
 1;
 

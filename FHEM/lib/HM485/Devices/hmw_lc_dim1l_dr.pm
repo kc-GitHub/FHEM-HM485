@@ -1,4 +1,4 @@
-package HM485::devices;
+package HM485::Devices;
 
 our %definition = (
 	'HMW-LC-Dim1L'	=> {
@@ -13,7 +13,7 @@ our %definition = (
 		'params' => {
 			'master'	=> {
 				'type'				=> 'master',
-				'LOGGING_TIME'	=> {											# parameter id
+				'logging_time'	=> {											# parameter id
 					'logical'		=> {										# time after state changes reeported by device via message
 						'type'		=> 'float',									# parameter value type
 						'min'		=> 0.5,
@@ -33,7 +33,7 @@ our %definition = (
 						'offset'	=> 0.0,										# ???
 					},
 				},
-				'CENTRAL_ADDRESS'	=> {
+				'central_address'	=> {
 					'hidden'		=> 1,
 					'enforce'		=> 0x00000001,
 					'logical'		=> {
@@ -46,8 +46,8 @@ our %definition = (
 						'address'	=> 0x0002,
 					},
 				},
-				'DIRECT_LINK_DEACTIVATE'	=> {								# no direct link available
-					'hidden'		=> 1,										# should not vidible in UI ???
+				'direct_link_deactivate'	=> {								# no direct link available
+					'hidden'		=> 1,										# should not vidible in ui ???
 					'enforce'		=> 1,										# sould always set to this value ???
 					'logical'		=> {
 						'type'		=> 'boolean',								# parameter value type
@@ -64,7 +64,7 @@ our %definition = (
 		},
 		'frames'	=> {														# supported frames ???
 			'level_set'	=> {
-				'type'		=> 'x',
+				'type'		=> 0x78,											# x
 				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
@@ -77,12 +77,12 @@ our %definition = (
 				},
 			},
 			'level_get'	=> {													# frame id
-				'type'		=> 'S',												# frame type
+				'type'		=> 0x73,											# s
 				'dir'		=> '<',												# prefered communication direction < means to-device, we need them??? 
 				'ch_field'	=> 10,												# position in frame ??? we need them???
 			},
 			'info_level'	=> {
-				'type'		=> 'i',
+				'type'		=> 0x69,											# i
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
@@ -100,7 +100,7 @@ our %definition = (
 				},
 			},
 			'key_event_short'	=> {
-				'type'		=> 'K',
+				'type'		=> 0x4B,											# K
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
@@ -109,7 +109,7 @@ our %definition = (
 						'type'			=> 'int',								# value type
 						'index'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
-						'const_value'	=> 0									# Parameter set always tu this value,short (0) long keypress (1)
+						'const_value'	=> 0									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'counter'	=> {											# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
@@ -119,7 +119,7 @@ our %definition = (
 				},
 			},
 			'key_event_long'	=> {
-				'type'		=> 'K',
+				'type'		=> 0x4B,											# K
 				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
@@ -128,7 +128,7 @@ our %definition = (
 						'type'			=> 'int',								# value type
 						'index'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
-						'const_value'	=> 1									# Parameter set always tu this value,short (0) long keypress (1)
+						'const_value'	=> 1									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'counter'	=> {											# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
@@ -138,7 +138,7 @@ our %definition = (
 				},
 			},
 			'key_sim_short'	=> {
-				'type'			=> 'K',
+				'type'			=> 0x4B,										# K
 				'dir'			=> '>',											# prefered communication direction > means from-device, we need them???
 				'ch_field'		=> 10,											# ???
 				'rec_ch_field'	=> 11,											# ???
@@ -147,7 +147,7 @@ our %definition = (
 						'type'			=> 'int',								# value type
 						'index'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
-						'const_value'	=> 0									# Parameter set always tu this value,short (0) long keypress (1)
+						'const_value'	=> 0									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'sim_counter'	=> {										# aditional frame parameter (sim_counter)
 						'type'	=> 'int',										# value type
@@ -157,7 +157,7 @@ our %definition = (
 				},
 			},
 			'key_sim_long'	=> {
-				'type'			=> 'K',
+				'type'			=> 0x4B,										# K
 				'dir'			=> '>',											# prefered communication direction > means from-device, we need them???
 				'ch_field'		=> 10,											# ???
 				'rec_ch_field'	=> 11,											# ???
@@ -166,7 +166,7 @@ our %definition = (
 						'type'			=> 'int',								# value type
 						'index'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
-						'const_value'	=> 1									# Parameter set always tu this value,short (0) long keypress (1)
+						'const_value'	=> 1									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'sim_counter'	=> {										# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
@@ -176,7 +176,7 @@ our %definition = (
 				},
 			},
 			'set_lock'	=> {
-				'type'		=> 'l',
+				'type'		=> 0x6C,											# l
 				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
 				'ch_field'	=> 11,												# ???
 				'params'	=> {
@@ -188,7 +188,7 @@ our %definition = (
 				},
 			},
 			'toggle_install_test'	=> {
-				'type'		=> 'x',
+				'type'		=> 0x78,											# x
 				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
 				'ch_field'	=> 10,												# ???
 				'params'	=> {
@@ -201,16 +201,16 @@ our %definition = (
 			},
 		},
 		'channels'	=> {
-			'Maintenance' => {
+			'maintenance' => {
 				'id'	=> 0,
 				'count'	=> 1,
 			},
-			'Key' => {
+			'key' => {
 				'id'	=> 1,
 				'physical_index_offset' => -1,
 				'count'	=> 2,
 			},
-			'Dimmer' => {
+			'dimmer' => {
 				'id'	=> 3,
 				'physical_index_offset' => -1,
 				'count'	=> 1,
