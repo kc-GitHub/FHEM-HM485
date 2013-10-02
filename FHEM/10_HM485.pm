@@ -617,7 +617,6 @@ sub HM485_Set($@) {
 
 	my $hmwId = $hash->{DEF};
 	my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
-	
 	my %sets = ();
 	
 	if (defined($chNr)) {
@@ -628,7 +627,7 @@ sub HM485_Set($@) {
 				$sets{$allowedSet} = '';
 			}
 		}
-		
+
 	} else {
 		%sets = %setsDev;
 	}
@@ -791,19 +790,18 @@ sub HM485_getAllowedSets($;$) {
 	if (!defined($model)) {
 		$model = AttrVal($name, 'model', undef);
 	}
-	
 	if (defined($model) && $model) {
 		my $hmwId = $hash->{DEF};
 		my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
-	
+
 		if (defined($chNr)) {
 			my $modelGroup = HM485::Device::getModelGroup($model);
 			my $subType = HM485::Device::getSubtypeFromChannelNo($modelGroup, $chNr);
 			
-			if ($subType eq 'Key') {
-				$retVal = 'Press_Short:Press_Long';
+			if ($subType eq 'key') {
+				$retVal = 'press_short:press_long';
 	
-			} elsif ($subType eq 'Switch') {
+			} elsif ($subType eq 'switch') {
 				$retVal = 'on:off';
 			}
 		}
