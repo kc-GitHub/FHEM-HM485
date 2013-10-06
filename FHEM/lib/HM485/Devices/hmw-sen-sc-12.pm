@@ -26,20 +26,9 @@ our %definition = (
 						'type'		=> 'int',									# parameter value type
 						'size'		=> 4,										# 4 bytes
 						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> 0x0002,									# location of central adress in device
-					},
-				},
-				'central_address'	=> {
-					'hidden'		=> 1,
-					'enforce'		=> 0x00000001,
-					'logical'		=> {
-						'type'		=> 'int',
-					},
-					'physical'		=> {
-						'type'		=> 'int',
-						'size'		=> 4,
-						'interface'	=> 'eeprom',
-						'address'	=> 0x0002,
+						'address'	=> {
+							'id'	=> 0x0002,
+						},
 					},
 				},
 			},
@@ -58,8 +47,33 @@ our %definition = (
 				'params'	=> {
 					'state'		=> {											# aditional frame parameter (state)
 						'type'	=> 'int',										# value type
-						'index'	=> 11.0,										# position in frame ???
-						'size'	=> 1											# value length
+						'id'	=> 11.0,										# position in frame ???
+						'size'	=> 2											# value length
+					},
+				},
+			},
+			'info_frequency'	=> {
+				'type'		=> 0x69,											# i
+				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
+				'event'		=> 1,												# frame should triger event???
+				'ch_field'	=> 10,
+				'params'	=> {
+					'state'		=> {											# aditional frame parameter (state)
+						'type'	=> 'int',										# value type
+						'id'	=> 11.0,										# position in frame ???
+						'size'	=> 3											# value length
+					},
+				},
+			},
+			'level_set'	=> {													# parameter id, must match to chanel/parameter/physical/value_id
+				'type'		=> 0x78,											# x
+				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
+				'ch_field'	=> 10,
+				'params'	=> {
+					'state'		=> {											# aditional frame parameter (state)
+						'type'	=> 'int',										# value type
+						'id'	=> 11.0,										# position in frame ???
+						'size'	=> 2											# value length
 					},
 				},
 			},
@@ -113,7 +127,7 @@ our %definition = (
 			'sensor'	=> {
 				'id'	=> 1,
 				'count'	=> 12,													# count of channels of this type it the device
-				'physical_index_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0 
+				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0 
 				'params'	=> {
 					'master'	=> {
 						'address_start'	=> 0x07,
@@ -128,7 +142,7 @@ our %definition = (
 								'size'		=> 0.1,								# 1 bit
 								'interface'	=> 'eeprom',
 								'address'	=> {
-									'index'	=> +0.1								# 1 bit each channel
+									'id'	=> +0.1								# 1 bit each channel
 								},
 							},
 							'conversion'	=> {
@@ -140,7 +154,7 @@ our %definition = (
 					'values'	=> {
 						'sensor'	=> {
 							'operations'	=> 'read,event',					# which type of actions supports the channel ??? 
-							'ctrl'			=> 'door_sensor.state',				# ui related ???
+							'control'		=> 'door_sensor.state',				# ui related ???
 							'logical'		=> {
 								'type'		=> 'boolean',
 							},

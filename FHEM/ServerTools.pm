@@ -189,7 +189,7 @@ sub ServerTools_serverAccept($) {
 sub ServerTools_serverRead($) {
 	my ($hash) = @_;
 
-	my $ret = sysread($hash->{CD}, my $buf, 256);
+	my $ret = sysread($hash->{CD}, my $buf, 10240);
 	if(!defined($ret) || $ret <= 0) {
 		ServerTools_serverClientClose($hash);
 	} else {

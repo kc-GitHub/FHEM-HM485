@@ -265,9 +265,10 @@ sub HM485_Parse($$$) {
 sub HM485_ProcessResponse($$$$) {
 	my ($ioHash, $msgId, $ack, $msgData) = @_;
 
-	if (exists($ioHash->{'.waitForInfo'}{$msgId})) {
-		my $type   = $ioHash->{'.waitForInfo'}{$msgId}{requestType};
-		my $target = $ioHash->{'.waitForInfo'}{$msgId}{target};
+	if (exists($ioHash->{'.waitForInfo'}{$msgId}) && $msgData) {
+		my $type        = $ioHash->{'.waitForInfo'}{$msgId}{requestType};
+		my $target      = $ioHash->{'.waitForInfo'}{$msgId}{target};
+		my $requestData = $ioHash->{'.waitForInfo'}{$msgId}{requestData};
 
 		my $hash = $modules{HM485}{defptr}{$target};
 		my $name = $hash->{NAME};
@@ -286,7 +287,7 @@ sub HM485_ProcessResponse($$$$) {
 					#HM485_processStateData($msgData);
 
 				} elsif ($type eq '52') {                                       # R (report Eeprom Data)
-					#HM485_processEepromData($msgData);
+					HM485_processEepromData($hash, $requestData, $msgData);
 
 				} elsif ($type eq '68') {                                       # h (report module type)
 					$attrVal = HM485_parseModuleType($msgData);
@@ -405,7 +406,7 @@ sub HM485_channelDoUpdate($$) {
 			    $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
 
 				readingsBulkUpdate($chHash, $valueKey, $value);
-				Log3($hash, 2, 'Set state for: ' . $name . ' ' . $valueKey . ': ' . $value);
+				Log3($hash, 2, $name . ': ' . $valueKey . ' -> ' . $value);
 			}
 		}
 	}
@@ -512,8 +513,37 @@ sub HM485_getInfos($$$) {
 	}
 
 	if ($infoMask & 0b1000) {
-		Log3('', 1, 'Todo: Get state infos');
+		# here we query eeprom data wit device settings
+		my $model = AttrVal($hash->{NAME}, 'model', undef);
+		if ($model) {
+			my $eepromMap = HM485::Device::getEmptyEEpromMap($model);
+			
+			HM485_eepromMapToHash($hash, $eepromMap);
+			
+			# (R) request eeprom data
+			foreach my $adrStart (sort keys $eepromMap) {
+				HM485_sendCommand($hash, $target, '52' . $adrStart . '10');   
+			}
+		}
 	}
+	
+}
+
+sub HM485_eepromMapToHash($) {
+	my ($hash, $eepromMap) = @_;
+
+	foreach my $adrStart (sort keys $eepromMap) {
+		setReadingsVal($hash, '.eeprom_' . $adrStart, $eepromMap->{$adrStart}, TimeNow());
+	}
+}
+
+sub HM485_processEepromData($$$) {
+	my ($hash, $requestData, $msgData) = @_;
+	my $name = $hash->{NAME};
+
+	my $adr = substr($requestData, 0, 4); 
+	
+	setReadingsVal($hash, '.eeprom_' . $adr, $msgData, TimeNow());
 }
 
 sub HM485_parseModuleType($) {
@@ -548,6 +578,17 @@ sub HM485_parseFirmwareVersion($) {
 
 sub HM485_sendCommand($$$) {
 	my ($hash, $target, $data) = @_;
+
+	my %params = (hash => $hash, target => $target, data => $data);
+	InternalTimer(gettimeofday(), 'HM485_doSendCommand', \%params, 0);
+} 
+
+sub HM485_doSendCommand($$) {
+	my ($pHash) = @_;
+	my $target  = $pHash->{target};
+	my $data    = $pHash->{data};
+	my $hash    = $pHash->{hash};
+
 	my $ioHash = $hash->{IODev};
 
 	if (exists($hash->{msgCounter})) {
@@ -568,8 +609,12 @@ sub HM485_sendCommand($$$) {
 	if ($requestId && grep $_ eq $requestType, @validRequestTypes) {
 		$ioHash->{'.waitForInfo'}{$requestId}{requestType} = $requestType;
 		$ioHash->{'.waitForInfo'}{$requestId}{target}      = $target;
+		$ioHash->{'.waitForInfo'}{$requestId}{requestData} = substr($data, 2);
 	}
-} 
+}
+
+
+
 
 sub HM485_CreateSubdevices($$) {
 	my ($hash, $hwType) = @_;
@@ -581,11 +626,15 @@ sub HM485_CreateSubdevices($$) {
 
 	my $subTypes = HM485::Device::getValueFromDefinitions($modelGroup . '/channels');
 	if (ref($subTypes) eq 'HASH') {
-		my $ch = 1;
+		
+#		print Dumper($subTypes);
+		
 		foreach my $subType (sort keys %{$subTypes}) {
-			if ($subType ne 'Maintenance') {
+			if ($subType ne 'maintenance') {
 				if ( defined($subTypes->{$subType}{count}) && $subTypes->{$subType}{count} > 0) {
-					for(my $i = 0; $i < $subTypes->{$subType}{count}; $i++) {
+					my $chStart = $subTypes->{$subType}{id};
+					my $chCount = $subTypes->{$subType}{count};
+					for(my $ch = $chStart; $ch <= ($chStart + $chCount); $ch++) {
 						my $txtCh = sprintf ('%02d' , $ch);
 						my $room = AttrVal($name, 'room', '');
 						my $devName = $name . '_' . $txtCh;
@@ -594,12 +643,11 @@ sub HM485_CreateSubdevices($$) {
 						if (!exists($modules{HM485}{defptr}{$chHmwId})) {
 							CommandDefine(undef, $devName . ' ' . ' HM485 ' . $chHmwId);
 							CommandAttr(undef, $devName . ' subType ' . $subType);
-							if ($subType eq 'Key') {
+							if ($subType eq 'key') {
 								# Key subtypes don't have a state
 								delete($modules{HM485}{defptr}{$chHmwId}{STATE});
 							}
 						}
-						$ch++;
 					} 
 				}
 			}
@@ -655,8 +703,16 @@ sub HM485_Set($@) {
 #					'event',
 #					'frame'
 #				);
+
+#				my $eepromMap = HM485::Device::getEmptyEEpromMap('HMW_IO_12_Sw14_DR');
+#				print Dumper($eepromMap);
+#				print Dumper("HMW_IO_12_Sw7_DR -----------------------");
+#				$eepromMap = HM485::Device::getEmptyEEpromMap('HMW_IO_12_Sw7_DR');
+#				print Dumper($eepromMap);
+
+				my $t = HM485::Device::getRawEEpromData($hash, 0x101, 7);
 				
-			} elsif ($cmd eq 'Press_Long' || $cmd eq 'Press_Short') {
+			} elsif ($cmd eq 'press_long' || $cmd eq 'press_short') {
 				#Todo: Make ready
 				$msg = 'set ' . $name . ' ' . $cmd . ' not yet implemented'; 
 
@@ -797,11 +853,11 @@ sub HM485_getAllowedSets($;$) {
 		if (defined($chNr)) {
 			my $modelGroup = HM485::Device::getModelGroup($model);
 			my $subType = HM485::Device::getSubtypeFromChannelNo($modelGroup, $chNr);
-			
+
 			if ($subType eq 'key') {
 				$retVal = 'press_short:press_long';
 	
-			} elsif ($subType eq 'switch') {
+			} elsif ($subType eq 'switch' || $subType eq 'digitaloutput') {
 				$retVal = 'on:off';
 			}
 		}

@@ -24,7 +24,9 @@ our %definition = (
 						'type'		=> 'int',									# parameter value type
 						'size'		=> 1.0,										# 1 byte
 						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> 0x0001,									# location of central adress in device
+						'address'	=> {
+							'id'	=> 0x0001,
+						},
 					},
 					'conversion'	=> {
 						'type'		=> 'float_integer_scale', 					# wert wird beim speichern mit <factor> mutipliziert, beim lesen dividiert
@@ -42,7 +44,9 @@ our %definition = (
 						'type'		=> 'int',
 						'size'		=> 4,
 						'interface'	=> 'eeprom',
-						'address'	=> 0x0002,
+						'address'	=> {
+							'id'	=> 0x0002,
+						},
 					},
 				},
 				'direct_link_deactivate'	=> {								# no direct link available
@@ -56,7 +60,9 @@ our %definition = (
 						'type'		=> 'int',									# parameter value type
 						'size'		=> 0.1,										# 1 bit
 						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> 0x0006,									# location of central adress in device
+						'address'	=> {
+							'id'	=> 0x0006,
+						},
 					},
 				},
 			},
@@ -69,7 +75,7 @@ our %definition = (
 				'params'	=> {
 					'level'		=> {											# aditional frame parameter (level)
 						'type'	=> 'int',										# value type
-						'index'	=> 11.0,										# position in frame ???
+						'id'	=> 11.0,										# position in frame ???
 						'size'	=> 1											# value length
 					},
 				},
@@ -87,12 +93,12 @@ our %definition = (
 				'params'	=> {
 					'level'		=> {											# aditional frame parameter (level)
 						'type'	=> 'int',										# value type
-						'index'	=> 11.0,										# position in frame ???
+						'id'	=> 11.0,										# position in frame ???
 						'size'	=> 1											# value length
 					},
 					'state_flags'	=> {										# aditional frame parameter (state flags)
 						'type'	=> 'int',										# value type
-						'index'	=> 12.4,										# position in frame ???
+						'id'	=> 12.4,										# position in frame ???
 						'size'	=> 0.3											# value length
 					},
 				},
@@ -104,7 +110,7 @@ our %definition = (
 				'params'	=> {
 					201	=> {
 						'type'			=> 'int',
-						'index'			=> 11.0,
+						'id'			=> 11.0,
 						'size'			=> 1,
 					},
 				},
@@ -117,13 +123,13 @@ our %definition = (
 				'params'	=> {
 					'key'	=> {												# aditional frame parameter (state)
 						'type'			=> 'int',								# value type
-						'index'			=> 12.0,								# position in frame ???
+						'id'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
 						'const_value'	=> 0									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'counter'	=> {											# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
-						'index'	=> 12.2,										# position in frame ???
+						'id'	=> 12.2,										# position in frame ???
 						'size'	=> 0.6											# value length
 					},
 				},
@@ -136,13 +142,13 @@ our %definition = (
 				'params'	=> {
 					'key'	=> {												# aditional frame parameter (state)
 						'type'			=> 'int',								# value type
-						'index'			=> 12.0,								# position in frame ???
+						'id'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
 						'const_value'	=> 1									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'counter'	=> {											# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
-						'index'	=> 12.2,										# position in frame ???
+						'id'	=> 12.2,										# position in frame ???
 						'size'	=> 0.6											# value length
 					},
 				},
@@ -155,13 +161,13 @@ our %definition = (
 				'params'	=> {
 					'key'	=> {												# aditional frame parameter (state)
 						'type'			=> 'int',								# value type
-						'index'			=> 12.0,								# position in frame ???
+						'id'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
 						'const_value'	=> 0									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'sim_counter'	=> {										# aditional frame parameter (sim_counter)
 						'type'	=> 'int',										# value type
-						'index'	=> 12.2,										# position in frame ???
+						'id'	=> 12.2,										# position in frame ???
 						'size'	=> 0.6											# value length
 					},
 				},
@@ -174,13 +180,13 @@ our %definition = (
 				'params'	=> {
 					'key'	=> {												# aditional frame parameter (state)
 						'type'			=> 'int',								# value type
-						'index'			=> 12.0,								# position in frame ???
+						'id'			=> 12.0,								# position in frame ???
 						'size'			=> 0.1,									# value length
 						'const_value'	=> 1									# parameter set always tu this value,short (0) long keypress (1)
 					},
 					'sim_counter'	=> {										# aditional frame parameter (counter)
 						'type'	=> 'int',										# value type
-						'index'	=> 12.2,										# position in frame ???
+						'id'	=> 12.2,										# position in frame ???
 						'size'	=> 0.6											# value length
 					},
 				},
@@ -192,7 +198,7 @@ our %definition = (
 				'params'	=> {
 					'inhibit'	=> {											# aditional frame parameter (inhibit)
 						'type'	=> 'int',										# value type
-						'index'	=> 12.0,										# position in frame ???
+						'id'	=> 12.0,										# position in frame ???
 						'size'	=> 1,											# value length
 					},
 				},
@@ -204,7 +210,7 @@ our %definition = (
 				'params'	=> {
 					'toggle_flag'	=> {										# aditional frame parameter (toggle_flag)
 						'type'	=> 'int',										# value type
-						'index'	=> 11.0,										# position in frame ???
+						'id'	=> 11.0,										# position in frame ???
 						'size'	=> 1,											# value length
 					},
 				},
@@ -217,12 +223,12 @@ our %definition = (
 			},
 			'key' => {
 				'id'	=> 1,
-				'physical_index_offset' => -1,
+				'physical_id_offset' => -1,
 				'count'	=> 2,
 			},
 			'blind' => {
 				'id'	=> 3,
-				'physical_index_offset' => -1,
+				'physical_id_offset' => -1,
 				'count'	=> 1,
 			},
 		}

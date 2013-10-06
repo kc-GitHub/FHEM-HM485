@@ -7,7 +7,7 @@ our %definition = (
 		'models'	=> {
 			'HMW_IO_12_Sw14_DR'	=> {
 				'name'	=> 'RS485 I/O module 12-channel in and switch actuator 14-channel (DIN rails)',
-				'type'		=> 28,
+				'type'	=> 28,
 			},
 		},
 		'params' => {															# the device params
@@ -22,7 +22,9 @@ our %definition = (
 						'type'		=> 'int',
 						'size'		=> 4,
 						'interface'	=> 'eeprom',
-						'address'	=> 0x0002,
+						'address'	=> {
+							'id'	=> 0x0002,
+						},
 					},
 				},
 			},
@@ -42,7 +44,7 @@ our %definition = (
 				'params'	=> {
 					'state'		=> {											# aditional frame parameter (state)
 						'type'	=> 'int',										# value type
-						'index'	=> 11.0,										# position in frame ???
+						'id'	=> 11.0,										# position in frame ???
 						'size'	=> 2											# value length
 					},
 				},
@@ -55,7 +57,7 @@ our %definition = (
 				'params'	=> {
 					'state'		=> {
 						'type'		=> 'int',
-						'index'		=> 11.0,
+						'id'		=> 11.0,
 						'size'		=> 3,
 					},
 				},
@@ -67,7 +69,7 @@ our %definition = (
 				'params'	=> {
 					'state'		=> {
 						'type'		=> 'int',
-						'index'		=> 11.0,
+						'id'		=> 11.0,
 						'size'		=> 2,
 					},
 				},
@@ -122,14 +124,14 @@ our %definition = (
 			'digitaloutput'	=> {
 				'id'	=> 1,
 				'count'	=> 6,													# count of channels of this type it the device
-				'physical_index_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0 
+				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0 
 				'params'	=> {
-					'master'	=> {									# why the master channel?
+					'master'	=> {											# why the master channel?
 					},
 					'values'	=> {
 						'state'	=> {
 							'operations'	=> 'read,write,event',				# which type of actions supports the channel ??? 
-							'ctrl'			=> 'switch.state',					# ui related ???
+							'control'		=> 'switch.state',					# ui related ???
 							'logical'		=> {
 								'type'		=> 'boolean',						# logical type (the availabe states) boolean -> on/off
 								'default'	=> 0,								# the default state after power on the device ???
@@ -137,6 +139,7 @@ our %definition = (
 							'physical'		=> {								# physical parameters
 								'type'		=> 'int',							# the locical type mapped to this physical type
 								'interface'	=> 'command',						# ???
+								'value_id'	=> 'state',
 								'set'		=> {								# setter (fhem set) ???
 									'request'	=> 'level_set'					# request a level_set frame on set
 								},
@@ -149,7 +152,7 @@ our %definition = (
 								}
 							},
 							'conversion'	=> {
-								'type'		=> 'boolean-int',					# conversion type @see logical / physical types 
+								'type'		=> 'boolean_integer',				# conversion type @see logical / physical types 
 								'threshold'	=> 1,								# conversion schwellwert???
 								'false'		=> 0,								# value for false
 								'true'		=> 1023								# value for true
@@ -158,10 +161,10 @@ our %definition = (
 					},
 				}
 			},
-			'digitalanalogoutput'	=> {
+			'digital_analog_output'	=> {
 				'id'	=> 7,
 				'count'	=> 8,													# count of channels of this type it the device
-				'physical_index_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 6
+				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 6
 				'spechial_param'	=> {										# ???
 					'behaviour'	=> {
 						'logical'		=> {
@@ -172,7 +175,7 @@ our %definition = (
 							'size'		=> 0.1,									# size: one bit
 							'interface'	=> 'eeprom',							# param stored in eeprom
 							'address'	=> {
-								'index'	=> 7.0,									# address starts on byte 7
+								'id'	=> 7.0,									# address starts on byte 7
 								'step'	=> 0.1									# next channel increments 1 bin 
 							},
 						},
@@ -208,7 +211,7 @@ our %definition = (
 								'size'		=> 2,
 								'interface'	=> 'eeprom',
 								'address'	=> {
-									'index'	=> 16,
+									'id'	=> 16,
 									'step'	=> 2
 								},
 							},
@@ -231,7 +234,7 @@ our %definition = (
 					'values'	=> {
 						'frequency' => {
 							'operations'	=> 'read,write,event',				# which type of actions supports the channel ??? 
-							'ctrl'			=> 'digital_analog_output.frequency', # ui related ???
+							'control'		=> 'digital_analog_output.frequency', # ui related ???
 							'logical'		=> {
 								'type'		=> 'float',
 								'min'		=> 0.0,
@@ -241,6 +244,7 @@ our %definition = (
 							'physical'		=> {								# physical parameters
 								'type'		=> 'int',							# the locical type mapped to this physical type
 								'interface'	=> 'command',						# ???
+								'value_id'	=> 'state',
 								'set'		=> {								# setter (fhem set) ???
 									'request'	=> 'level_set'					# request a level_set frame on set
 								},
@@ -261,10 +265,10 @@ our %definition = (
 				'subconfig-params'	=> {										# was steht hier drinn ???
 				},
 			},
-			'digitalinput'	=> {
+			'digital_input'	=> {
 				'id'	=> 15,
 				'count'	=> 6,													# count of channels of this type it the device
-				'physical_index_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 6
+				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 6
 				'spechial_param'	=> {										# ???
 					'behaviour'	=> {
 						'logical'		=> {
@@ -275,7 +279,7 @@ our %definition = (
 							'size'		=> 0.1,									# size: one bit
 							'interface'	=> 'eeprom',							# param stored in eeprom
 							'address'	=> {
-								'index'	=> 9.0,									# address starts on byte 7
+								'id'	=> 9.0,									# address starts on byte 7
 								'step'	=> 0.1									# next channel increments 1 bin 
 							},
 						},
@@ -312,6 +316,7 @@ our %definition = (
 							'physical'		=> {								# physical parameters
 								'type'		=> 'int',							# the locical type mapped to this physical type
 								'interface'	=> 'command',						# ???
+								'value_id'	=> 'state',
 								'get'		=> {								# getter (fhem get) ???
 									'request'	=> 'level_get',					# request a level_get frame on get
 									'response'	=> 'info_frequency'				# expect info_frequency frame on get
@@ -330,10 +335,10 @@ our %definition = (
 				'subconfig-params'	=> {										# was steht hier drinn ???
 				},
 			},
-			'digiatlanaloginput'	=> {
+			'digital_analog_input'	=> {
 				'id'	=> 21,
 				'count'	=> 6,													# count of channels of this type it the device
-				'physical_index_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 6
+				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 6
 				'spechial_param'	=> {										# ???
 					'behaviour'	=> {
 						'logical'		=> {
@@ -344,7 +349,7 @@ our %definition = (
 							'size'		=> 0.1,									# size: one bit
 							'interface'	=> 'eeprom',							# param stored in eeprom
 							'address'	=> {
-								'index'	=> 8.0,									# address starts on byte 7
+								'id'	=> 8.0,									# address starts on byte 7
 								'step'	=> 0.1									# next channel increments 1 bin 
 							},
 						},
@@ -379,7 +384,7 @@ our %definition = (
 								'size'		=> 1,
 								'interface'	=> 'eeprom',
 								'address'	=> {
-									'index'	=> 10,								# address starts on byte 7
+									'id'	=> 10,								# address starts on byte 7
 									'step'	=> 1								# next channel increments 1 bin 
 								},
 							},
@@ -400,6 +405,7 @@ our %definition = (
 							'physical'		=> {								# physical parameters
 								'type'		=> 'int',							# the locical type mapped to this physical type
 								'interface'	=> 'command',						# ???
+								'value_id'	=> 'state',
 								'get'		=> {								# getter (fhem get) ???
 									'request'	=> 'level_get',					# request a level_get frame on get
 									'response'	=> 'info_level'					# expect info_level frame on get

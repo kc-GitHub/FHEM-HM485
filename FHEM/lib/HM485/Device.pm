@@ -4,12 +4,16 @@ use strict;
 use warnings;
 use Data::Dumper;
 use Scalar::Util qw(looks_like_number);
+use POSIX qw(ceil);
 
 use vars qw {%attr %defs %modules}; #supress errors in Eclipse EPIC
 
 use constant {
 	DEVICE_PATH		=> '/FHEM/lib/HM485/Devices/',
 };
+
+# prototypes
+sub parseForEepromData($;$$);
 
 my %deviceDefinitions;
 my %models = ();
@@ -199,17 +203,14 @@ sub getSubtypeFromChannelNo($$) {
 	my $retVal = undef;
 
 	my $channels = getValueFromDefinitions($modelGroup . '/channels/');
-	my @chArray = ();
-	foreach my $subType (keys $channels) {
-		push (@chArray, sprintf ('%02d' , $channels->{$subType}{id}) . '_' . $subType);
-	}
+	my @chArray  = getChannelsByModelgroup($modelGroup);
 
-	foreach my $chSubType (sort @chArray) {
-		my ($ch, $subType) = split('_', $chSubType);
-		if ($chNo < int($ch)) {
+	foreach my $channel (@chArray) {
+		my $chStart = int($channels->{$channel}{id});
+		my $chCount = int($channels->{$channel}{count});
+		if ($chNo >= $chStart && $chNo <= ($chStart + $chCount)) {
+			$retVal = $channel;
 			last;
-		} else {
-			$retVal = $subType;
 		}
 	}
 	
@@ -285,17 +286,16 @@ sub convertDataToValue($$) {
 	if ($params) {
 		foreach my $param (keys $params) {
 			$param = lc($param);
-			my $index = ($params->{$param}{'index'} - 9);
+			my $id = ($params->{$param}{id} - 9);
 			my $size = ($params->{$param}{size});
 			my $value;
-
-			if (isInt($index) && $size >=1) {
-				$value = ord(substr($data, $index, $size));
+			if (isInt($id) && $size >=1) {
+				$value = hex(unpack ('H*', substr($data, $id, $size)));
 			} else {
-				my $bitsIndex = ($index - int($index)) * 10;
+				my $bitsId = ($id - int($id)) * 10;
 				my $bitsSize  = ($size - int($size)) * 10;
-				$value = ord(substr($data, int($index), 1));
-				$value = subBit($value, $bitsIndex, $bitsSize);
+				$value = ord(substr($data, int($id), 1));
+				$value = subBit($value, $bitsId, $bitsSize);
 			}
 
 			my $constValue = $params->{$param}{const_value};
@@ -370,7 +370,7 @@ sub getChannelValueMap($$$) {
 	my $values  = getValueFromDefinitions(
 		$modelGroup . '/channels/' . $subType . '/params/values/'
 	);
-
+#print Dumper($values);
 	my $retVal;
 	if (defined($values)) {
 		foreach my $value (keys $values) {
@@ -387,6 +387,183 @@ sub getChannelValueMap($$$) {
 	}
 	
 	return $retVal;
+}
+
+sub getEmptyEEpromMap ($) {
+	my ($model) = @_;
+	my $modelGroup  = getModelGroup($model);
+
+	my $eepromAddrs = parseForEepromData(getValueFromDefinitions($modelGroup));
+
+	my $eepromMap = {};
+	my $blockLen = 16;
+	my $blockCount = 0;
+	my $addrMax = 1024;
+	my $adrCount = 0;
+	my $hexBlock;
+
+	print Dumper($eepromAddrs);
+
+	for ($blockCount = 0; $blockCount < ($addrMax / $blockLen); $blockCount++) {
+		my $blockStart = $blockCount * $blockLen;
+		foreach my $adrStart (sort keys $eepromAddrs) {
+			my $len = $adrStart + $eepromAddrs->{$adrStart};
+			if (($adrStart >= $blockStart && $adrStart < ($blockStart + $blockLen)) ||
+			    ($len >= $blockStart)
+			   ) {
+
+				my $blockId = sprintf ('%04X' , $blockStart);
+				if (!$eepromMap->{$blockId}) {
+					$eepromMap->{$blockId} = 'FF' x $blockLen;
+				}
+				if ($len <= ($blockStart + $blockLen)) {
+					delete ($eepromAddrs->{$adrStart});				
+				}
+			} else {
+				last;
+			}
+		}
+	}
+
+	return $eepromMap;
+}
+
+=head2
+	Get EEprom data from hash->READINGS with specific start address and lenth
+
+	@param	hash       hash	hash of device addressed
+	@param	int        start address
+	@param	int        count bytes to retreve
+	@param	boolean    if 1 return as hext string
+	
+	@return string     value string
+=cut
+sub getRawEEpromData($;$$$) {
+	my ($hash, $start, $len, $hex) = @_;
+
+	my $blockLen = 16;
+	my $blockStart = 0;
+	my $blockCount = 0;
+	my $addrMax = 1024;
+	
+	$start = defined($start) ? $start : 0;
+	$len   = defined($len) ? $len : $addrMax;
+	$hex   = defined($hex) ? $hex : 0;
+
+	if ($start > 0) {
+		$blockStart = int($start/$blockLen);
+	}
+	
+	my $retVal = '';
+	for ($blockCount = $blockStart; $blockCount < (ceil($addrMax / $blockLen)); $blockCount++) {
+		my $blockId = sprintf ('.eeprom_%04X' , ($blockCount * $blockLen));
+		if ($hash->{READINGS}{$blockId}{VAL}) {
+			$retVal.= $hash->{READINGS}{$blockId}{VAL};
+		} else {
+			$retVal = 'FF' x $blockLen;
+		}
+
+		if (length($retVal) / 2 >= $len) {
+			last;
+		}
+	}
+
+	my $start2 = ( ( ($start/$blockLen) - $blockStart ) * $blockLen );
+	$retVal = substr($retVal, ($start2 * 2), ($len * 2) );
+	
+	if (!$hex) {
+		$retVal = pack('H*', $retVal);
+	}
+	
+	return $retVal;
+}
+
+=head2
+	Walk thru device definition and found all eeprom related values
+	
+	@param	hash    the whole config for thie device
+	@param	hash    holds the the eeprom adresses with length
+	@param	hash    spechial params passed while recursion for getEEpromData
+	
+	@return hash    $adrHash
+=cut
+sub parseForEepromData($;$$) {
+	my ($configHash, $adrHash, $params) = @_;
+
+	$adrHash = $adrHash ? $adrHash : {};
+	$params  = $params ? $params : {};
+	
+	# first we must collect all values only, hahes was pushed to hash array
+	my @hashArray = ();
+	foreach my $param (keys $configHash) {
+		if (ref($configHash->{$param}) ne 'HASH') {
+			if ($param eq 'count' || $param eq 'address_start' || $param eq 'address_step') {
+				$params->{$param} = $configHash->{$param};
+			}
+		} else {
+			push (@hashArray, $param);
+		}
+	}
+
+	# now we parse the hashes
+	foreach my $param (@hashArray) {
+		my $p = $configHash->{$param};
+		if ($p->{physical} && $p->{physical}{interface} && $p->{physical}{interface} eq 'eeprom') {
+			my $result = getEEpromData($p, $params);
+			@{$adrHash}{keys %$result} = values %$result;
+		} else {
+			$adrHash = parseForEepromData($p, $adrHash, {%$params});
+		}
+	}
+	
+	return $adrHash;
+}
+
+=head2
+	calculate the eeprom adress with length for a specific param hash
+	
+	@param	hash    the param hash
+	@param	hash    spechial params passed while recursion for getEEpromData
+
+	@return hash    eeprom addr -> length
+=cut
+sub getEEpromData($$) {
+	my ($paramHash, $params) = @_;
+	
+	my $count = ($params->{count} && $params->{count} > 0) ? $params->{count} : 1; 
+	my $retVal;
+	
+	if ($params->{address_start} && $params->{address_step}) {
+		my $adrStart  = $params->{address_start} ? $params->{address_start} : 0; 
+		my $adrStep   = $params->{address_step} ? $params->{address_step} : 1; 
+		$adrStart = sprintf ('%04d' , $adrStart);
+		$retVal->{$adrStart} = $adrStep * $count;
+
+	} else {
+		if ($paramHash->{physical}{address}{id}) {
+			my $adrStart =  $paramHash->{physical}{address}{id};
+			$adrStart = sprintf ('%04d' , $adrStart);
+
+			my $size = $paramHash->{physical}{size};
+			$size = $size * $count;
+			$size = isInt($paramHash->{physical}{size}) ? $size : ceil(($size / 0.8));
+
+			$retVal->{$adrStart} = $size;
+		}
+	}
+
+	return $retVal;
+}
+
+sub getChannelsByModelgroup ($) {
+	my ($modelGroup) = @_;
+	my $channels = getValueFromDefinitions($modelGroup . '/channels/');
+	my @retVal = ();
+	foreach my $channel (keys $channels) {
+		push (@retVal, $channel);
+	}
+	
+	return @retVal;
 }
 
 sub isInt($) {

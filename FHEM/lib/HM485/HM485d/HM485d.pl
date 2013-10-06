@@ -298,6 +298,9 @@ sub clientRead($) {
 	my ($msg) = @_;
 	my @messages = split(chr(0xFD), $msg);
 
+	# todo:
+	# in case of buffer overflow in ServerTools_serverRead we lost the last mesage
+	# there only 10240 bytes buffer
 	foreach my $message (@messages) {
 		if ($message) {
 			$message = chr(0xFD) . $message;

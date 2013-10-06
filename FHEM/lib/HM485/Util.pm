@@ -132,11 +132,16 @@ sub printByte($$) {
 	my ($data, $formatHex) = @_;
 	
 	my $retVal = '';
-	if (defined($formatHex) && $formatHex) {
-		$retVal = $data;
-	} else {
-	 	uc( unpack ('H*', $data) );
+	
+	if ($data) {
+		if (defined($formatHex) && $formatHex) {
+			$retVal = $data;
+		} else {
+		 	$retVal = uc( unpack ('H*', $data) );
+		}
 	}
+	
+	return $retVal;
 }
 
 sub removeValuesFromList($$@) {

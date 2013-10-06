@@ -274,7 +274,7 @@ sub HM485_LAN_Write($$;$) {
 				'%s %s %s %s', $target, $ctrl, $source, $data
 			);
 
-			# Debug
+#			# Debug
 #			HM485::Util::logger(
 #				$name, 3, 'TX: (' . $msgId . ') ' . sprintf (
 #					'T:%s C:%s S:%s D:%s', $target, $ctrl, $source, $data
