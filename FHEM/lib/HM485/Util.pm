@@ -96,7 +96,7 @@ sub logger ($$$;$) {
 				}
 				$ctrlTxt.= (ctrlHasSender($dataHash->{cb})   ? ',B' : '') . ')';
 				
-				$logTxt.= ' '    . $ctrlTxt;
+				$logTxt.= ' '    . $ctrlTxt . '(' . sprintf('%02X', $dataHash->{cb}) . ')';
 				$logTxt.= ' '    . printByte($dataHash->{sender}, $formatHex);
 				$logTxt.= ' -> ' . printByte($dataHash->{target}, $formatHex);
 
@@ -198,6 +198,9 @@ sub ctrlSynSet        ($) {return (((shift) & (1<<7)) == (1<<7));}
 sub ctrlFinalSet      ($) {return (((shift) & (1<<4)) == (1<<4));}
 sub ctrlAckNum        ($) {return ((shift >> 5) & 0x03);}
 sub ctrlTxNum         ($) {return ((shift >> 1) & 0x03);}
+
+sub setCtrlTxNum     ($$) {return ((0b11111001 & $_[0]) | ($_[1] << 1));}
+sub setCtrlRxNum     ($$) {return ((0b10011111 & $_[0]) | ($_[1] << 5));}
 
 # TODO: some loggings
 # CCU1 Log

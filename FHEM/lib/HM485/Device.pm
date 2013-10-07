@@ -391,8 +391,8 @@ sub getChannelValueMap($$$) {
 
 sub getEmptyEEpromMap ($) {
 	my ($model) = @_;
-	my $modelGroup  = getModelGroup($model);
 
+	my $modelGroup  = getModelGroup($model);
 	my $eepromAddrs = parseForEepromData(getValueFromDefinitions($modelGroup));
 
 	my $eepromMap = {};
@@ -401,8 +401,6 @@ sub getEmptyEEpromMap ($) {
 	my $addrMax = 1024;
 	my $adrCount = 0;
 	my $hexBlock;
-
-	print Dumper($eepromAddrs);
 
 	for ($blockCount = 0; $blockCount < ($addrMax / $blockLen); $blockCount++) {
 		my $blockStart = $blockCount * $blockLen;
@@ -442,9 +440,9 @@ sub getRawEEpromData($;$$$) {
 	my ($hash, $start, $len, $hex) = @_;
 
 	my $blockLen = 16;
+	my $addrMax = 1024;
 	my $blockStart = 0;
 	my $blockCount = 0;
-	my $addrMax = 1024;
 	
 	$start = defined($start) ? $start : 0;
 	$len   = defined($len) ? $len : $addrMax;
@@ -476,6 +474,120 @@ sub getRawEEpromData($;$$$) {
 	}
 	
 	return $retVal;
+}
+
+sub setRawEEpromData($$$$) {
+	my ($hash, $start, $len, $data) = @_;
+
+	$data = substr($data, 0, ($len*2));
+	$len = length($data);
+	my $blockLen = 16;
+	my $addrMax = 1024;
+	my $blockStart = 0;
+	my $blockCount = 0;
+	
+	if ($start > 0) {
+		$blockStart = int(($start*2) / ($blockLen*2));
+	}
+	
+	for ($blockCount = $blockStart; $blockCount < (ceil($addrMax / $blockLen)); $blockCount++) {
+
+		my $blockId = sprintf ('.eeprom_%04X' , ($blockCount * $blockLen));
+		my $blockData = $hash->{READINGS}{$blockId}{VAL};
+		if (!$blockData) {
+			# no blockdata defined yet
+			$blockData = 'FF' x $blockLen;
+		}
+
+		my $dataStart = ($start*2) - ($blockCount * ($blockLen * 2));
+		my $dataLen = $len;
+
+		if ($dataLen > (($blockLen * 2) - $dataStart)) {
+			$dataLen = ($blockLen * 2) - $dataStart;
+		}
+
+		my $newBlockData = $blockData;
+
+		if ($dataStart > 0) {
+			$newBlockData = substr($newBlockData, 0, $dataStart);
+		} else {
+			$newBlockData = '';
+		}
+
+		$dataLen = ($len <= $dataLen) ? $len : $dataLen;
+		$newBlockData.= substr($data, 0, $dataLen);
+
+		if ($dataStart + $dataLen < ($blockLen * 2)) {
+			$newBlockData.= substr(
+				$blockData, ($dataStart + $dataLen), ($blockLen * 2) - $dataStart + $dataLen
+			);
+			$data = '';
+		} else {
+			$data = substr($data, $dataLen);
+			$start = ($blockCount * $blockLen) + $blockLen;
+		}
+		
+		$hash->{READINGS}{$blockId}{VAL} = $newBlockData;
+
+		$len = length($data);
+		if ($len == 0) {
+			last;
+		}
+	}
+}
+
+
+sub getConfigSettings($) {
+	my ($hash) = @_;
+
+	my $configSettings = $hash->{cache}{configSettings};
+	if (!$configSettings) {
+		my $name   = $hash->{NAME};
+		my $hmwId  = $hash->{DEF};
+		my $addr   = substr($hmwId,0,8);
+		my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
+		
+		my $model = main::AttrVal($name, 'model', undef);
+		if ($model) {
+			my $modelGroup  = getModelGroup($model);
+			if (defined($chNr)) {
+				$configSettings = getConfigSettingsChannel($modelGroup, $chNr);
+			} else {
+				$configSettings = getConfigSettingsDevice($modelGroup);
+			}
+		}
+		$hash->{cache}{configSettings} = $configSettings;
+	}
+
+	return $configSettings;
+}
+
+sub getConfigSettingsChannel($$) {
+	my ($modelGroup, $chNr) = @_;
+
+#	my $modelGroup  = getModelGroup($model);
+
+#	getSubtypeFromChannelNo($chNr)
+	return 1;
+}
+
+sub getConfigSettingsDevice($) {
+	my ($modelGroup) = @_;
+
+	my $configHash = getValueFromDefinitions($modelGroup . '/params/master/');
+	if (ref($configHash) eq 'HASH') {
+		foreach my $config (keys $configHash) {
+
+			if (ref($configHash->{$config}) eq 'HASH') {
+				if ($configHash->{$config}{hidden}) {
+					delete($configHash->{$config});
+				}
+			}
+
+		}	
+	}
+
+	return $configHash;
 }
 
 =head2
@@ -564,6 +676,14 @@ sub getChannelsByModelgroup ($) {
 	}
 	
 	return @retVal;
+}
+
+sub isNumber($) {
+	my ($value) = @_;
+	
+	my $retVal = (looks_like_number($value)) ? 1 : 0;
+	
+	return $retVal;
 }
 
 sub isInt($) {
