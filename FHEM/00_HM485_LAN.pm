@@ -280,7 +280,9 @@ sub HM485_LAN_Write($$;$) {
 				}
 			}
 			$hash->{ctrl}{$params->{target}} = $ctrl;
-			# todo: reset ctrl byte if sync sent from device
+			# todo:
+			# reset ctrl byte if sync sent from device
+			# respect nack 
 
 			my $source = (exists($params->{source})) ? $params->{source} : AttrVal($name, 'hmwId', '00000001');
 			my $target = $params->{target};

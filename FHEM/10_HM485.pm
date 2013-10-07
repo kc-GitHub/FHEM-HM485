@@ -815,6 +815,9 @@ sub HM485_setSetting($$$) {
 	my $msg = HM485_validateSettings($configHash, $cmdSet, $value);
 
 	if (!$msg) {
+		my $name = $hash->{NAME};
+		Log3($hash, 3, 'Set config value "' . $cmdSet . '" to ' . $value . ' for ' . $name);
+		
 		$value = HM485_convertSettingsToEEprom($configHash->{conversion}, $value, 1);
 		if ($value) {
 			HM485_saveSettingsToEEprom($hash, $configHash, $cmdSet, $value);
@@ -829,7 +832,6 @@ sub HM485_saveSettingsToEEprom($$$){
 
 	$configHash = $configHash->{physical};
 	if ($configHash->{interface} eq 'eeprom') {
-		my $name = $hash->{NAME};
 		my $adr = $configHash->{address}{id};
 		if ($adr) {
 			my $size = $configHash->{address}{id} ? $configHash->{address}{id} : 1;
@@ -839,7 +841,6 @@ sub HM485_saveSettingsToEEprom($$$){
 			$size  = sprintf ('%02X' , $adr);
 			$value = sprintf('%0' . ($size * 2) . 'X', $value);
 
-			Log3($hash, 3, 'send ' . $cmdSet . ' = ' . $value . ' to ' . $name);
 			HM485_sendCommand($hash, $hmwId, '57' . $adr . $size . $value);     # (W) write eeprom data
 		}
 	}
