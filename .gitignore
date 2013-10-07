@@ -19,3 +19,4 @@ FHEM/TcpServerUtils.pm
 FHEM/DevIo.pm
 .project
 .includepath
+test.pl

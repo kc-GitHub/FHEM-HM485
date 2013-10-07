@@ -36,12 +36,12 @@ our %definition = (
 		'frames'	=> {														# supported frames ???
 			'level_get'	=> {													# frame id
 				'type'		=> 0x73,											# s
-				'dir'		=> '<',												# prefered communication direction < means to-device, we need them??? 
+				'dir'		=> 'to_device', 
 				'ch_field'	=> 10,												# position in frame ??? we need them???
 			},
 			'info_level'	=> {
 				'type'		=> 0x69,											# i
-				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'from_device',
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
@@ -54,7 +54,7 @@ our %definition = (
 			},
 			'info_frequency'	=> {
 				'type'		=> 0x69,											# i
-				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'from_device',
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
@@ -67,7 +67,7 @@ our %definition = (
 			},
 			'level_set'	=> {													# parameter id, must match to chanel/parameter/physical/value_id
 				'type'		=> 0x78,											# x
-				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'to_device',
 				'ch_field'	=> 10,
 				'params'	=> {
 					'state'		=> {											# aditional frame parameter (state)

@@ -1,14 +1,14 @@
 package HM485::Devices;
 
 our %definition = (
-	'HMW-IO12-SW7'	=> {
-		'version'		=> 11,
+	'HMW-IO12-SW7_0302'	=> {
+		'version'		=> 7,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
 			'HMW_IO_12_Sw7_DR'	=> {
 				'name'			=> 'RS485 I/O module 12-channel in and switch actuator 7-channel (DIN rails)',
 				'type'			=> 18,
-				'minFW_version'	=> 0x0303										# The device file only valid for devices with firmware 3.3 or greater
+				'minFW_version'	=> 0x0302										# The device file only valid for devices with firmware 3.3 or greater
 			},
 		},
 		'params' => {
@@ -16,7 +16,7 @@ our %definition = (
 				'logging_time'	=> {											# parameter id
 					'logical'		=> {										# time after state changes reeported by device via message
 						'type'		=> 'float',									# parameter value type
-						'min'		=> 0.1,
+						'min'		=> 0.0,
 						'max'		=> 25.5,
 						'default'	=> 2.0,
 						'unit'		=> 's',
@@ -191,21 +191,9 @@ our %definition = (
 						'type'	=> 'int',										# value type
 						'id'	=> 12.0,										# position in frame ???
 						'size'	=> 1.0,											# value length
-					},
-				},
-			},
-			'toggle_install_test'	=> {
-				'type'		=> 0x78,											# x
-				'dir'		=> 'to_device',
-				'ch_field'	=> 10,												# ???
-				'params'	=> {
-					'toggle_flag'	=> {										# aditional frame parameter (toggle_flag)
-						'type'	=> 'int',										# value type
-						'id'	=> 11.0,										# position in frame ???
-						'size'	=> 1.0,											# value length
-					},
-				},
-			},
+					}
+				}
+			}
 		},
 		'channels'	=> {
 			'maintenance' => {
@@ -321,7 +309,7 @@ our %definition = (
 									'factor'	=> 10,
 								},
 								'integer_integer_map'	=> {
-									'01'	=> {
+									'value_map'	=> {
 										'device_value'		=> 0xFF,
 										'parameter_value'	=> 10,
 										'from_device'		=> 1,
@@ -382,7 +370,7 @@ our %definition = (
 					},
 					'values'	=> {
 						'press_short'	=> {
-							'operations'	=> 'event,write', 
+							'operations'	=> 'event,read,write', 
 							'control'		=> 'button.short',
 							'logical'		=> {
 								'type'		=> 'action',
@@ -406,7 +394,7 @@ our %definition = (
 							}
 						},
 						'press_long'	=> {
-							'operations'	=> 'event,write', 
+							'operations'	=> 'event,read,write', 
 							'control'		=> 'button.long',
 							'logical'		=> {
 								'type'		=> 'action',
@@ -426,21 +414,6 @@ our %definition = (
 								'action_key_counter'	=> {
 									'sim_counter'	=> 'sim_counter',
 									'counter_size'	=> 6
-								}
-							}
-						},
-						'install_test'	=> {
-							'operations'	=> 'event', 
-							'ui_flags'		=> 'internal',
-							'logical'		=> {
-								'type'		=> 'action',
-							},
-							'physical'		=> {
-								'type'		=> 'int',
-								'interface'	=> 'command',
-								'value_id'	=> 'test_counter',
-								'event'		=> {
-									'frame'	=> 'key_event_short, key_event_long',
 								}
 							}
 						}
@@ -550,28 +523,6 @@ our %definition = (
 								'value_id'	=> 'inhibit',
 								'set'	=> {
 									'request'	=> 'set_lock',
-								}
-							}
-						},
-						'install_test' => {
-							'operations'=> 'write',
-							'ui_flags'	=> 'internal',
-							'loopback'	=> 1,
-							'logical'	=> {
-								'type'	=> 'action',
-							},
-							'physical'	=> {
-								'type'		=> 'int',
-								'interface'	=> 'command',
-								'value_id'	=> 'toggle_flag',
-								'no_init'	=> 'true',
-								'set'	=> {
-									'request'	=> 'toggle_install_test',
-								}
-							},
-							'conversion'	=> {
-								'toggle'	=> {
-									'value'	=> 'state'
 								}
 							}
 						}

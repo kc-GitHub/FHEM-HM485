@@ -33,12 +33,12 @@ our %definition = (
 		'frames'	=> {														# supported frames ???
 			'level_get'	=> {													# frame id
 				'type'		=> 0x73,											# s
-				'dir'		=> '<',												# prefered communication direction < means to-device, we need them??? 
+				'dir'		=> 'to_device', 
 				'ch_field'	=> 10,												# position in frame ??? we need them???
 			},
 			'info_level'	=> {
 				'type'		=> 0x69,											# i
-				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'from_device',
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
@@ -51,7 +51,7 @@ our %definition = (
 			},
 			'info_frequency'	=> {
 				'type'		=>0x69,												# i
-				'dir'		=> '>',
+				'dir'		=> 'from_device',
 				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
@@ -64,7 +64,7 @@ our %definition = (
 			},
 			'level_set'	=> {
 				'type'		=> 0x73,											# s
-				'dir'		=> '<',
+				'dir'		=> 'to_device',
 				'ch_field'	=> 10,
 				'params'	=> {
 					'state'		=> {
@@ -152,13 +152,14 @@ our %definition = (
 								}
 							},
 							'conversion'	=> {
-								'type'		=> 'boolean_integer',				# conversion type @see logical / physical types 
-								'threshold'	=> 1,								# conversion schwellwert???
-								'false'		=> 0,								# value for false
-								'true'		=> 1023								# value for true
+								'boolean_integer' => {
+									'threshold'	=> 1,							# conversion schwellwert???
+									'false'		=> 0,							# value for false
+									'true'		=> 1023							# value for true
+								}
 							}
 						}
-					},
+					}
 				}
 			},
 			'digital_analog_output'	=> {
@@ -216,20 +217,20 @@ our %definition = (
 								},
 							},
 							'conversion'	=> {
-								'type'		=> 'float_integer_scale',			# conversion type 
-								'factor'	=> 100,								# conversion factor
-								'offset'	=> 0.0,								# ???
-							},
-							'conversion'	=> {
-								'type'			=> 'integer_integer_map',		# ??? 
-								'value_map'		=> {
-									'device_value'		=> 0xffff,				# ???
-									'parameter_value'	=> 0,					# ???
-									'from_device'		=> 1,					# ???
-									'to_device'			=> 0,					# ???
+								'float_integer_scale'	=> {
+									'factor'	=> 100,							# conversion factor
+									'offset'	=> 0.0,							# ???
+								},
+								'integer_integer_map'	=> {
+									'value_map'		=> {
+										'device_value'		=> 0xFFFF,			# Value in device
+										'parameter_value'	=> 0,				# is equivalent to this value in ui
+										'from_device'		=> 1,				# conversion in direction from device
+										'to_device'			=> 0,				# 
+									}
 								}
 							}
-						},
+						}
 					},
 					'values'	=> {
 						'frequency' => {
@@ -257,13 +258,14 @@ our %definition = (
 								}
 							},
 							'conversion'	=> {
-								'type'		=> 'float_integer_scale', 
-							},
-						},
-					},
+								'float_integer_scale' => {
+								}
+							}
+						}
+					}
 				},
 				'subconfig-params'	=> {										# was steht hier drinn ???
-				},
+				}
 			},
 			'digital_input'	=> {
 				'id'	=> 15,
@@ -326,11 +328,12 @@ our %definition = (
 								}
 							},
 							'conversion'	=> {
-								'type'		=> 'float_integer_scale', 
-								'factor'	=> 1.0, 
-							},
-						},
-					},
+								'float_integer_scale'	=> {
+									'factor'	=> 1.0
+								}
+							}
+						}
+					}
 				},
 				'subconfig-params'	=> {										# was steht hier drinn ???
 				},
@@ -389,10 +392,11 @@ our %definition = (
 								},
 							},
 							'conversion'	=> {
-								'type'		=> 'integer_integer_scale',
-								'offset'	=> 127,
-							},
-						},
+								'integer_integer_scale'	=> {
+									'offset'	=> 127
+								}
+							}
+						}
 					},
 					'values'	=> {
 						'value' => {
@@ -415,11 +419,12 @@ our %definition = (
 								},
 							},
 							'conversion'	=> {
-								'type'		=> 'float_integer_scale', 
-								'factor'	=> 1, 
-							},
-						},
-					},
+								'float_integer_scale'	=> {
+									'factor'	=> 1
+								}
+							}
+						}
+					}
 				},
 				'subconfig-params'	=> {										# was steht hier drinn ???
 				},

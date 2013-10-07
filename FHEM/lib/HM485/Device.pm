@@ -204,11 +204,12 @@ sub getSubtypeFromChannelNo($$) {
 
 	my $channels = getValueFromDefinitions($modelGroup . '/channels/');
 	my @chArray  = getChannelsByModelgroup($modelGroup);
-
 	foreach my $channel (@chArray) {
 		my $chStart = int($channels->{$channel}{id});
 		my $chCount = int($channels->{$channel}{count});
-		if ($chNo >= $chStart && $chNo <= ($chStart + $chCount)) {
+		if (($chNo == 0 && $chStart == 0) ||
+		    ($chNo >= $chStart && $chNo <= ($chStart + $chCount) && $chStart > 0)) {
+
 			$retVal = $channel;
 			last;
 		}
@@ -227,8 +228,8 @@ sub parseFrameData($$$$) {
 	my ($model, $data, $type, $action) = @_;
 
 	my $modelGroup  = getModelGroup($model);
-	my $frameData   = getFrameInfos($modelGroup, $data, 1, '>');
-	my $retVal      = translateValue($modelGroup, $frameData);
+	my $frameData   = getFrameInfos($modelGroup, $data, 1, 'from_device');
+	my $retVal      = convertFrameDataToValue($modelGroup, $frameData);
 
 	return $retVal;
 }
@@ -259,7 +260,7 @@ sub getFrameInfos($$;$$) {
 			   (!defined($event) || $dir eq $fDir) ) {
 
 				my $chField = ($frames->{$frame}{ch_field} - 9) * 2;
-				my $params = convertDataToValue($data, $frames->{$frame}{params});
+				my $params = translateDataToValue($data, $frames->{$frame}{params});
 				if (defined($params)) {
 					%retVal = (
 						ch     => sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1),
@@ -277,7 +278,7 @@ sub getFrameInfos($$;$$) {
 	return \%retVal;
 }
 
-sub convertDataToValue($$) {
+sub translateDataToValue($$) {
 	my ($data, $params) = @_;
 	$data = pack('H*', $data);
 
@@ -311,7 +312,7 @@ sub convertDataToValue($$) {
 	return $dataValid ? \%retVal : undef;
 }
 
-sub translateValue($$) {
+sub convertFrameDataToValue($$) {
 	my ($modelGroup, $frameData) = @_;
 
 	if ($frameData->{ch}) {
@@ -319,48 +320,146 @@ sub translateValue($$) {
 			my $valueMap = getChannelValueMap($modelGroup, $frameData, $valId);
 
 			if ($valueMap) {
-				if ($valueMap->{conversion}{type} eq 'boolean_integer') {
-					if ($valueMap->{conversion}{threshold}) {
-						if ($frameData->{params}{$valId}{val} > $valueMap->{conversion}{threshold}) {
-							$frameData->{params}{$valId}{val} = 1;
-						} else {
-							$frameData->{params}{$valId}{val} = 0;
-						}
-					} else {
-						if ($frameData->{params}{$valId}{val}) {
-							$frameData->{params}{$valId}{val} = 1
-						} else {
-							$frameData->{params}{$valId}{val} = 0
-						}
-					}
-				}
+				$frameData->{params}{$valId}{val} = dataConversion(
+					$frameData->{params}{$valId}{val},
+					$valueMap->{conversion},
+					'from_device'
+				);
 
-				my $valName = $valueMap->{name};
-				if (defined($valueMap->{control})) {
-
-					if ($valueMap->{control} eq 'switch.state') {
-						if ($frameData->{params}{$valId}{val} == 1) {
-							$frameData->{value}{$valName} = 'on';
-						} else {
-							$frameData->{value}{$valName} = 'off';
-						}
-
-					} elsif (index($valueMap->{control}, 'button.') > -1) {
-						$frameData->{value}{'state'} = $valName . ' ' . $frameData->{params}{counter}{val};
-
-					} else {
-						$frameData->{value}{$valName} = $frameData->{params}{$valId}{val};
-					}
-
-				} else {
-					$frameData->{value}{$valName} = $frameData->{params}{$valId}{val};
-				}
+				$frameData->{value}{$valueMap->{name}} = valueToControl(
+					$valueMap->{control},
+					$frameData->{params}{$valId}{val},
+					$valueMap->{name}
+				);
 			}
 		}
 	}
 
 	return $frameData;
 }
+
+=head2
+	Map values to control specific values
+
+	@param	string    control name
+	@param	number    the data value
+	@param	string    the value name
+	
+	@return string    converted value
+=cut
+sub valueToControl($$$) {
+	my ($control, $value, $valName) = @_;
+	my $retVal = $value;
+	
+	if ($control) {
+		if ($control eq 'switch.state') {
+			if ($value == 0xC8) {	# 200 (dez)
+				$retVal = 'on';
+			} else {
+				$retVal = 'off';
+			}
+
+		} elsif (index($control, 'button.') > -1) {
+			$retVal = $valName . ' ' . $value;
+
+		} else {
+			$retVal = $value;
+		}
+
+	} else {
+		$retVal = $value;
+	}
+	
+	return $retVal;
+}
+
+=head2
+	Convert values specifyed in config files
+
+	@param	number    the value to convert
+	@param	hast      convertConfig hash
+	@param	string    the converting direction
+	
+	@return string    converted value
+=cut
+sub dataConversion($$;$) {
+	my ($value, $convertConfig, $dir) = @_;
+	
+	my $retVal = $value;
+
+	if (ref($convertConfig) eq 'HASH') {
+		# < = data to value, > = value to data
+		$dir = ($dir && $dir eq 'to_device') ? 'to_device' : 'from_device';
+
+		my $valueMap = '';
+		foreach my $config (keys %{$convertConfig}) {
+			
+			my $configHash = $convertConfig->{$config};
+			if ($config eq 'float_integer_scale' || $config eq 'integer_integer_scale') {
+
+				my $factor = $configHash->{factor} ? $configHash->{factor} : 1;
+				my $offset = $configHash->{offset} ? $configHash->{offset} : 0;
+				$factor = ($config eq 'float_integer_scale') ? $factor : 1;
+
+				if ($dir eq 'to_device') {
+					$retVal = $retVal + $offset;
+					$retVal = int($retVal * $factor); 
+				} else {
+					$retVal = $retVal / $factor;
+					$retVal = $retVal - $offset;
+				}
+
+			} elsif ($config eq 'boolean_integer') {
+				my $threshold = $configHash->{threshold} ? $configHash->{threshold} : 1;
+				my $invert    = $configHash->{invert} ? 1 : 0;
+				my $false     = $configHash->{false} ? $configHash->{false} : 0;
+				my $true      = $configHash->{true} ? $configHash->{true} : 1;
+
+				if ($dir eq 'to_device') {
+					$retVal = ($retVal >= $threshold) ? 1 : 0;
+					$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
+				} else {
+					$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
+					$retVal = ($retVal >= $threshold) ? $true : $false;
+				}
+
+			} elsif ($config eq 'integer_integer_map') {
+				$valueMap = 'integer_integer_map';
+
+			# Todo float_configtime from 
+			#} elsif ($config eq 'float_configtime') {
+			#	$valueMap = 'IntInt';
+
+			#} elsif ($config eq 'option_integer') {
+			#	$valueMap = 'value';
+
+			}
+		}
+		
+		if ($valueMap) {
+
+			foreach my $key (keys %{$convertConfig->{$valueMap}}) {
+				my $mapHash = $convertConfig->{$valueMap}{$key};
+
+				if ($valueMap eq 'integer_integer_map') {
+					my $valParam  = $mapHash->{parameter_value} ? $mapHash->{parameter_value} : 0;
+					my $valDevice = $mapHash->{device_value} ? $mapHash->{device_value} : 0;
+
+
+					if ($dir eq 'to_device' && $mapHash->{to_device}) {
+						$retVal = ($value == $valParam) ? $valDevice : $retVal;
+					} elsif ($dir eq 'from_device' && $mapHash->{from_device}) {
+						$retVal = ($value == $valDevice) ? $valParam : $retVal;
+					}
+				}
+			}
+		}
+	}
+	
+	return $retVal;
+}
+
+
 
 sub getChannelValueMap($$$) {
 	my ($modelGroup, $frameData, $valId) = @_;
@@ -551,10 +650,18 @@ sub getConfigSettings($) {
 		if ($model) {
 			my $modelGroup  = getModelGroup($model);
 			if (defined($chNr)) {
-				$configSettings = getConfigSettingsChannel($modelGroup, $chNr);
+				my $subtype = getSubtypeFromChannelNo($modelGroup, $chNr);
+				$configSettings = getValueFromDefinitions($modelGroup . '/channels/' . $subtype .'/params/master/');
+#		print Dumper ("--------------------------------- $hmwId");
+#		print Dumper("getValueFromDefinitions($modelGroup . '/channels/' . $subtype .'/params/master/')");
+#		print Dumper ($configSettings);
+#		print Dumper ("---------------------------------");
 			} else {
-				$configSettings = getConfigSettingsDevice($modelGroup);
+				$configSettings = getValueFromDefinitions($modelGroup . '/params/master/');
 			}
+
+#			print Dumper($configSettings);
+			$configSettings = getConfigSetting($configSettings);
 		}
 		$hash->{cache}{configSettings} = $configSettings;
 	}
@@ -562,19 +669,9 @@ sub getConfigSettings($) {
 	return $configSettings;
 }
 
-sub getConfigSettingsChannel($$) {
-	my ($modelGroup, $chNr) = @_;
+sub getConfigSetting($) {
+	my ($configHash) = @_;
 
-#	my $modelGroup  = getModelGroup($model);
-
-#	getSubtypeFromChannelNo($chNr)
-	return 1;
-}
-
-sub getConfigSettingsDevice($) {
-	my ($modelGroup) = @_;
-
-	my $configHash = getValueFromDefinitions($modelGroup . '/params/master/');
 	if (ref($configHash) eq 'HASH') {
 		foreach my $config (keys $configHash) {
 

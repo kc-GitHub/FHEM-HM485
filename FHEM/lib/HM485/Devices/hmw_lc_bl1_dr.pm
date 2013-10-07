@@ -70,7 +70,7 @@ our %definition = (
 		'frames'	=> {														# supported frames ???
 			'level_set'	=> {
 				'type'		=> 0x78,											# x
-				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'to_device',
 				'ch_field'	=> 10,
 				'params'	=> {
 					'level'		=> {											# aditional frame parameter (level)
@@ -82,12 +82,12 @@ our %definition = (
 			},
 			'level_get'	=> {													# frame id
 				'type'		=> 0x73,											# s
-				'dir'		=> '<',												# prefered communication direction < means to-device, we need them??? 
+				'dir'		=> 'to_device', 
 				'ch_field'	=> 10,												# position in frame ??? we need them???
 			},
 			'info_level'	=> {
 				'type'		=> 0x69,											# i
-				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'from_device',
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
@@ -105,7 +105,7 @@ our %definition = (
 			},
 			'stop'	=> {
 				'type'		=> 0x78,											# x
-				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'to_device',
 				'ch_field'	=> 10,
 				'params'	=> {
 					201	=> {
@@ -117,7 +117,7 @@ our %definition = (
 			},
 			'key_event_short'	=> {
 				'type'		=> 0x4B,											# K
-				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'from_device',
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
@@ -136,7 +136,7 @@ our %definition = (
 			},
 			'key_event_long'	=> {
 				'type'		=> 0x4B,											# K
-				'dir'		=> '>',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'from_device',
 				'event'		=> 1,												# frame should triger event???
 				'ch_field'	=> 10,
 				'params'	=> {
@@ -155,7 +155,7 @@ our %definition = (
 			},
 			'key_sim_short'	=> {
 				'type'			=> 0x4B,										# K
-				'dir'			=> '>',											# prefered communication direction > means from-device, we need them???
+				'dir'			=> 'from_device',
 				'ch_field'		=> 10,											# ???
 				'rec_ch_field'	=> 11,											# ???
 				'params'	=> {
@@ -174,7 +174,7 @@ our %definition = (
 			},
 			'key_sim_long'	=> {
 				'type'			=> 0x4B,										# K
-				'dir'			=> '>',											# prefered communication direction > means from-device, we need them???
+				'dir'			=> 'from_device',
 				'ch_field'		=> 10,											# ???
 				'rec_ch_field'	=> 11,											# ???
 				'params'	=> {
@@ -193,7 +193,7 @@ our %definition = (
 			},
 			'set_lock'	=> {
 				'type'		=> 0x6C,											# l
-				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'to_device',
 				'ch_field'	=> 11,												# ???
 				'params'	=> {
 					'inhibit'	=> {											# aditional frame parameter (inhibit)
@@ -205,7 +205,7 @@ our %definition = (
 			},
 			'toggle_install_test'	=> {
 				'type'		=> 0x78,											# x
-				'dir'		=> '<',												# prefered communication direction > means from-device, we need them???
+				'dir'		=> 'to_device',
 				'ch_field'	=> 10,												# ???
 				'params'	=> {
 					'toggle_flag'	=> {										# aditional frame parameter (toggle_flag)

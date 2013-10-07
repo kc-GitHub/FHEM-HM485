@@ -741,7 +741,21 @@ sub HM485_Set($@) {
 	my $configHash = HM485::Device::getConfigSettings($hash);
 	if ($configHash && ref($configHash) eq 'HASH') {
 		foreach my $config (keys $configHash) {
-			$sets{'config_' .$config} = '';
+			if ($configHash->{$config} && ref($configHash->{$config}) eq 'HASH') {
+
+				my $logical = $configHash->{$config}{logical};
+				my @optionValues = ();
+				if ($logical->{type}) {
+					if ($logical->{type} eq 'boolean') {
+						@optionValues = (0, 1);
+ 
+					} elsif ($logical->{type} eq 'option') {
+						@optionValues = map {s/ //g; $_; } split(',', $logical->{options});
+					}
+				} 
+				$sets{'config_' .$config} = join(',', @optionValues);
+
+			}
 		}
 	}
 	
@@ -852,6 +866,7 @@ sub HM485_convertSettingsToEEprom($$;$){
 	
 	my $retVal = undef;
 	if ($conversionHash) {
+
 		if ($conversionHash->{type} eq 'float_integer_scale') {
 			my $factor = int($conversionHash->{factor});
 			if ($toEEprom) {
@@ -859,7 +874,10 @@ sub HM485_convertSettingsToEEprom($$;$){
 			} else {
 				$retVal = $factor ? $value / $factor : $value;
 			} 
+
+		} elsif ($conversionHash->{type} eq 'boolean_integer') {
 		}
+
 	}
 	
 	return $retVal;
@@ -869,12 +887,13 @@ sub HM485_validateSettings($$$){
 	my ($configHash, $cmdSet, $value) = @_;
 	my $msg = '';
 
-	if ($value) {
+	if (defined($value)) {
 		my $logical = $configHash->{logical};
 		if ($logical->{type}) {
+
 			if ($logical->{type} eq 'float' || $logical->{type} eq 'int') {
 				if (HM485::Device::isNumber($value)) {
-					if ($logical->{min}) {
+					if ($logical->{min} && $logical->{max}) {
 						if ($value < $logical->{min}) {
 							$msg = 'must be greater or equal then ' . $logical->{min};
 						} elsif ($value > $logical->{max}) {
@@ -884,6 +903,17 @@ sub HM485_validateSettings($$$){
 				} else {
 					$msg = 'must be a number';
 				}
+
+			} elsif ($logical->{type} eq 'boolean') {
+				if ($value ne 0 && $value ne 1) {
+					$msg = 'must be 1 or 0';
+				}
+
+			} elsif ($logical->{type} eq 'option') {
+				my @optionValues = map {s/ //g; $_; } split(',', $logical->{options});
+				if ( !(grep $_ eq $value, @optionValues) ) {
+					$msg = 'must be on of: ' . join(', ', @optionValues);					
+				} 
 			}
 		}
 		$msg = ($msg) ? $cmdSet . ' ' . $msg : '';
