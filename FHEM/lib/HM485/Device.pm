@@ -359,6 +359,9 @@ sub valueToControl($$$) {
 				$retVal = 'off';
 			}
 
+		} elsif ($control eq 'dimmer.level') {
+			$retVal = $value * 100;
+
 		} elsif (index($control, 'button.') > -1) {
 			$retVal = $valName . ' ' . $value;
 
@@ -388,69 +391,64 @@ sub dataConversion($$;$) {
 	my $retVal = $value;
 
 	if (ref($convertConfig) eq 'HASH') {
-		# < = data to value, > = value to data
 		$dir = ($dir && $dir eq 'to_device') ? 'to_device' : 'from_device';
 
-		my $valueMap = '';
-		foreach my $config (keys %{$convertConfig}) {
-			
-			my $configHash = $convertConfig->{$config};
-			if ($config eq 'float_integer_scale' || $config eq 'integer_integer_scale') {
+		my $type = $convertConfig->{type};
 
-				my $factor = $configHash->{factor} ? $configHash->{factor} : 1;
-				my $offset = $configHash->{offset} ? $configHash->{offset} : 0;
-				$factor = ($config eq 'float_integer_scale') ? $factor : 1;
+		if ($type eq 'float_integer_scale' || $type eq 'integer_integer_scale') {
+			my $factor = $convertConfig->{factor} ? $convertConfig->{factor} : 1;
+			my $offset = $convertConfig->{offset} ? $convertConfig->{offset} : 0;
+			$factor = ($type eq 'float_integer_scale') ? $factor : 1;
 
-				if ($dir eq 'to_device') {
-					$retVal = $retVal + $offset;
-					$retVal = int($retVal * $factor); 
-				} else {
-					$retVal = $retVal / $factor;
-					$retVal = $retVal - $offset;
-				}
-
-			} elsif ($config eq 'boolean_integer') {
-				my $threshold = $configHash->{threshold} ? $configHash->{threshold} : 1;
-				my $invert    = $configHash->{invert} ? 1 : 0;
-				my $false     = $configHash->{false} ? $configHash->{false} : 0;
-				my $true      = $configHash->{true} ? $configHash->{true} : 1;
-
-				if ($dir eq 'to_device') {
-					$retVal = ($retVal >= $threshold) ? 1 : 0;
-					$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
-				} else {
-					$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
-					$retVal = ($retVal >= $threshold) ? $true : $false;
-				}
-
-			} elsif ($config eq 'integer_integer_map') {
-				$valueMap = 'integer_integer_map';
-
-			# Todo float_configtime from 
-			#} elsif ($config eq 'float_configtime') {
-			#	$valueMap = 'IntInt';
-
-			#} elsif ($config eq 'option_integer') {
-			#	$valueMap = 'value';
-
+			if ($dir eq 'to_device') {
+				$retVal = $retVal + $offset;
+				$retVal = int($retVal * $factor); 
+			} else {
+				$retVal = $retVal / $factor;
+				$retVal = $retVal - $offset;
 			}
+
+		} elsif ($type eq 'boolean_integer') {
+			my $threshold = $convertConfig->{threshold} ? $convertConfig->{threshold} : 1;
+			my $invert    = $convertConfig->{invert} ? 1 : 0;
+			my $false     = $convertConfig->{false} ? $convertConfig->{false} : 0;
+			my $true      = $convertConfig->{true} ? $convertConfig->{true} : 1;
+
+			if ($dir eq 'to_device') {
+				$retVal = ($retVal >= $threshold) ? 1 : 0;
+				$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
+			} else {
+				$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
+				$retVal = ($retVal >= $threshold) ? $true : $false;
+			}
+
+		# Todo float_configtime from 
+		#} elsif ($config eq 'float_configtime') {
+		#	$valueMap = 'IntInt';
+
+		#} elsif ($config eq 'option_integer') {
+		#	$valueMap = 'value';
+
 		}
-		
-		if ($valueMap) {
 
-			foreach my $key (keys %{$convertConfig->{$valueMap}}) {
-				my $mapHash = $convertConfig->{$valueMap}{$key};
+		if (ref($convertConfig->{value_map}) eq 'HASH' && $convertConfig->{value_map}{type}) {
+			$type = $convertConfig->{value_map}{type};
 
-				if ($valueMap eq 'integer_integer_map') {
-					my $valParam  = $mapHash->{parameter_value} ? $mapHash->{parameter_value} : 0;
-					my $valDevice = $mapHash->{device_value} ? $mapHash->{device_value} : 0;
+			foreach my $key (keys %{$convertConfig->{value_map}}) {
+				my $valueMap = $convertConfig->{value_map}{$key};
+				if (ref($valueMap) eq 'HASH') {
 
+					if ($type eq 'integer_integer_map') {
+						my $valParam  = $valueMap->{parameter_value} ? $valueMap->{parameter_value} : 0;
+						my $valDevice = $valueMap->{device_value} ? $valueMap->{device_value} : 0;
+	
+						if ($dir eq 'to_device' && $valueMap->{to_device}) {
+							$retVal = ($value == $valParam) ? $valDevice : $retVal;
+						} elsif ($dir eq 'from_device' && $valueMap->{from_device}) {
+							$retVal = ($value == $valDevice) ? $valParam : $retVal;
+						}
+					}					
 
-					if ($dir eq 'to_device' && $mapHash->{to_device}) {
-						$retVal = ($value == $valParam) ? $valDevice : $retVal;
-					} elsif ($dir eq 'from_device' && $mapHash->{from_device}) {
-						$retVal = ($value == $valDevice) ? $valParam : $retVal;
-					}
 				}
 			}
 		}
@@ -458,8 +456,6 @@ sub dataConversion($$;$) {
 	
 	return $retVal;
 }
-
-
 
 sub getChannelValueMap($$$) {
 	my ($modelGroup, $frameData, $valId) = @_;
@@ -749,8 +745,8 @@ sub getEEpromData($$) {
 		$retVal->{$adrStart} = $adrStep * $count;
 
 	} else {
-		if ($paramHash->{physical}{address}{id}) {
-			my $adrStart =  $paramHash->{physical}{address}{id};
+		if ($paramHash->{physical}{address_id}) {
+			my $adrStart =  $paramHash->{physical}{address_id};
 			$adrStart = sprintf ('%04d' , $adrStart);
 
 			my $size = $paramHash->{physical}{size};

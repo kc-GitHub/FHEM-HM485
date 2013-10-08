@@ -8,32 +8,29 @@ our %definition = (
 			'HMW_IO_12_Sw7_DR'	=> {
 				'name'			=> 'RS485 I/O module 12-channel in and switch actuator 7-channel (DIN rails)',
 				'type'			=> 18,
-				'minFW_version'	=> 0x0302										# The device file only valid for devices with firmware 3.3 or greater
+				'minFW_version'	=> 0x0302
 			},
 		},
 		'params' => {
 			'master'	=> {
-				'logging_time'	=> {											# parameter id
-					'logical'		=> {										# time after state changes reeported by device via message
-						'type'		=> 'float',									# parameter value type
+				'logging_time'	=> {
+					'logical'		=> {
+						'type'		=> 'float',
 						'min'		=> 0.0,
 						'max'		=> 25.5,
 						'default'	=> 2.0,
 						'unit'		=> 's',
 					},
-					'physical'		=> {
-						'type'		=> 'int',									# parameter value type
-						'size'		=> 1.0,										# 1 byte
-						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> {
-							'id'	=> 0x0001,
-						},
+					'physical'	=> {
+						'type'			=> 'int',
+						'size'			=> 1.0,
+						'interface'		=> 'eeprom',
+						'address_id'	=> 0x0001
 					},
 					'conversion'	=> {
-						'float_integer_scale'	=> {
-							'factor'	=> 10,										# conversion factor
-							'offset'	=> 0.0
-						}
+						'type'		=> 'float_integer_scale',
+						'factor'	=> 10,										# conversion factor
+						'offset'	=> 0.0
 					}
 				},
 				'central_address'	=> {
@@ -42,172 +39,165 @@ our %definition = (
 					'logical'		=> {
 						'type'		=> 'int',
 					},
-					'physical'		=> {
-						'type'		=> 'int',
-						'size'		=> 4,
-						'interface'	=> 'eeprom',
-						'address'	=> {
-							'id'	=> 0x0002,
-						},
-					},
+					'physical'	=> {
+						'type'			=> 'int',
+						'size'			=> 4,
+						'interface'		=> 'eeprom',
+						'address_id'	=> 0x0002
+					}
 				},
-				'direct_link_deactivate'	=> {								# no direct link available
-					'hidden'		=> 1,										# should not vidible in ui ???
-					'enforce'		=> 1,										# sould always set to this value ???
+				'direct_link_deactivate'	=> {
+					'hidden'		=> 1,
+					'enforce'		=> 1,
 					'logical'		=> {
-						'type'		=> 'boolean',								# parameter value type
+						'type'		=> 'boolean',
 						'default'	=> 0,
 					},
-					'physical'		=> {
-						'type'		=> 'int',									# parameter value type
-						'size'		=> 0.1,										# 1 bit
-						'interface'	=> 'eeprom',								# 4 bytes
-						'address'	=> {
-							'id'	=> 0x0006,
-						},
-					},
+					'physical'	=> {
+						'type'			=> 'int',
+						'size'			=> 0.1,
+						'interface'		=> 'eeprom',
+						'address_id'	=> 0x0006
+					}
 				},
 			},
 		},
 		'frames'	=> {
-			'level_set'	=> {			# parameter id, must match to chanel/parameter/physical/value_id
-				'type'		=> 0x78,											# x
+			'level_set'	=> {
+				'type'		=> 0x78,
 				'dir'		=> 'to_device',
-				'event'		=> 1,												# frame should triger event???
+				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
-					'state'		=> {											# aditional frame parameter (state)
-						'type'	=> 'int',										# value type
-						'id'	=> 11.0,										# position in frame ???
-						'size'	=> 1											# value length
+					'state'		=> {
+						'type'	=> 'int',
+						'id'	=> 11.0,
+						'size'	=> 1
 					},
 				},
 			},
-			'level_get'	=> {													# frame id
-				'type'		=> 0x73,											# s
+			'level_get'	=> {
+				'type'		=> 0x73,
 				'dir'		=> 'to_device', 
-				'ch_field'	=> 10,												# position in frame ??? we need them???
+				'ch_field'	=> 10,
 			},
 			'info_level'	=> {
-				'type'		=> 0x69,											# i
+				'type'		=> 0x69,
 				'dir'		=> 'from_device',
-				'event'		=> 1,												# frame should triger event???
+				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
-					'state'		=> {											# aditional frame parameter (state)
-						'type'	=> 'int',										# value type
-						'id'	=> 11.0,										# position in frame ???
-						'size'	=> 1											# value length
+					'state'		=> {
+						'type'	=> 'int',
+						'id'	=> 11.0,
+						'size'	=> 1
 					},
-					'state_flags'	=> {										# aditional frame parameter (state flags)
-						'type'	=> 'int',										# value type
-						'id'	=> 12.4,										# position in frame ???
-						'size'	=> 0.3											# value length
+					'state_flags'	=> {
+						'type'	=> 'int',
+						'id'	=> 12.4,
+						'size'	=> 0.3
 					},
 				},
 			},
 			'key_event_short'	=> {
-				'type'		=> 0x4B,											# K
+				'type'		=> 0x4B,
 				'dir'		=> 'from_device',
-				'event'		=> 1,												# frame should triger event???
+				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
-					'key'	=> {												# aditional frame parameter (state)
-						'type'			=> 'int',								# value type
-						'id'			=> 12.0,								# position in frame ???
-						'size'			=> 0.1,									# value length
-						'const_value'	=> 0									# parameter set always tu this value,short (0) long keypress (1)
+					'key'	=> {
+						'type'			=> 'int',
+						'id'			=> 12.0,
+						'size'			=> 0.1,
+						'const_value'	=> 0
 					},
-					'counter'	=> {											# aditional frame parameter (counter)
-						'type'	=> 'int',										# value type
-						'id'	=> 12.2,										# position in frame ???
-						'size'	=> 0.6											# value length
-					},
-				},
+					'counter'	=> {
+						'type'	=> 'int',
+						'id'	=> 12.2,
+						'size'	=> 0.6
+					}
+				}
 			},
 			'key_event_long'	=> {
-				'type'		=> 0x4B,											# K
+				'type'		=> 0x4B,
 				'dir'		=> 'from_device',
-				'event'		=> 1,												# frame should triger event???
+				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
-					'key'	=> {												# aditional frame parameter (state)
-						'type'			=> 'int',								# value type
-						'id'			=> 12.0,								# position in frame ???
-						'size'			=> 0.1,									# value length
-						'const_value'	=> 1									# parameter set always tu this value,short (0) long keypress (1)
+					'key'	=> {
+						'type'			=> 'int',
+						'id'			=> 12.0,
+						'size'			=> 0.1,
+						'const_value'	=> 1
 					},
-					'counter'	=> {											# aditional frame parameter (counter)
-						'type'	=> 'int',										# value type
-						'id'	=> 12.2,										# position in frame ???
-						'size'	=> 0.6											# value length
-					},
-				},
+					'counter'	=> {
+						'type'	=> 'int',
+						'id'	=> 12.2,
+						'size'	=> 0.6
+					}
+				}
 			},
 			'key_sim_short'	=> {
-				'type'			=> 0x4B,										# K
+				'type'			=> 0x4B,
 				'dir'			=> 'from_device',
-				'ch_field'		=> 10,											# ???
-				'rec_ch_field'	=> 11,											# ???
+				'ch_field'		=> 10,
+				'rec_ch_field'	=> 11,
 				'params'	=> {
-					'key'	=> {												# aditional frame parameter (state)
-						'type'			=> 'int',								# value type
-						'id'			=> 12.0,								# position in frame ???
-						'size'			=> 0.1,									# value length
-						'const_value'	=> 0									# parameter set always tu this value,short (0) long keypress (1)
+					'key'	=> {
+						'type'			=> 'int',
+						'id'			=> 12.0,
+						'size'			=> 0.1,
+						'const_value'	=> 0
 					},
-					'sim_counter'	=> {										# aditional frame parameter (sim_counter)
-						'type'	=> 'int',										# value type
-						'id'	=> 12.2,										# position in frame ???
-						'size'	=> 0.6											# value length
+					'sim_counter'	=> {
+						'type'	=> 'int',
+						'id'	=> 12.2,
+						'size'	=> 0.6
 					},
 				},
 			},
 			'key_sim_long'	=> {
-				'type'			=> 0x4B,										# K
+				'type'			=> 0x4B,
 				'dir'			=> 'from_device',
-				'ch_field'		=> 10,											# ???
-				'rec_ch_field'	=> 11,											# ???
+				'ch_field'		=> 10,
+				'rec_ch_field'	=> 11,
 				'params'	=> {
-					'key'	=> {												# aditional frame parameter (state)
-						'type'			=> 'int',								# value type
-						'id'			=> 12.0,								# position in frame ???
-						'size'			=> 0.1,									# value length
-						'const_value'	=> 1									# parameter set always tu this value,short (0) long keypress (1)
+					'key'	=> {
+						'type'			=> 'int',
+						'id'			=> 12.0,
+						'size'			=> 0.1,
+						'const_value'	=> 1
 					},
-					'sim_counter'	=> {										# aditional frame parameter (counter)
-						'type'	=> 'int',										# value type
-						'id'	=> 12.2,										# position in frame ???
-						'size'	=> 0.6											# value length
-					},
-				},
-			},
-			'set_lock'	=> {
-				'type'		=> 0x6C,											# l
-				'dir'		=> 'to_device',
-				'ch_field'	=> 11,												# ???
-				'params'	=> {
-					'inhibit'	=> {											# aditional frame parameter (inhibit)
-						'type'	=> 'int',										# value type
-						'id'	=> 12.0,										# position in frame ???
-						'size'	=> 1.0,											# value length
+					'sim_counter'	=> {
+						'type'	=> 'int',
+						'id'	=> 12.2,
+						'size'	=> 0.6
 					}
 				}
-			}
+			},
+			'set_lock'	=> {
+				'type'		=> 0x6C, 
+				'dir'		=> 'to_device',
+				'ch_field'	=> 11,
+				'params'	=> {
+					'inhibit'	=> {
+						'type'	=> 'int',
+						'id'	=> 12.0,
+						'size'	=> 1.0
+					}
+				}
+			},
 		},
 		'channels'	=> {
 			'maintenance' => {
 				'id'		=> 0,
-				'ui-flags'	=> 'internal',										# flages for ui rendering ???
+				'ui-flags'	=> 'internal',
 				'class'		=> 'maintenance',
-				'count'	=> 1,													# count of channels of this type it the device
+				'count'	=> 1,
 				'params'	=> {
-					'maint_ch_master'	=> {									# paramset id
-						'type'	=> 'master',
-					},
-					'maint_ch_values'	=> {									# paramset id
-						'type'	=> 'values',
-						'unreach'	=> {										# this parameter is set when device is not reachable
+					'master'	=> {},											# ??? we need them?
+					'values'	=> {											# we need the master channel values???
+						'unreach'	=> {
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -218,7 +208,7 @@ our %definition = (
 								'interface'	=> 'internal',
 							},
 						},
-						'sticky_unreach'	=> {								# this parameter is set when device is not reachable again
+						'sticky_unreach'	=> {
 							'operations'	=> 'read,write,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -229,7 +219,7 @@ our %definition = (
 								'interface'	=> 'internal',
 							}
 						},
-						'config_pending'	=> {								# not used this time with fhem
+						'config_pending'	=> {
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -245,8 +235,8 @@ our %definition = (
 			},
 			'key'	=> {
 				'id'	=> 1,
-				'count'	=> 12,													# count of channels of this type it the device
-				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0
+				'count'	=> 12,
+				'physical_id_offset'	=> -1,
 				'link_roles'	=> {
 					'source'	=> 'switch',
 				},
@@ -261,13 +251,11 @@ our %definition = (
 								'default'	=> 'pushbutton',
 							},
 							'physical'	=> {
-								'type'	=> 'int',
-								'size'	=> 0.1,
-								'interface'	=> 'eeprom',
-								'address'	=> {
-									'id'	=> 0.0
-								},
-							},
+								'type'			=> 'int',
+								'size'			=> 0.1,
+								'interface'		=> 'eeprom',
+								'address_id'	=> 0.0
+							}
 						},
 						'input_locked'	=> {
 							'logical'	=> {
@@ -275,17 +263,14 @@ our %definition = (
 								'default'	=> 0,
 							},
 							'physical'	=> {
-								'type'		=> 'int',
-								'size'		=> 0.1,
-								'interface'	=> 'eeprom',
-								'address'	=> {
-									'id'	=> 0.1
-								},
+								'type'			=> 'int',
+								'size'			=> 0.1,
+								'interface'		=> 'eeprom',
+								'address_id'	=> 0.1
 							},
-							'conversion'	=> {
-								'boolean_integer'	=> {
-									'invert'	=> 1
-								}
+							'conversion'	=> {								# conversion config
+								'type'		=> 'boolean_integer',
+								'invert'	=> 1
 							}
 						},
 						'long_press_time'	=> {
@@ -297,19 +282,17 @@ our %definition = (
 								'unit'		=> 's',
 							},
 							'physical'	=> {
-								'type'		=> 'int',
-								'size'		=> 1.0,
-								'interface'	=> 'eeprom',
-								'address'	=> {
-									'id'	=> 1.0
-								}
+								'type'			=> 'int',
+								'size'			=> 1.0,
+								'interface'		=> 'eeprom',
+								'address_id'	=> 1.0
 							},
 							'conversion'	=> {
-								'float_integer_scale'	=> {
-									'factor'	=> 10,
-								},
-								'integer_integer_map'	=> {
-									'value_map'	=> {
+								'type'		=> 'float_integer_scale',			# conversion config
+								'factor'	=> 10,								# before saving values to eeprom we multiply the parameter with factor
+								'value_map'	=> {
+									'type'	=> 'integer_integer_map',			# parameter mapping configuration
+									'01'	=> {
 										'device_value'		=> 0xFF,
 										'parameter_value'	=> 10,
 										'from_device'		=> 1,
@@ -334,14 +317,12 @@ our %definition = (
 								'max'		=> 255,
 								'default'	=> 255,
 							},
-							'physical'		=> {
-								'type'		=> 'int',
-								'size'		=> 1,
-								'interface'	=> 'eeprom',
-								'address'	=> {
-									'id'	=> 0,
-								},
-							},
+							'physical'	=> {
+								'type'			=> 'int',
+								'size'			=> 1,
+								'interface'		=> 'eeprom',
+								'address_id'	=> 0
+							}
 						},
 						'actuator'	=> {
 							'operations'	=> 'none', 
@@ -350,22 +331,20 @@ our %definition = (
 								'type'		=> 'address',
 							},
 							'physical'		=> {
-								'array'		=> {
-									'type'	=> 'int',
-									'size'		=> 4,
-									'interface'	=> 'eeprom',
-									'address'	=> {
-										'id'	=> 1,
-									},
+								'type'		=> 'array',
+								'01'		=> {
+									'type'		=>	'int',
+									'size'		=>	4,
+									'interface'	=>	'eeprom',
+									'address_id'	=> 1
 								},
-								'int'	=> {
-									'size'		=> 1,
-									'interface'	=> 'eeprom',
-									'address'	=> {
-										'id'	=> 5,
-									},
-								},
-							},
+								'02'	=> {
+									'type'		=>	'int',
+									'size'		=>	1,
+									'interface'	=>	'eeprom',
+									'address_id'	=> 5
+								}
+							}
 						}
 					},
 					'values'	=> {
@@ -387,10 +366,9 @@ our %definition = (
 								},
 							},
 							'conversion'	=> {
-								'action_key_counter'	=> {
-									'sim_counter'	=> 'sim_counter',
-									'counter_size'	=> 6
-								}
+								'type'			=> 'action_key_counter',
+								'sim_counter'	=> 'sim_counter',
+								'counter_size'	=> 6
 							}
 						},
 						'press_long'	=> {
@@ -411,10 +389,9 @@ our %definition = (
 								}
 							},
 							'conversion'	=> {
-								'action_key_counter'	=> {
-									'sim_counter'	=> 'sim_counter',
-									'counter_size'	=> 6
-								}
+								'type'			=> 'action_key_counter',
+								'sim_counter'	=> 'sim_counter',
+								'counter_size'	=> 6
 							}
 						}
 					}
@@ -423,7 +400,7 @@ our %definition = (
 			'switch' => {
 				'id'	=> 13,
 				'count'	=> 7,
-				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0
+				'physical_id_offset'	=> -1,
 				'link_roles'	=> {
 					'target'	=> 'switch',
 				},
@@ -438,12 +415,10 @@ our %definition = (
 								'default'	=> 'on',
 							},
 							'physical'	=> {
-								'type'	=> 'int',
-								'size'	=> 0.1,
-								'interface'	=> 'eeprom',
-								'address'	=> {
-									'id'	=> 0
-								}
+								'type'			=> 'int',
+								'size'			=> 0.1,
+								'interface'		=> 'eeprom',
+								'address_id'	=> 0
 							}
 						}
 					},
@@ -453,7 +428,583 @@ our %definition = (
 						'count'			=> 29,
 						'address_start'	=> 0x2D,
 						'address_step'	=> 28,
-						# Todo:
+						'params'	=> {
+							'ui_hint'	=> {
+								'logical'		=> {
+									'type'						=> 'string',
+									'default'					=> '',
+									'use_default_on_failure' 	=> 1,
+								},
+								'physical'		=> {
+									'type'				=> 'string',
+									'interface'			=> 'store',
+									'save_on_change'	=> 1,
+								}
+							},
+							'sensor'	=> {
+								'operations'	=> 'none',
+								'hidden'		=> 1,
+								'logical'		=> {
+									'type'		=> 'address',
+								},
+								'physical'		=> {
+									'type'		=> 'array',
+									'01'		=> {
+										'type'			=>	'int',
+										'size'			=>	4,
+										'interface'		=>	'eeprom',
+										'address_id'	=>	0
+									},
+									'02'	=> {
+										'type'			=>	'int',
+										'size'			=>	1,
+										'interface'		=>	'eeprom',
+										'address_id'	=>	4
+									}
+								}
+							},
+							'channel'	=> {
+								'operations'	=> 'none',
+								'hidden'		=> 1,
+								'logical'		=> {
+									'type'		=> 'int',
+									'min'		=> 0,
+									'max'		=> 255,
+								},
+								'physical'		=> {
+									'type'			=> 'int',
+									'size'			=> 1,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	5
+								}
+							},
+							'short_on_time_mode'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options' 	=> 'minimal, absolute',
+									'default'	=> 'absolute',
+								},
+								'physical'		=> {
+									'type'			=> 'int',
+									'size'			=> 0.1,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	6.7
+								}
+							},
+							'short_off_time_mode'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options' 	=> 'minimal, absolute',
+									'default'	=> 'absolute',
+								},
+								'physical'		=> {
+									'type'			=> 'int',
+									'size'			=> 0.1,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	6.6
+								}
+							},
+							'short_toggle_use'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options' 	=> 'dont_use, direct, inverted',
+									'default'	=> 'dont_use',
+								},
+								'physical'		=> {
+									'type'			=> 'int',
+									'size'			=> 0.2,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	6.4
+								},
+								'conversion'	=> {
+									'type'		=> 'option_integer',
+									'value_map'	=> {
+										'01'	=> {
+											'device_value'		=> 0x03,
+											'parameter_value'	=> 0,
+											'from_device'		=> 1,
+											'to_device'			=> 1,
+										},
+										'02'	=> {
+											'device_value'		=> 0x02,
+											'parameter_value'	=> 1,
+											'from_device'		=> 1,
+											'to_device'			=> 1,
+										},
+										'03'	=> {
+											'device_value'		=> 0x00,
+											'parameter_value'	=> 2,
+											'from_device'		=> 1,
+											'to_device'			=> 1,
+										}
+									}
+								}
+							},
+							'short_action_type'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options' 	=> 'inactive, active',
+									'default'	=> 'active',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.1,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	6.0
+								},
+							},
+							'short_ondelay_time'	=> {
+								'logical'		=> {
+									'type'		=> 'float',
+									'min' 		=> 0.0,
+									'max'		=> 982980.0,
+									'default'	=> 0.0,
+									'unit'		=> 's',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 2,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'address_id'	=>	8
+								},
+								'conversion'	=> {
+									'type'			=> 'float_configtime',
+									'factors'		=> '0.1,1,60,1000',
+									'value_size'	=> 1.6,
+									'value_map'		=> {
+										'type'	=> 'integer_integer_map',
+										'01'	=> {
+											'device_value'		=> 0xC000,
+											'parameter_value'	=> 0xFFFF,
+											'mask'				=> 0xC000,
+										},
+									}
+								}
+							},
+							'short_on_time'	=> {
+								'logical'		=> {
+									'type'		=> 'float',
+									'min' 		=> 0.0,
+									'max'		=> 982980.0,
+									'default'	=> 16383000,
+									'unit'		=> 's',
+									'special_value'	=> {
+										'not_used'	=> 16383000,
+									}
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 2,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'address_id'	=>	10
+								},
+								'conversion'	=> {
+									'type'			=> 'float_configtime',
+									'factors'		=> '0.1,1,60,1000',
+									'value_size'	=> 1.6,
+									'value_map'		=> {
+										'type'	=> 'integer_integer_map',
+										'01'	=> {
+											'device_value'		=> 0xC000,
+											'parameter_value'	=> 0xFFFF,
+											'mask'				=> 0xC000,
+										},
+									}
+								}
+							},
+							'short_offdelay_time'	=> {
+								'logical'		=> {
+									'type'		=> 'float',
+									'min' 		=> 0.0,
+									'max'		=> 982980.0,
+									'default'	=> 0,
+									'unit'		=> 's',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 2,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'address_id'	=>	12
+								},
+								'conversion'	=> {
+									'type'			=> 'float_configtime',
+									'factors'		=> '0.1,1,60,1000',
+									'value_size'	=> 1.6,
+									'value_map'		=> {
+										'type'	=> 'integer_integer_map',
+										'01'	=> {
+											'device_value'		=> 0xC000,
+											'parameter_value'	=> 0xFFFF,
+											'mask'				=> 0xC000,
+										},
+									}
+								}
+							},
+							'short_off_time'	=> {
+								'logical'		=> {
+									'type'		=> 'float',
+									'min' 		=> 0.0,
+									'max'		=> 982980.0,
+									'default'	=> 16383000,
+									'unit'		=> 's',
+									'special_value'	=> {
+										'not_used'	=> 16383000,
+									}
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 2,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'address_id'	=>	14
+								},
+								'conversion'	=> {
+									'type'			=> 'float_configtime',
+									'factors'		=> '0.1,1,60,1000',
+									'value_size'	=> 1.6,
+									'value_map'		=> {
+										'type'	=> 'integer_integer_map',
+										'01'	=> {
+											'device_value'		=> 0xC000,
+											'parameter_value'	=> 0xFFFF,
+											'mask'				=> 0xC000,
+										},
+									}
+								}
+							},
+							'short_jt_ondelay'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'ondelay, on, offdelay, off, no_jump_ignore_command',
+									'default'	=> 'on',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.3,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'read_size'		=>	2,
+									'address_id'	=>	16.0
+								}
+							},
+							'short_jt_on'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'ondelay, on, offdelay, off, no_jump_ignore_command',
+									'default'	=> 'offdelay',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.3,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'read_size'		=>	2,
+									'address_id'	=>	16.3
+								}
+							},
+							'short_jt_offdelay'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'ondelay, on, offdelay, off, no_jump_ignore_command',
+									'default'	=> 'off',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.3,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'read_size'		=>	2,
+									'address_id'	=>	16.6
+								}
+							},
+							'short_jt_off'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'ondelay, on, offdelay, off, no_jump_ignore_command',
+									'default'	=> 'ondelay',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.3,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'read_size'		=>	2,
+									'address_id'	=>	16.9
+								}
+							},
+							'long_on_time_mode'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'minimal, absolute',
+									'default'	=> 'absolute',
+								},
+								'physical'			=> {
+									'type'			=> 'int',
+									'size'			=> 0.1,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	7.7
+								}
+							},
+							'long_off_time_mode'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'minimal, absolute',
+									'default'	=> 'absolute',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.1,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	7.6
+								}
+							},
+							'long_toggle_use'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options' 	=> 'dont_use, direct, inverted',
+									'default'	=> 'dont_use',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.2,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	7.4
+								},
+								'conversion'	=> {
+									'type'	=> 'option_integer',
+									'value_map'	=> {
+										'01'	=> {
+											'device_value'		=> 0x03,
+											'parameter_value'	=> 0,
+											'from_device'		=> 1,
+											'to_device'			=> 1,
+										},
+										'02'	=> {
+											'device_value'		=> 0x02,
+											'parameter_value'	=> 1,
+											'from_device'		=> 1,
+											'to_device'			=> 1,
+										},
+										'03'	=> {
+											'device_value'		=> 0x00,
+											'parameter_value'	=> 2,
+											'from_device'		=> 1,
+											'to_device'			=> 1,
+										}
+									}
+								}
+							},
+							'long_multiexecute'	=> {
+								'logical'		=> {
+									'type'		=> 'boolean',
+									'default'	=> 1,
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.1,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	7.2
+								}
+							},
+							'long_action_type'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options' 	=> 'inactive, active',
+									'default'	=> 'active',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.1,
+									'interface'		=>	'eeprom',
+									'address_id'	=>	7.0
+								}
+							},
+							'long_ondelay_time'	=> {
+								'logical'		=> {
+									'type'		=> 'float',
+									'min' 		=> 0.0,
+									'max'		=> 982980.0,
+									'default'	=> 0.0,
+									'unit'		=> 's',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 2,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'address_id'	=>	18
+								},
+								'conversion'	=> {
+									'type'			=> 'float_configtime',
+									'factors'		=> '0.1,1,60,1000',
+									'value_size'	=> 1.6,
+									'value_map'		=> {
+										'type'	=> 'integer_integer_map',
+										'01'	=> {
+											'device_value'		=> 0xC000,
+											'parameter_value'	=> 0xFFFF,
+											'mask'				=> 0xC000,
+										},
+									}
+								}
+							},
+							'long_on_time'	=> {
+								'logical'		=> {
+									'type'		=> 'float',
+									'min' 		=> 0.0,
+									'max'		=> 982980.0,
+									'default'	=> 16383000,
+									'unit'		=> 's',
+									'special_value'	=> {
+										'not_used'	=> 16383000,
+									}
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 2,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'address_id'	=>	20
+								},
+								'conversion'	=> {
+									'type'			=> 'float_configtime',
+									'factors'		=> '0.1,1,60,1000',
+									'value_size'	=> 1.6,
+									'value_map'		=> {
+										'type'	=> 'integer_integer_map',
+										'01'	=> {
+											'device_value'		=> 0xC000,
+											'parameter_value'	=> 0xFFFF,
+											'mask'				=> 0xC000,
+										},
+									}
+								}
+							},
+							'long_offdelay_time'	=> {
+								'logical'		=> {
+									'type'		=> 'float',
+									'min' 		=> 0.0,
+									'max'		=> 982980.0,
+									'default'	=> 0.0,
+									'unit'		=> 's',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 2,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'address_id'	=>	22
+								},
+								'conversion'	=> {
+									'type'			=> 'float_configtime',
+									'factors'		=> '0.1,1,60,1000',
+									'value_size'	=> 1.6,
+									'value_map'		=> {
+										'type'	=> 'integer_integer_map',
+										'01'	=> {
+											'device_value'		=> 0xC000,
+											'parameter_value'	=> 0xFFFF,
+											'mask'				=> 0xC000,
+										},
+									}
+								}
+							},
+							'long_off_time'	=> {
+								'logical'		=> {
+									'type'		=> 'float',
+									'min' 		=> 0.0,
+									'max'		=> 982980.0,
+									'default'	=> 16383000,
+									'unit'		=> 's',
+									'special_value'	=> {
+										'not_used'	=> 16383000,
+									}
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 2,
+									'interface'		=>	'eeprom',
+									'endian'		=>	'little',
+									'address_id'	=>	24
+								},
+								'conversion'	=> {
+									'type'			=> 'float_configtime',
+									'factors'		=> '0.1,1,60,1000',
+									'value_size'	=> 1.6,
+									'value_map'		=> {
+										'type'	=> 'integer_integer_map',
+										'01'	=> {
+											'device_value'		=> 0xC000,
+											'parameter_value'	=> 0xFFFF,
+											'mask'				=> 0xC000,
+										},
+									}
+								}
+							},
+							'long_jt_ondelay'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'ondelay, on, offdelay, off, no_jump_ignore_command',
+									'default'	=> 'on',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.3,
+									'interface'		=> 'eeprom',
+									'endian'		=> 'little',
+									'read_size'		=>	2,
+									'address_id'	=>	26.0
+								}
+							},
+							'long_jt_on'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'ondelay, on, offdelay, off, no_jump_ignore_command',
+									'default'	=> 'offdelay',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.3,
+									'interface'		=> 'eeprom',
+									'endian'		=> 'little',
+									'read_size'		=>	2,
+									'address_id'	=>	26.3
+								}
+							},
+							'long_jt_offdelay'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'ondelay, on, offdelay, off, no_jump_ignore_command',
+									'default'	=> 'off',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.3,
+									'interface'		=> 'eeprom',
+									'endian'		=> 'little',
+									'read_size'		=>	2,
+									'address_id'	=>	26.6
+								}
+							},
+							'long_jt_off'	=> {
+								'logical'		=> {
+									'type'		=> 'option',
+									'options'	=> 'ondelay, on, offdelay, off, no_jump_ignore_command',
+									'default'	=> 'ondelay',
+								},
+								'physical'	=> {
+									'type'			=> 'int',
+									'size'			=> 0.3,
+									'interface'		=> 'eeprom',
+									'endian'		=> 'little',
+									'read_size'		=>	2,
+									'address_id'	=>	26.9
+								}
+							}
+						}
 					},
 					'values' => {
 						'state'	=> {
@@ -478,12 +1029,11 @@ our %definition = (
 									'frame'	=> 'info_level',
 								},
 							},
-							'conversion'	=> {
-								'boolean_integer'	=> {
-									'threshold'	=> 1,
-									'false'		=> 0,
-									'true'		=> 200
-								}
+							'conversion'	=> {								# conversion config
+								'type'		=> 'boolean_integer',
+								'threshold'	=> 1,								# values > treshold evaluated to true
+								'false'		=> 0,								# 0 is false
+								'true'		=> 200								# 200 is true
 							}
 						},
 						'working' => {
@@ -506,7 +1056,7 @@ our %definition = (
 								},
 							},
 							'conversion'	=> {
-								'boolean_integer'	=> {},
+								'type'		=> 'boolean_integer',
 							}
 						},
 						'inhibit' => {

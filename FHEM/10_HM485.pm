@@ -89,7 +89,7 @@ sub HM485_Initialize($) {
 	$hash->{AttrList}       = 'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
 	                          'model:' . HM485::Device::getModelList() . ' ' .
-	                          'subType ' .
+	                          'subType stateFormat ' .
 	                          ' firmwareVersion';
 
 	#@attrListRO = ('serialNr', 'firmware', 'hardwareType', 'model' , 'modelName');
@@ -682,14 +682,13 @@ sub HM485_CreateSubdevices($$) {
 	my $subTypes = HM485::Device::getValueFromDefinitions($modelGroup . '/channels');
 	if (ref($subTypes) eq 'HASH') {
 		
-#		print Dumper($subTypes);
-		
 		foreach my $subType (sort keys %{$subTypes}) {
 			if ($subType ne 'maintenance') {
 				if ( defined($subTypes->{$subType}{count}) && $subTypes->{$subType}{count} > 0) {
 					my $chStart = $subTypes->{$subType}{id};
 					my $chCount = $subTypes->{$subType}{count};
-					for(my $ch = $chStart; $ch <= ($chStart + $chCount); $ch++) {
+					
+					for(my $ch = $chStart; $ch < ($chStart + $chCount); $ch++) {
 						my $txtCh = sprintf ('%02d' , $ch);
 						my $room = AttrVal($name, 'room', '');
 						my $devName = $name . '_' . $txtCh;
@@ -728,8 +727,9 @@ sub HM485_Set($@) {
 		%sets = %setsCh;
 		my $allowedSets = HM485_getAllowedSets($hash);
 		if ($allowedSets) {
-			foreach my $allowedSet (split(':', HM485_getAllowedSets($hash))) {
-				$sets{$allowedSet} = '';
+			foreach my $setValue (split(' ', $allowedSets)) {
+				my($setValue, $param) = split(':', $setValue);
+				$sets{$setValue} = $param ? $param : '';
 			}
 		}
 
@@ -773,6 +773,48 @@ sub HM485_Set($@) {
 		} else {
 			
 			if ($cmd eq 'test') {
+				# Todo for development
+				HM485_setTest($hash);
+				
+			} elsif ($cmd eq 'press_long' || $cmd eq 'press_short') {
+				#Todo: Make ready
+				$msg = 'set ' . $name . ' ' . $cmd . ' not yet implemented'; 
+
+			} elsif ($cmd =~ m/config_.*/) {
+				$cmd =~ s/config_//g;
+				$msg = HM485_setSetting($hash, $cmd, $value);
+
+			} elsif ($cmd eq 'on' || $cmd eq 'off') {
+				#Todo: Make ready
+				my $hmwId = $hash->{DEF};
+				my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
+				
+				my $addr  = substr($hmwId,0,8);
+				my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
+				my $state = ($cmd eq 'on') ? '01' : '00';
+				my $data  = sprintf('78%02X%02X', ($chNr-1), $state);
+				HM485_sendCommand($devHash, $addr, $data);
+
+			} elsif ($cmd eq 'level') {
+				#Todo: Make ready
+				my $hmwId = $hash->{DEF};
+				my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
+				
+				my $addr  = substr($hmwId,0,8);
+				my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
+				my $state = $value * 2;
+				my $data  = sprintf('78%02X%02X', ($chNr-1), $state);
+				HM485_sendCommand($devHash, $addr, $data);
+			}
+		}
+	}
+
+	return $msg;
+}
+
+sub HM485_setTest ($) {
+	my ($hash) = @_;
+	
 #				$modules{$defs{$name}{TYPE}}{AttrList} =~ s/$item//;
 				# debug
 #				my $valueHash = HM485::Device::parseFrameData(
@@ -794,31 +836,7 @@ sub HM485_Set($@) {
 #my $data = 'CCDDEEqqwweerrttzzuuiiooppüüaassddffgghh';
 #HM485::Device::setRawEEpromData($hash, $start, $len, $data);
 
-#				my $t = HM485::Device::getRawEEpromData($hash, 0x101, 7);
-				
-			} elsif ($cmd eq 'press_long' || $cmd eq 'press_short') {
-				#Todo: Make ready
-				$msg = 'set ' . $name . ' ' . $cmd . ' not yet implemented'; 
-
-			} elsif ($cmd =~ m/config_.*/) {
-				$cmd =~ s/config_//g;
-				$msg = HM485_setSetting($hash, $cmd, $value);
-
-			} elsif ($cmd eq 'on' || $cmd eq 'off') {
-				#Todo: Make ready
-				my $hmwId = $hash->{DEF};
-				my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
-				
-				my $addr  = substr($hmwId,0,8);
-				my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
-				my $state = ($cmd eq 'on') ? '01' : '00';
-				my $data  = sprintf('78%02X%02X', ($chNr-1), $state);
-				HM485_sendCommand($devHash, $addr, $data);
-			}
-		}
-	}
-
-	return $msg;
+#				my $t = HM485::Device::getRawEEpromData($hash, 0x101, 7);	
 }
 
 sub HM485_setSetting($$$) {
@@ -846,9 +864,9 @@ sub HM485_saveSettingsToEEprom($$$){
 
 	$configHash = $configHash->{physical};
 	if ($configHash->{interface} eq 'eeprom') {
-		my $adr = $configHash->{address}{id};
+		my $adr = $configHash->{address_id};
 		if ($adr) {
-			my $size = $configHash->{address}{id} ? $configHash->{address}{id} : 1;
+			my $size = $configHash->{size} ? $configHash->{size} : 1;
 
 			my $hmwId = $hash->{DEF};
 			$adr   = sprintf ('%04X' , $adr);
@@ -866,7 +884,6 @@ sub HM485_convertSettingsToEEprom($$;$){
 	
 	my $retVal = undef;
 	if ($conversionHash) {
-
 		if ($conversionHash->{type} eq 'float_integer_scale') {
 			my $factor = int($conversionHash->{factor});
 			if ($toEEprom) {
@@ -1050,10 +1067,13 @@ sub HM485_getAllowedSets($;$) {
 			my $subType = HM485::Device::getSubtypeFromChannelNo($modelGroup, $chNr);
 
 			if ($subType eq 'key') {
-				$retVal = 'press_short:press_long';
+#				$retVal = 'press_short:press_long';
 	
 			} elsif ($subType eq 'switch' || $subType eq 'digitaloutput') {
-				$retVal = 'on:off';
+				$retVal = 'on off';
+
+			} elsif ($subType eq 'dimmer') {
+				$retVal = 'on off level:slider,0,1,100 ';
 			}
 		}
 	}
@@ -1065,10 +1085,38 @@ sub HM485_setWebCmd($$) {
 	my ($hash, $model) = @_;
 	my $name = $hash->{NAME};
 	
-	my $webCmd = HM485_getAllowedSets($hash, $model);
-	if ($webCmd) {
-		CommandAttr(undef, $name . ' webCmd ' . $webCmd);
+#	my $webCmd = HM485_getAllowedSets($hash, $model);
+#	if ($webCmd) {
+#		CommandAttr(undef, $name . ' webCmd ' . $webCmd);
+#	}
+}
+
+### Devstate Icon for dimmer
+# Todo:
+sub HM485_DevStateIcon($) {
+	my ($name) = @_;
+	my @dimValues = (6,12,18,25,31,37,43,50,56,62,68,75,81,78,93);
+	
+	my $level = ReadingsVal($name, 'level', '???');
+	my $retVal = 'dim06%';
+
+	if ($level == 0) {
+		$retVal = 'off';
+
+	} elsif ($level == 100) {
+		$retVal = 'on';
+
+	} else {
+		foreach my $dimValue (@dimValues) {
+			if ($level <= $dimValue) {
+				$retVal =  sprintf ('dim%02d' , $dimValue);
+				$retVal.='%';
+				last;
+			}
+		}
 	}
+	
+	return $retVal;
 }
 
 1;
