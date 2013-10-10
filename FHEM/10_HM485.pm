@@ -27,6 +27,7 @@ use lib abs_path("$FindBin::Bin");
 use lib::HM485::Constants;
 use lib::HM485::Device;
 use lib::HM485::Util;
+use lib::HM485::FhemWebHelper;
 #use lib::HM485::Command;
 
 use Scalar::Util qw(looks_like_number);
@@ -85,6 +86,8 @@ sub HM485_Initialize($) {
 	$hash->{SetFn}          = 'HM485_Set';
 	$hash->{GetFn}          = 'HM485_Get';
 	$hash->{AttrFn}         = 'HM485_Attr';
+	
+	$hash->{FW_detailFn}    = 'HM485_fhemwebShowConfigTable';
 
 	$hash->{AttrList}       = 'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
@@ -167,6 +170,13 @@ sub HM485_Define($$) {
 			}
 		}
 	}
+	
+	# debug
+	#	$hash->{CONFIGS}{'.eeprom_' . $adr} = $msgData;
+	$hash->{CONFIGS}{'loging_time'}     = {type => 'number', min => 0.1, max => 25.5, value => 1, unit => 's'};
+	$hash->{CONFIGS}{'input_locked'}    = {type => 'option', posibleValues => '0:1', value => 0};
+	$hash->{CONFIGS}{'input_type'}      = {type => 'option', posibleValues => 'switch:pushbutton', value => 'pushbutton'};
+	$hash->{CONFIGS}{'long_press_time'} = {type => 'number', min => 0.1, max => 5, value => 1, unit => 's'};
 	
 	return $msg;
 }
@@ -1117,6 +1127,19 @@ sub HM485_DevStateIcon($) {
 	}
 	
 	return $retVal;
+}
+
+sub HM485_fhemwebShowConfigTable($$) {
+	my ($fwName, $name, $roomName) = @_;
+
+	my $hash = $defs{$name};
+	my $content = '';
+
+	if(ref($hash) eq 'HASH') {
+		$content = HM485::FhemWebHelper::showConfig($hash);
+	}
+
+	return $content;
 }
 
 1;
