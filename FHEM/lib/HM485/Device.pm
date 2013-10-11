@@ -200,7 +200,7 @@ sub getSubtypeFromChannelNo($$) {
 
 	my $channels = getValueFromDefinitions($modelGroup . '/channels/');
 	my @chArray = ();
-	foreach my $subType (keys $channels) {
+	foreach my $subType (keys %{$channels}) {
 		push (@chArray, sprintf ('%02d' , $channels->{$subType}{id}) . '_' . $subType);
 	}
 
@@ -248,7 +248,7 @@ sub getFrameInfos($$;$$) {
 
 	my $frames = getValueFromDefinitions($modelGroup . '/frames/');
 	if ($frames) {
-		foreach my $frame (keys $frames) {
+		foreach my $frame (keys %{$frames}) {
 			my $fType  = $frames->{$frame}{type};
 			my $fEvent = $frames->{$frame}{event} ? $frames->{$frame}{event} : 0;
 			my $fDir   = $frames->{$frame}{dir} ? $frames->{$frame}{dir} : 0;
@@ -283,7 +283,7 @@ sub convertDataToValue($$) {
 	my $dataValid = 1;
 	my %retVal;
 	if ($params) {
-		foreach my $param (keys $params) {
+		foreach my $param (keys %{$params}) {
 			$param = lc($param);
 			my $index = ($params->{$param}{'index'} - 9);
 			my $size = ($params->{$param}{size});
@@ -315,7 +315,7 @@ sub translateValue($$) {
 	my ($modelGroup, $frameData) = @_;
 
 	if ($frameData->{ch}) {
-		foreach my $valId (keys $frameData->{params}) {
+		foreach my $valId (keys %{$frameData->{params}}) {
 			my $valueMap = getChannelValueMap($modelGroup, $frameData, $valId);
 
 			if ($valueMap) {
@@ -373,7 +373,7 @@ sub getChannelValueMap($$$) {
 
 	my $retVal;
 	if (defined($values)) {
-		foreach my $value (keys $values) {
+		foreach my $value (keys %{$values}) {
 			if ($values->{$value}{physical}{value_id} eq $valId) {
 				if (!defined($values->{$value}{physical}{event}{frame}) ||
 					$values->{$value}{physical}{event}{frame} eq $frameData->{id}
