@@ -96,7 +96,7 @@ sub logger ($$$;$) {
 				}
 				$ctrlTxt.= (ctrlHasSender($dataHash->{cb})   ? ',B' : '') . ')';
 				
-				$logTxt.= ' '    . $ctrlTxt;
+				$logTxt.= ' '    . $ctrlTxt . '(' . sprintf('%02X', $dataHash->{cb}) . ')';
 				$logTxt.= ' '    . printByte($dataHash->{sender}, $formatHex);
 				$logTxt.= ' -> ' . printByte($dataHash->{target}, $formatHex);
 
@@ -107,7 +107,9 @@ sub logger ($$$;$) {
 				if (!exists($dataHash->{dataLen}) || $dataHash->{dataLen} > 2) {
 					$logTxt.= ' '    . substr($data, 0, 2);
 					$logTxt.= '('    . chr(hex(substr($data, 0, 2))) . ')';
-					$logTxt.= ' '    . substr($data, 2, -4);
+					if (length($data) > 2) {
+						$logTxt.= ' '    . substr($data, 2, -4);
+					}
 				}
 				$logTxt.= ' {'   . substr($data, -4) . '}'  if (exists($dataHash->{dataLen}));
 			}
@@ -132,11 +134,16 @@ sub printByte($$) {
 	my ($data, $formatHex) = @_;
 	
 	my $retVal = '';
-	if (defined($formatHex) && $formatHex) {
-		$retVal = $data;
-	} else {
-	 	uc( unpack ('H*', $data) );
+	
+	if ($data) {
+		if (defined($formatHex) && $formatHex) {
+			$retVal = $data;
+		} else {
+		 	$retVal = uc( unpack ('H*', $data) );
+		}
 	}
+	
+	return $retVal;
 }
 
 sub removeValuesFromList($$@) {
@@ -193,6 +200,9 @@ sub ctrlSynSet        ($) {return (((shift) & (1<<7)) == (1<<7));}
 sub ctrlFinalSet      ($) {return (((shift) & (1<<4)) == (1<<4));}
 sub ctrlAckNum        ($) {return ((shift >> 5) & 0x03);}
 sub ctrlTxNum         ($) {return ((shift >> 1) & 0x03);}
+
+sub setCtrlTxNum     ($$) {return ((0b11111001 & $_[0]) | ($_[1] << 1));}
+sub setCtrlRxNum     ($$) {return ((0b10011111 & $_[0]) | ($_[1] << 5));}
 
 # TODO: some loggings
 # CCU1 Log

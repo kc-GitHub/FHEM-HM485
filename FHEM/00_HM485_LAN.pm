@@ -275,11 +275,14 @@ sub HM485_LAN_Write($$;$) {
 			);
 
 			# Debug
-#			HM485::Util::logger(
-#				$name, 3, 'TX: (' . $msgId . ') ' . sprintf (
-#					'T:%s C:%s S:%s D:%s', $target, $ctrl, $source, $data
-#				)
-#			);
+			my %RD = (
+				target  => pack('H*', $target),
+				cb      => hex($ctrl),
+				sender  => pack('H*', $source),
+				datalen => length($data) + 2,
+				data    => pack('H*', $data . 'FFFF'),
+			);
+			HM485::Util::logger($name, 4, 'TX: (' . $msgId . ')', \%RD);
 
 			$sendData = pack('H*',
 				sprintf(
@@ -585,7 +588,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
 		# Debug
-#		HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ') ' . $msgData);
+		HM485::Util::logger($name, 4, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $alifeStatus = substr($msgData, 0, 2);
@@ -601,7 +604,14 @@ sub HM485_LAN_parseIncommingCommand($$) {
 		
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
 		# Debug
-#		HM485::Util::logger($name, 3, 'EVENT: (' . $msgId . ') ' . $msgData);
+		my %RD = (
+			target  => pack('H*',substr($msgData, 0,8)),
+			cb      => hex(substr($msgData, 8,2)),
+			sender  => pack('H*',substr($msgData, 10,8)),
+			datalen => $msgLen,
+			data    => pack('H*',substr($msgData, 18)),
+		);
+		HM485::Util::logger($name, 4, 'RX:', \%RD);
 
 	} else {
 		$canDispatch = 0;
