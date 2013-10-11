@@ -29,7 +29,7 @@ use lib::HM485::Constants;
 use lib::HM485::Device;
 use lib::HM485::Util;
 
-use vars qw {%attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC IDE
+use vars qw {%data %attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC IDE
 
 # Function prototypes
 
@@ -142,6 +142,13 @@ sub HM485_LAN_Define($$) {
 
 	$hash->{msgCounter} = 1;
 	$hash->{STATE} = '';
+
+#print Dumper($data);
+#	$data{FWEXT}{test}{SCRIPT} = 'cordova-2.3.0.js"></script>' .
+#									 '<script type="text/javascript" src="/fhem/js/webviewcontrol.js"></script>' .
+#									 '<script type="text/javascript">' . $vars . '</script>' .
+#									 '<script type="text/javascript" charset="UTF-8';
+
 
 	return $ret;
 }
