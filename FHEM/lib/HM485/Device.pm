@@ -260,7 +260,7 @@ sub getFrameInfos($$;$$) {
 			   (!defined($event) || $dir eq $fDir) ) {
 
 				my $chField = ($frames->{$frame}{ch_field} - 9) * 2;
-				my $params = translateDataToValue($data, $frames->{$frame}{params});
+				my $params = translateFrameDataToValue($data, $frames->{$frame}{params});
 				if (defined($params)) {
 					%retVal = (
 						ch     => sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1),
@@ -278,7 +278,7 @@ sub getFrameInfos($$;$$) {
 	return \%retVal;
 }
 
-sub translateDataToValue($$) {
+sub translateFrameDataToValue($$) {
 	my ($data, $params) = @_;
 	$data = pack('H*', $data);
 
@@ -388,8 +388,8 @@ sub valueToControl($$$) {
 sub dataConversion($$;$) {
 	my ($value, $convertConfig, $dir) = @_;
 	
+#	print Dumper($convertConfig);
 	my $retVal = $value;
-
 	if (ref($convertConfig) eq 'HASH') {
 		$dir = ($dir && $dir eq 'to_device') ? 'to_device' : 'from_device';
 
@@ -631,58 +631,6 @@ sub setRawEEpromData($$$$) {
 	}
 }
 
-
-sub getConfigSettings($) {
-	my ($hash) = @_;
-
-	my $configSettings = $hash->{cache}{configSettings};
-	if (!$configSettings) {
-		my $name   = $hash->{NAME};
-		my $hmwId  = $hash->{DEF};
-		my $addr   = substr($hmwId,0,8);
-		my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
-		
-		my $model = main::AttrVal($name, 'model', undef);
-		if ($model) {
-			my $modelGroup  = getModelGroup($model);
-			if (defined($chNr)) {
-				my $subtype = getSubtypeFromChannelNo($modelGroup, $chNr);
-				$configSettings = getValueFromDefinitions($modelGroup . '/channels/' . $subtype .'/params/master/');
-#		print Dumper ("--------------------------------- $hmwId");
-#		print Dumper("getValueFromDefinitions($modelGroup . '/channels/' . $subtype .'/params/master/')");
-#		print Dumper ($configSettings);
-#		print Dumper ("---------------------------------");
-			} else {
-				$configSettings = getValueFromDefinitions($modelGroup . '/params/master/');
-			}
-
-#			print Dumper($configSettings);
-			$configSettings = getConfigSetting($configSettings);
-		}
-		$hash->{cache}{configSettings} = $configSettings;
-	}
-
-	return $configSettings;
-}
-
-sub getConfigSetting($) {
-	my ($configHash) = @_;
-
-	if (ref($configHash) eq 'HASH') {
-		foreach my $config (keys $configHash) {
-
-			if (ref($configHash->{$config}) eq 'HASH') {
-				if ($configHash->{$config}{hidden}) {
-					delete($configHash->{$config});
-				}
-			}
-
-		}	
-	}
-
-	return $configHash;
-}
-
 =head2
 	Walk thru device definition and found all eeprom related values
 	
@@ -791,6 +739,15 @@ sub subBit ($$$) {
 	my ($byte, $start, $len) = @_;
 	
 	return (($byte << (8 - $start - $len)) & 0xFF) >> (8 - $len);
+}
+
+sub getChannelNrFromDevice($) {
+	my ($hash) = @_;
+
+ 	my $hmwId = $hash->{DEF};
+	my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : 0;
+
+	return $chNr;
 }
 
 1;

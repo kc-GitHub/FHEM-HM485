@@ -8,42 +8,48 @@ use vars qw($FW_ss);      # is smallscreen, needed by 97_GROUP/95_VIEW
 use vars qw(%FW_hiddenroom); # hash of hidden rooms, used by weblink
 use vars qw {%defs};
 
-sub showConfig($) {
-	my ($hash) = @_;
+sub showConfig($$$) {
+	my ($hash, $configHash, $peerHash) = @_;
 	my $name = $hash->{NAME};
 
 	my $content = '';
-	my $configs = $hash->{CONFIGS};
-	if(ref($configs) eq 'HASH') {
-		$content.= makeConfigTable($hash, $configs);
+	if(ref($configHash) eq 'HASH') {
+		$content.= makeConfigTable($hash, $configHash);
 	}
 
-	my $peerings = $hash->{PEERINGS};
-	if(ref($configs) eq 'HASH') {
-#		$content.= makePeeringsTable($hash, $peerings);
+	if(ref($peerHash) eq 'HASH') {
+#		$content.= makePeeringsTable($hash, $peerHash);
 	}
 	
 	return $content;
 }
 
 sub makeConfigTable($$) {
-	my ($hash, $configs) = @_;
+	my ($hash, $configHash) = @_;
 
 	my $name = $hash->{NAME};
 	
+#	print Dumper($configHash);
+	
 	my $content = '';
 	my $rowCount = 1;
-	foreach my $cKey (sort keys %{$configs}) {
+	foreach my $cKey (sort keys %{$configHash}) {
 		my $rowContent.= wrapTd($cKey . ':');
 		
 		my $value = '';
-		if ($configs->{$cKey}{type} eq 'option') {
-			$value = configSelect($cKey, $configs->{$cKey}{posibleValues}, $configs->{$cKey}{value})
+		if ($configHash->{$cKey}{type} eq 'option') {
+			$value = configSelect($cKey, $configHash->{$cKey}{posibleValues}, $configHash->{$cKey}{value})
+
+		} elsif ($configHash->{$cKey}{type} eq 'boolean') {
+			$value = configSelect(
+				$cKey, 'no,yes', ($configHash->{$cKey}{value} ? 'yes' : 'no')
+			);
+
 		} else {
-			$value = configInput($cKey, $configs->{$cKey}{value}, $configs->{$cKey}{min}, $configs->{$cKey}{max})
+			$value = configInput($cKey, $configHash->{$cKey}{value}, $configHash->{$cKey}{min}, $configHash->{$cKey}{max})
 		}
 		
-		my $unit = $configs->{$cKey}{unit} ? $configs->{$cKey}{unit} : '';
+		my $unit = $configHash->{$cKey}{unit} ? $configHash->{$cKey}{unit} : '';
 		$value = wrapDiv($value . ' ' .  $unit, '', 'dval');
 		
 		$rowContent.= wrapTd($value);
@@ -83,7 +89,7 @@ sub configSelect($$$) {
 	
 	my $content = '<select onchange="alert()" id="' . $name . '" name="' . $name . '" class="set">';
 	my $options = '';
-	foreach my $oKey (split(':', $posibleValues)) {
+	foreach my $oKey (split(',', $posibleValues)) {
 		$options.= '<option value="' . $oKey . '">' . $oKey . '</option>';
 	}
 	
@@ -132,6 +138,7 @@ sub wrapTd($;$) {
 	my ($content, $class) = @_;
 
 	$class   = ($class) ? ' class="' . $class . '"' : '';
+	$content = ($content) ? $content : '';
 
 	$content = '<td' . $class . '>' . $content . '</td>';
 	return $content;
