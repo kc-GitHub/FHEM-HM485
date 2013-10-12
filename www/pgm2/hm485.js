@@ -1,18 +1,31 @@
-function FW_HM485setConfig(name, form) {
-	var setName = 'val.HM485.config.set';
-	
-	var elSet = document.getElementsByName(setName + name)[0];
+function FW_HM485setConfigSubmit(name, form) {
+	var retVal = false;
 
-	var configAttr = document.getElementsByClassName('arg.HM485.config');
-	for(var i = 0; i < configAttr.length; i++) { 
-		console.log(configAttr[i].getAttribute('name'));
+	var submitBtn = document.getElementsByName('submit.HM485.config')[0];
+	console.log(submitBtn.getAttribute('disabled'));
+	if (!submitBtn.getAttribute('disabled')) {
+
+		var setName = 'val.HM485.config.set';
+		
+		var configValue = '';
+		var configAttr = document.getElementsByClassName('arg.HM485.config');
+		for(var i = 0; i < configAttr.length; i++) { 
+			var attr = configAttr[i].getAttribute('name');
+			var val = configAttr[i].value;
+			configValue = configValue + attr + ' ' + val + ' ';
+		}
+		
+		var elSet = document.getElementsByName(setName + name)[0];
+		elSet.value = configValue
+		elSet.setAttribute('name', 'val.set' + name);
+
+		retVal = true;
 	}
 	
-	
-	
-	elSet.setAttribute('name', setName + name);
+	return retVal;
+}
 
-	console.log(name, elSet, configAttr);
-	
-	return false;
+function FW_HM485setChange(el) {
+	var submitBtn = document.getElementsByName('submit.HM485.config')[0];
+	submitBtn.removeAttribute('disabled');
 }

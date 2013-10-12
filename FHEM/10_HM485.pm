@@ -653,6 +653,7 @@ sub HM485_doSendCommand($$) {
 	}
 
 	my %params = (target => $target, data   => $data);
+	print Dumper ($hash);
 	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
 	
 	my @validRequestTypes = ('4B', '52', '53', '52', '68', '6E', '70', '72', '76', '78', 'CB');
@@ -823,6 +824,7 @@ sub HM485_setTest ($) {
 sub HM485_setConfig($$$) {
 	my ($hash, @values) = @_;
 	
+	my $name = $hash->{NAME};
 	shift(@values);
 	shift(@values);
 	shift(@values);
@@ -867,34 +869,32 @@ sub HM485_setConfig($$$) {
 	
 	# If validation success
 	if (!$msg) {
-		my $t = HM485::ConfigurationManager::convertSettingsToEepromData($hash, $validatedConfig);
-		print Dumper($t)
-		
-#		my $name = $hash->{NAME};
-#
-#		print Dumper($validatedConfig);
-#		foreach my $config (keys %{$validatedConfig}) {
-#
-#			my $value = $validatedConfig->{$config};
-#			if ($configHash->{$config}{logical}{type} eq 'option') {
-#				$value = HM485::ConfigurationManager::convertOptionToValue(
-#					$configHash->{$config}{logical}{options}, $value
-#				);
-#			} else {
-#				$value = HM485::Device::dataConversion(
-#					$value, $configHash->{$config}{conversion}, 'to_device'
-#				);
-#			}
-#
-#			if (defined($value)) {
-#				Log3($hash, 3, 'Set config value "' . $config . '" to ' . $value . ' for ' . $name);
-#				HM485_saveSettingsToEEprom($hash, $configHash->{$config}, $config, $value);
-#			}
-#		}
+		my $convertetSettings = HM485::ConfigurationManager::convertSettingsToEepromData(
+			$hash, $validatedConfig
+		);
+		print Dumper($convertetSettings);
 
-		
+		if (scalar (keys %{$convertetSettings})) {
+#			$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
+			foreach my $adr (keys %{$convertetSettings}) {
+				Log3($hash, 3, 'Set config for ' . $name . ': ' . $convertetSettings->{$adr}{text});
+
+				my $size = $convertetSettings->{$adr}{size} ? $convertetSettings->{$adr}{size} : 1;
+				$size  = sprintf ('%02X' , $size);
+
+				my $value = $convertetSettings->{$adr}{value};
+				$value = sprintf('%0' . ($size * 2) . 'X', $value);
+
+				$adr   = sprintf ('%04X' , $adr);
+
+				my $hmwId = substr($hash->{DEF}, 0, 8);
+
+#print Dumper("HM485_sendCommand($hash, $hmwId, '57' . $adr . $size . $value)");
+				HM485_sendCommand($hash, $hmwId, '57' . $adr . $size . $value);     # (W) write eeprom data
+			}
+		}
 	}
-#	
+
 	return $msg;
 }
 

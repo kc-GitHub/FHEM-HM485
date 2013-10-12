@@ -42,7 +42,7 @@ sub makeConfigTable($$) {
 
 		} elsif ($configHash->{$cKey}{type} eq 'boolean') {
 			$value = configSelect(
-				$cKey, 'no,yes', ($configHash->{$cKey}{value} ? 'yes' : 'no')
+				$cKey, 'no:0,yes:1', ($configHash->{$cKey}{value} ? 'yes' : 'no')
 			);
 
 		} else {
@@ -61,7 +61,7 @@ sub makeConfigTable($$) {
 
 	my $rowClass = ($rowCount & 1) ? 'odd' : 'even';
 	$content.= wrapTr(
-		wrapTd() . wrapTd('<input type="submit" value="Save Config" class="attr">'),
+		wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.config" disabled="disabled" value="Save Config" class="attr">'),
 		$rowClass
 	);
 	
@@ -79,9 +79,8 @@ sub makeConfigTable($$) {
 sub configInput($$;$$) {
 	my ($name, $value, $min, $max) = @_;
 
-	my $content = '';	
-#	my $content = '<input type="text" onchange="alert()" size="5" value="' . 
-#	               $value . '" id="' . $name . '" class="attr">';
+	my $content = '<input onchange="FW_HM485setChange(this)" type="text" size="3" name="' . $name . '" value="' . 
+	               $value . '" class="arg.HM485.config">';
 
 	return $content;
 }
@@ -89,10 +88,12 @@ sub configInput($$;$$) {
 sub configSelect($$$) {
 	my ($name, $posibleValues, $value) = @_;
 	
-	my $content = '<select id="arg.HM485.config' . $name . '" name="' . $name . '" class="arg.HM485.config">';
+	my $content = '<select onchange="FW_HM485setChange(this)" name="' . $name . '" class="arg.HM485.config">';
 	my $options = '';
 	foreach my $oKey (split(',', $posibleValues)) {
-		$options.= '<option value="' . $oKey . '">' . $oKey . '</option>';
+		my ($name, $value) = split(':', $oKey);
+		$value = defined($value) ? $value : $name;
+		$options.= '<option value="' . $value . '">' . $name . '</option>';
 	}
 	
 	$content.= $options . '</select>';
@@ -149,7 +150,7 @@ sub wrapTd($;$) {
 sub wrapForm($$) {
 	my ($content, $name) = @_;
 	
-	$content = '<form method="post" onSubmit="return FW_HM485setConfig(\'' . $name . '\', this)" action="/fhem">' .
+	$content = '<form method="post" onSubmit="return FW_HM485setConfigSubmit(\'' . $name . '\', this)" action="/fhem">' .
 		'<input type="hidden" name="detail" value="' . $name . '">' .
 		'<input type="hidden" name="dev.set' . $name . '" value="' . $name . '">' .
 		'<input type="hidden" name="cmd.set' . $name . '" value="set">' .

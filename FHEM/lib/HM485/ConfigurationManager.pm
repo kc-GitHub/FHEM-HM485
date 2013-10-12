@@ -171,22 +171,21 @@ sub convertSettingsToEepromData($$) {
 		}
 
 		my $size = $configData->{$config}{config}{physical}{size};
-#		print Dumper("address: $address, addressId: $addressId, config: $config,  value: $value, size: $size");
 		if (HM485::Device::isInt($size)) {
-			$addressData->{$address} = $value;
+			$addressData->{$address}{value} = $value;
+			$addressData->{$address}{text} = $config . '=' . $configData->{$config}{value}
 		} else {
-			if (!defined($addressData->{$address})) {
-				$addressData->{$address} = 0;
+			if (!defined($addressData->{$address}{value})) {
+				$addressData->{$address}{value} = 0;
+				$addressData->{$address}{text} = '';
 			}
 			my $bitVal = $value << ($addressId * 10);
-			$addressData->{$address} = $addressData->{$address} | $bitVal;
-#			print Dumper("size: $size, bitVal: $bitVal");
+			$addressData->{$address}{value} = $addressData->{$address}{value} | $bitVal;
+			$addressData->{$address}{text}.= ' ' . $config . '=' . $configData->{$config}{value}
 		}
 	}
 	
-	print Dumper($addressData);
-
-	my $name = $hash->{NAME};
+	return $addressData;
 }
 
 1;
