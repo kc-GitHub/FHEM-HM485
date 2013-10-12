@@ -491,7 +491,7 @@ sub HM485_LAN_discoveryEnd($) {
 	my $name = $hash->{NAME};
 
 	if (exists($hash->{discoveryFound})) {
-		foreach my $discoverdAddress (keys $hash->{discoveryFound}) {
+		foreach my $discoverdAddress (keys %{$hash->{discoveryFound}}) {
 			my $message = pack('H*',
 				sprintf(
 					'FD0E00%02X%s%s%s%s', HM485::CMD_EVENT,

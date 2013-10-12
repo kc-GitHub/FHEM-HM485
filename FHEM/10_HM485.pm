@@ -396,7 +396,7 @@ sub HM485_channelDoUpdate($$) {
 	my $doTrigger = !exists($hash->{doTrigger}) ? 1 : $hash->{doTrigger};
 
 	readingsBeginUpdate($chHash);
-	foreach my $valueKey (keys $valueHash) {
+	foreach my $valueKey (keys %{$valueHash}) {
 		my $value = $valueHash->{$valueKey};
 
 		if (defined($value)) {
