@@ -449,7 +449,7 @@ sub HM485_channelDoUpdate($$) {
 	my $doTrigger = !exists($hash->{doTrigger}) ? 1 : $hash->{doTrigger};
 
 	readingsBeginUpdate($chHash);
-	foreach my $valueKey (keys $valueHash) {
+	foreach my $valueKey (keys %{$valueHash}) {
 		my $value = $valueHash->{$valueKey};
 
 		if (defined($value)) {
@@ -574,7 +574,7 @@ sub HM485_getConfig($$) {
 		HM485_eepromMapToHash($hash, $eepromMap);
 		
 		# (R) request eeprom data
-		foreach my $adrStart (sort keys $eepromMap) {
+		foreach my $adrStart (sort keys %{$eepromMap}) {
 			HM485_sendCommand($hash, $target, '52' . $adrStart . '10');   
 		}
 	}
@@ -583,7 +583,7 @@ sub HM485_getConfig($$) {
 sub HM485_eepromMapToHash($) {
 	my ($hash, $eepromMap) = @_;
 
-	foreach my $adrStart (sort keys $eepromMap) {
+	foreach my $adrStart (sort keys %{$eepromMap}) {
 		setReadingsVal($hash, '.eeprom_' . $adrStart, $eepromMap->{$adrStart}, TimeNow());
 	}
 }
@@ -849,7 +849,7 @@ sub HM485_setConfig($$$) {
 	my $configHash = {};
 	if (scalar (keys %{$setConfigHash})) {
 		$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
-		foreach my $setConfig (keys $setConfigHash) {
+		foreach my $setConfig (keys %{$setConfigHash}) {
 
 			my $configTypeHash = $configHash->{$setConfig};
 			$msg = HM485_validateSettings(
@@ -1175,6 +1175,7 @@ sub HM485_DevStateIcon($) {
 
 sub HM485_fhemwebShowConfig($$) {
 	my ($fwName, $name, $roomName) = @_;
+	print Dumper($roomName);
 
 	my $hash = $defs{$name};
 

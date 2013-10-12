@@ -176,7 +176,6 @@ use FindBin;
 use lib abs_path("$FindBin::Bin/..");
 
 use Constants;
-#use Device;
 use Util;
 use HM485d::HM485_Protocol;
 

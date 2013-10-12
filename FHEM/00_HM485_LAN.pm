@@ -143,12 +143,8 @@ sub HM485_LAN_Define($$) {
 	$hash->{msgCounter} = 1;
 	$hash->{STATE} = '';
 
-#print Dumper($data);
-#	$data{FWEXT}{test}{SCRIPT} = 'cordova-2.3.0.js"></script>' .
-#									 '<script type="text/javascript" src="/fhem/js/webviewcontrol.js"></script>' .
-#									 '<script type="text/javascript">' . $vars . '</script>' .
-#									 '<script type="text/javascript" charset="UTF-8';
-
+	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday()
+		. '"><script type="text/javascript" charset="UTF-8';
 
 	return $ret;
 }
@@ -299,12 +295,15 @@ sub HM485_LAN_Write($$;$) {
 				'%s %s %s %s', $target, $ctrl, $source, $data
 			);
 
-#			# Debug
-#			HM485::Util::logger(
-#				$name, 3, 'TX: (' . $msgId . ') ' . sprintf (
-#					'T:%s C:%s S:%s D:%s', $target, $ctrl, $source, $data
-#				)
-#			);
+			# Debug
+			my %RD = (
+				target  => pack('H*', $target),
+				cb      => hex($ctrl),
+				sender  => pack('H*', $source),
+				datalen => length($data) + 2,
+				data    => pack('H*', $data . 'FFFF'),
+			);
+			HM485::Util::logger($name, 4, 'TX: (' . $msgId . ')', \%RD);
 
 			$sendData = pack('H*',
 				sprintf(
@@ -610,7 +609,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
 		# Debug
-#		HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ') ' . $msgData);
+		HM485::Util::logger($name, 4, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $alifeStatus = substr($msgData, 0, 2);
@@ -626,7 +625,14 @@ sub HM485_LAN_parseIncommingCommand($$) {
 		
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
 		# Debug
-#		HM485::Util::logger($name, 3, 'EVENT: (' . $msgId . ') ' . $msgData);
+		my %RD = (
+			target  => pack('H*',substr($msgData, 0,8)),
+			cb      => hex(substr($msgData, 8,2)),
+			sender  => pack('H*',substr($msgData, 10,8)),
+			datalen => $msgLen,
+			data    => pack('H*',substr($msgData, 18)),
+		);
+		HM485::Util::logger($name, 4, 'RX:', \%RD);
 
 	} else {
 		$canDispatch = 0;
@@ -873,28 +879,30 @@ sub HM485_LAN_HM485dGetPid($$) {
 sub HM485_LAN_HM485dStop($) {
 	my ($hash) = @_;
 	
-	my $pid = $hash->{HM485d_PID};
+	my $pid = $hash->{HM485d_PID} ? int($hash->{HM485d_PID}) : 0;
 
 	my $msg;
 	
-	if(kill(0, $pid)) {
-		DevIo_CloseDev($hash);
-		$hash->{STATE} = 'closed';
-
-		kill('TERM', $pid);
-		if(!kill(0, $pid)) {
-			$msg = 'HM485d with PID ' . $pid . ' was terminated sucessfully.';
-			$hash->{HM485d_STATE} = 'stopped';
-			delete($hash->{HM485d_PID});
-		} else {
-			$msg = 'Can\'t terminate HM485d with PID ' . $pid . '.';
-		}
-	} else {
-		$msg = 'There ar no HM485d process with PID ' . $pid . '.';
-		
-	}
+	if ($pid > 0) {
+		if(kill(0, $pid)) {
+			DevIo_CloseDev($hash);
+			$hash->{STATE} = 'closed';
 	
-	Log3($hash, 3, $msg);
+			kill('TERM', $pid);
+			if(!kill(0, $pid)) {
+				$msg = 'HM485d with PID ' . $pid . ' was terminated sucessfully.';
+				$hash->{HM485d_STATE} = 'stopped';
+				delete($hash->{HM485d_PID});
+			} else {
+				$msg = 'Can\'t terminate HM485d with PID ' . $pid . '.';
+			}
+		} else {
+			$msg = 'There ar no HM485d process with PID ' . $pid . '.';
+			
+		}
+
+		Log3($hash, 3, $msg);
+	}
 	
 	return $msg;
 }

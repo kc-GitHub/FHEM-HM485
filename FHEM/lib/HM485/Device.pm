@@ -250,7 +250,7 @@ sub getFrameInfos($$;$$) {
 
 	my $frames = getValueFromDefinitions($modelGroup . '/frames/');
 	if ($frames) {
-		foreach my $frame (keys $frames) {
+		foreach my $frame (keys %{$frames}) {
 			my $fType  = $frames->{$frame}{type};
 			my $fEvent = $frames->{$frame}{event} ? $frames->{$frame}{event} : 0;
 			my $fDir   = $frames->{$frame}{dir} ? $frames->{$frame}{dir} : 0;
@@ -285,7 +285,7 @@ sub translateFrameDataToValue($$) {
 	my $dataValid = 1;
 	my %retVal;
 	if ($params) {
-		foreach my $param (keys $params) {
+		foreach my $param (keys %{$params}) {
 			$param = lc($param);
 			my $id = ($params->{$param}{id} - 9);
 			my $size = ($params->{$param}{size});
@@ -316,7 +316,7 @@ sub convertFrameDataToValue($$) {
 	my ($modelGroup, $frameData) = @_;
 
 	if ($frameData->{ch}) {
-		foreach my $valId (keys $frameData->{params}) {
+		foreach my $valId (keys %{$frameData->{params}}) {
 			my $valueMap = getChannelValueMap($modelGroup, $frameData, $valId);
 
 			if ($valueMap) {
@@ -468,7 +468,7 @@ sub getChannelValueMap($$$) {
 #print Dumper($values);
 	my $retVal;
 	if (defined($values)) {
-		foreach my $value (keys $values) {
+		foreach my $value (keys %{$values}) {
 			if ($values->{$value}{physical}{value_id} eq $valId) {
 				if (!defined($values->{$value}{physical}{event}{frame}) ||
 					$values->{$value}{physical}{event}{frame} eq $frameData->{id}
@@ -499,7 +499,7 @@ sub getEmptyEEpromMap ($) {
 
 	for ($blockCount = 0; $blockCount < ($addrMax / $blockLen); $blockCount++) {
 		my $blockStart = $blockCount * $blockLen;
-		foreach my $adrStart (sort keys $eepromAddrs) {
+		foreach my $adrStart (sort keys %{$eepromAddrs}) {
 			my $len = $adrStart + $eepromAddrs->{$adrStart};
 			if (($adrStart >= $blockStart && $adrStart < ($blockStart + $blockLen)) ||
 			    ($len >= $blockStart)
@@ -648,7 +648,7 @@ sub parseForEepromData($;$$) {
 	
 	# first we must collect all values only, hahes was pushed to hash array
 	my @hashArray = ();
-	foreach my $param (keys $configHash) {
+	foreach my $param (keys %{$configHash}) {
 		if (ref($configHash->{$param}) ne 'HASH') {
 			if ($param eq 'count' || $param eq 'address_start' || $param eq 'address_step') {
 				$params->{$param} = $configHash->{$param};
@@ -712,7 +712,7 @@ sub getChannelsByModelgroup ($) {
 	my ($modelGroup) = @_;
 	my $channels = getValueFromDefinitions($modelGroup . '/channels/');
 	my @retVal = ();
-	foreach my $channel (keys $channels) {
+	foreach my $channel (keys %{$channels}) {
 		push (@retVal, $channel);
 	}
 	

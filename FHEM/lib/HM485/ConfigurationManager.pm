@@ -13,7 +13,7 @@ sub getConfigFromDevice($) {
 	my $configHash = getConfigSettings($hash);
 	if (ref($configHash) eq 'HASH') {
 #		print Dumper($configHash);
-		foreach my $config (keys $configHash) {
+		foreach my $config (keys %{$configHash}) {
 
 			my $dataConfig = $configHash->{$config};
 			if (ref($dataConfig) eq 'HASH') {
@@ -127,7 +127,7 @@ sub getConfigSetting($) {
 	my ($configHash) = @_;
 
 	if (ref($configHash) eq 'HASH') {
-		foreach my $config (keys $configHash) {
+		foreach my $config (keys %{$configHash}) {
 
 			if (ref($configHash->{$config}) eq 'HASH' && $configHash->{$config}{hidden}) {
 				delete($configHash->{$config});

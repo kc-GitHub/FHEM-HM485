@@ -107,7 +107,9 @@ sub logger ($$$;$) {
 				if (!exists($dataHash->{dataLen}) || $dataHash->{dataLen} > 2) {
 					$logTxt.= ' '    . substr($data, 0, 2);
 					$logTxt.= '('    . chr(hex(substr($data, 0, 2))) . ')';
-					$logTxt.= ' '    . substr($data, 2, -4);
+					if (length($data) > 2) {
+						$logTxt.= ' '    . substr($data, 2, -4);
+					}
 				}
 				$logTxt.= ' {'   . substr($data, -4) . '}'  if (exists($dataHash->{dataLen}));
 			}
