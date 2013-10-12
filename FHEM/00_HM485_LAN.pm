@@ -231,7 +231,7 @@ sub HM485_LAN_Read($) {
 				RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
 			
 				InternalTimer(
-					gettimeofday() + 1, 'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
+					gettimeofday() + KEEPALIVE_TIMEOUT, 'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
 				);
 
 			} elsif ($msgStart eq chr(0xFD)) {
@@ -306,15 +306,13 @@ sub HM485_LAN_Write($$;$) {
 		}
 
 		if ($sendData) {
-			if ($cmd != HM485::CMD_INITIALIZE) {
-				$sendData = chr(0xFD) . chr(length($sendData)) . HM485::Util::escapeMessage($sendData);
-			} else {
+			if ($cmd == HM485::CMD_INITIALIZE) {
 				$sendData = chr(0xFD) . $sendData;
+			} else {
+				$sendData = chr(0xFD) . chr(length($sendData)) . HM485::Util::escapeMessage($sendData);
 			}
 
-			DevIo_SimpleWrite(
-				$hash, chr(0xFD) . chr(length($sendData)) . $sendData, 0
-			);
+			DevIo_SimpleWrite($hash, $sendData, 0);
 		} 
 	}
 
