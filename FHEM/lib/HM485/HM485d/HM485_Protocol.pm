@@ -846,7 +846,6 @@ sub parseCommand ($$$) {
 		my $source = substr($msgData, 10, 8);
 		my $data = substr($msgData, 18);
 
-#main::Log3('', 1, '++++++++++++++++ ' . $msgData);
 		$self->sendRawQueue(
 			pack('H*', $target),
 			hex($ctrl),

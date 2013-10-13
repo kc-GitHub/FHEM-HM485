@@ -61,18 +61,18 @@ use constant {
 	MIN_BUSY_TIME_MS		=> 5,
 	WORST_CASE_BUSY_TIME_MS	=> 100,		# 100ms
 
-	### Commands from client
-	CMD_SEND             => 0x53,
+	### Commands to interface
+	CMD_INITIALIZE       => 0x3E,
 	CMD_DISCOVERY        => 0x44,
 	CMD_KEEPALIVE        => 0x4B,
-	CMD_INITIALIZE       => 0x3E,
+	CMD_SEND             => 0x53,
 
-	### Commands to client
-	CMD_RESPONSE         => 0x72,
+	### Commands from interface
 	CMD_ALIVE            => 0x61,
-	CMD_EVENT            => 0x65,
-	CMD_DISCOVERY_RESULT => 0x64,
 	CMD_DISCOVERY_END    => 0x63,
+	CMD_DISCOVERY_RESULT => 0x64,
+	CMD_EVENT            => 0x65,
+	CMD_RESPONSE         => 0x72,
 };
 
 1;
