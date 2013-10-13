@@ -328,6 +328,7 @@ sub HM485_LAN_Write($$;$) {
 
 		} elsif ($cmd == HM485::CMD_KEEPALIVE) {
 			$sendData = pack('H*',sprintf('%02X%02X', $msgId, $cmd));
+			HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgId);
 
 		} elsif ($cmd == HM485::CMD_INITIALIZE) {
 			$sendData = pack('H*',sprintf('%02X%s', $cmd, '30312C303030300D0A'));
@@ -636,6 +637,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $alifeStatus = substr($msgData, 0, 2);
+		HM485::Util::logger($name, 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
 		if ($alifeStatus == '00') {
 			# we got a response from keepalive
 			$hash->{keepalive}{ok}    = 1;
@@ -707,7 +709,6 @@ sub HM485_LAN_KeepAlive($) {
 	$hash->{keepalive}{ok} = 1;
 
 	if ($hash->{FD}) {
-		HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgCounter);
 		HM485_LAN_Write($hash, HM485::CMD_KEEPALIVE);
 
 		# Remove timer to avoid duplicates
