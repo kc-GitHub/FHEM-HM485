@@ -141,7 +141,7 @@ sub HM485_LAN_Define($$) {
 		HM485::Util::logger($name, 1, $ret);
 	}
 
-	$hash->{msgCounter} = 1;
+	$hash->{msgCounter} = 0;
 	$hash->{STATE} = '';
 
 	return $ret;
@@ -217,8 +217,9 @@ sub HM485_LAN_Read($) {
 			if ($msgStart eq 'H') {
 				# we got an answer to keepalive request
 				my (undef, $msgCounter, $interfaceType, $version, $serialNumber) = split(',', $buffer);
+				$msgCounter = int($msgCounter);
 				$hash->{InterfaceType}   = $interfaceType;
-				$hash->{ProtokolVersion} = int($msgCounter);                    # Protocoll version is the initial message counter
+				$hash->{ProtokolVersion} = $msgCounter;                         # Protocoll version is the initial message counter
 				$hash->{Version}         = $version;
 				$hash->{SerialNumber}    = $serialNumber;
 				$hash->{msgCounter}      = $msgCounter;
@@ -306,10 +307,10 @@ sub HM485_LAN_Write($$;$) {
 
 		} elsif ($cmd == HM485::CMD_KEEPALIVE) {
 			$sendData = pack('H*',sprintf('%02X%02X', $msgId, $cmd));
+			HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgId);
 
 		} elsif ($cmd == HM485::CMD_INITIALIZE) {
 			$sendData = pack('H*',sprintf('%02X%s', $cmd, '30312C303030300D0A'));
-			$hash->{msgCounter} = '00';
 			HM485::Util::logger ($name, 3, 'Initialize the interface');
 		}
 
@@ -615,6 +616,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $alifeStatus = substr($msgData, 0, 2);
+		HM485::Util::logger($name, 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
 		if ($alifeStatus == '00') {
 			# we got a response from keepalive
 			$hash->{keepalive}{ok}    = 1;
@@ -686,7 +688,6 @@ sub HM485_LAN_KeepAlive($) {
 	$hash->{keepalive}{ok} = 1;
 
 	if ($hash->{FD}) {
-		HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgCounter);
 		HM485_LAN_Write($hash, HM485::CMD_KEEPALIVE);
 
 		# Remove timer to avoid duplicates
