@@ -97,7 +97,8 @@ sub getConfigSettings($) {
 	my ($hash) = @_;
 
 	my $configSettings = $hash->{cache}{configSettings};
-	if (!$configSettings) {
+#	print Dumper($configSettings);
+#	if (!$configSettings) {
 		my $name   = $hash->{NAME};
 		my $model  = $hash->{MODEL};
 		my $hmwId  = $hash->{DEF};
@@ -117,8 +118,8 @@ sub getConfigSettings($) {
 
 			$configSettings = getConfigSetting($configSettings);
 		}
-		$hash->{cache}{configSettings} = $configSettings;
-	}
+#		$hash->{cache}{configSettings} = $configSettings;
+#	}
 
 	return $configSettings;
 }
@@ -139,7 +140,9 @@ sub getConfigSetting($) {
 }
 
 sub convertSettingsToEepromData($$) {
-	my ($hash, $configData) = @_;	
+	my ($hash, $configData) = @_;
+	print Dumper($configData);
+	die;	
 
 	my $chNr = HM485::Device::getChannelNrFromDevice($hash);
 	my $adressOffset = 0;
@@ -156,6 +159,7 @@ sub convertSettingsToEepromData($$) {
 	
 	my $addressData = {};
 	foreach my $config (keys %{$configData}) {
+#		print Dumper($configData);
 		my $addressId = $configData->{$config}{config}{physical}{address_id};
 		my $address = $adressOffset + int($addressId);
 

@@ -652,8 +652,7 @@ sub HM485_doSendCommand($$) {
 		$hash->{NAME} = '.tmp';
 	}
 
-	my %params = (target => $target, data   => $data);
-	print Dumper ($hash);
+	my %params    = (target => $target, data   => $data);
 	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
 	
 	my @validRequestTypes = ('4B', '52', '53', '52', '68', '6E', '70', '72', '76', '78', 'CB');
@@ -719,9 +718,10 @@ sub HM485_Set($@) {
 
 	my $msg = undef;
 
-	my $hmwId = $hash->{DEF};
-	my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
-	my %sets = ();
+	my $hmwId   = $hash->{DEF};
+	my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
+	my $chNr    = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
+	my %sets    = ();
 	
 	if (defined($chNr)) {
 		%sets = %setsCh;
@@ -764,12 +764,10 @@ sub HM485_Set($@) {
 				$msg = 'set ' . $name . ' ' . $cmd . ' not yet implemented'; 
 
 			} elsif ($cmd eq 'config') {
-				$msg = HM485_setConfig($hash, $value, @a);
+				$msg = HM485_setConfig($devHash, $value, @a);
 
 			} elsif ($cmd eq 'on' || $cmd eq 'off') {
 				#Todo: Make ready
-				my $hmwId = $hash->{DEF};
-				my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
 				
 				my $addr  = substr($hmwId,0,8);
 				my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
@@ -779,8 +777,6 @@ sub HM485_Set($@) {
 
 			} elsif ($cmd eq 'level') {
 				#Todo: Make ready
-				my $hmwId = $hash->{DEF};
-				my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
 				
 				my $addr  = substr($hmwId,0,8);
 				my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
@@ -851,7 +847,9 @@ sub HM485_setConfig($$$) {
 	my $configHash = {};
 	if (scalar (keys %{$setConfigHash})) {
 		$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
+#		print Dumper($configHash);
 		foreach my $setConfig (keys %{$setConfigHash}) {
+#		print Dumper($setConfig);
 
 			my $configTypeHash = $configHash->{$setConfig};
 			$msg = HM485_validateSettings(
@@ -872,10 +870,7 @@ sub HM485_setConfig($$$) {
 		my $convertetSettings = HM485::ConfigurationManager::convertSettingsToEepromData(
 			$hash, $validatedConfig
 		);
-		print Dumper($convertetSettings);
-
 		if (scalar (keys %{$convertetSettings})) {
-#			$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
 			foreach my $adr (keys %{$convertetSettings}) {
 				Log3($hash, 3, 'Set config for ' . $name . ': ' . $convertetSettings->{$adr}{text});
 
@@ -889,7 +884,6 @@ sub HM485_setConfig($$$) {
 
 				my $hmwId = substr($hash->{DEF}, 0, 8);
 
-#print Dumper("HM485_sendCommand($hash, $hmwId, '57' . $adr . $size . $value)");
 				HM485_sendCommand($hash, $hmwId, '57' . $adr . $size . $value);     # (W) write eeprom data
 			}
 		}

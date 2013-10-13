@@ -65,6 +65,7 @@ use constant {
 	CMD_SEND             => 0x53,
 	CMD_DISCOVERY        => 0x44,
 	CMD_KEEPALIVE        => 0x4B,
+	CMD_INITIALIZE       => 0x3E,
 
 	### Commands to client
 	CMD_RESPONSE         => 0x72,
