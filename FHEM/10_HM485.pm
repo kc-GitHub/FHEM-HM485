@@ -295,6 +295,7 @@ sub HM485_ProcessResponse($$$$) {
 
 				} elsif ($type eq '68') {                                       # h (report module type)
 					$attrVal = HM485_parseModuleType($requestData);
+					print Dumper($requestData);
 
 					# we query detail infos only of no model defined
 					if (!AttrVal($name, 'model', undef)) {
@@ -522,7 +523,6 @@ sub HM485_parseModuleType($) {
 	my ($data) = @_;
 	
 	my $modelNr = hex($data);
-	print Dumper($data);
 	my $retVal   = HM485::Device::getModelFromType($modelNr);
 	$retVal =~ s/-/_/g;
 	
