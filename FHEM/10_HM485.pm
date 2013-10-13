@@ -46,7 +46,6 @@ my @attrListBindCh = ('model', 'serialNr', 'firmwareVersion', 'room', 'comment')
 my %setsDev = (
 	'reset'      => ' ',
 	'test'       => ' ',
-#	'regRaw'     => 'regRaw',		# ???
 );
 
 # Default set comands for channel
@@ -89,7 +88,7 @@ sub HM485_Initialize($) {
 	$hash->{AttrList}       = 'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
 	                          'model:' . HM485::Device::getModelList() . ' ' .
-	                          'subType ' .
+	                          'subType stateFormat ' .
 	                          ' firmwareVersion';
 
 	#@attrListRO = ('serialNr', 'firmware', 'hardwareType', 'model' , 'modelName');
@@ -244,19 +243,24 @@ sub HM485_Rename($$) {
 sub HM485_Parse($$$) {
 	my ($ioHash, $message) = @_;
 
-	my $msgId   = ord(substr($message, 2, 1));
-	my $msgCmd  = ord(substr($message, 3, 1));
-	my $msgData = uc( unpack ('H*', substr($message, 4)));
-	
-	if ($msgCmd == HM485::CMD_RESPONSE || $msgCmd == HM485::CMD_ALIVE) {
-		my $ack = ($msgCmd == HM485::CMD_RESPONSE) ? 1 : 0;
-		$msgData = substr($msgData,2);
-		HM485_ProcessResponse($ioHash, $msgId, $ack, $msgData);
-
-	} elsif ($msgCmd == HM485::CMD_EVENT) {
-
-		# Todo check events trigger on ack?
-		HM485_ProcessEvent($ioHash, $msgId, $msgData);
+	my @messages = split(chr(0xFD), $message);
+	foreach my $message (@messages) {
+		if ($message) {
+			my $msgId   = ord(substr($message, 1, 1));
+			my $msgCmd  = ord(substr($message, 2, 1));
+			my $msgData = uc( unpack ('H*', substr($message, 3)));
+			
+			if ($msgCmd == HM485::CMD_RESPONSE || $msgCmd == HM485::CMD_ALIVE) {
+				my $ack = ($msgCmd == HM485::CMD_RESPONSE) ? 1 : 0;
+				$msgData = substr($msgData,2);
+				HM485_ProcessResponse($ioHash, $msgId, $ack, $msgData);
+		
+			} elsif ($msgCmd == HM485::CMD_EVENT) {
+		
+				# Todo check events trigger on ack?
+				HM485_ProcessEvent($ioHash, $msgId, $msgData);
+			}
+		}
 	}
 	
 	return $ioHash->{NAME};
@@ -265,9 +269,10 @@ sub HM485_Parse($$$) {
 sub HM485_ProcessResponse($$$$) {
 	my ($ioHash, $msgId, $ack, $msgData) = @_;
 
-	if (exists($ioHash->{'.waitForInfo'}{$msgId})) {
-		my $type   = $ioHash->{'.waitForInfo'}{$msgId}{requestType};
-		my $target = $ioHash->{'.waitForInfo'}{$msgId}{target};
+	if (exists($ioHash->{'.waitForInfo'}{$msgId}) && $msgData) {
+		my $type        = $ioHash->{'.waitForInfo'}{$msgId}{requestType};
+		my $target      = $ioHash->{'.waitForInfo'}{$msgId}{target};
+		my $requestData = $ioHash->{'.waitForInfo'}{$msgId}{requestData};
 
 		my $hash = $modules{HM485}{defptr}{$target};
 		my $name = $hash->{NAME};
@@ -286,17 +291,17 @@ sub HM485_ProcessResponse($$$$) {
 					#HM485_processStateData($msgData);
 
 				} elsif ($type eq '52') {                                       # R (report Eeprom Data)
-					#HM485_processEepromData($msgData);
+					#HM485_processEepromData($requestData);
 
 				} elsif ($type eq '68') {                                       # h (report module type)
-					$attrVal = HM485_parseModuleType($msgData);
+					$attrVal = HM485_parseModuleType($requestData);
 
 					# we query detail infos only of no model defined
 					if (!AttrVal($name, 'model', undef)) {
 						HM485_getInfos($hash, $target, 0b1100);
 						
 						$model = HM485::Device::getModelFromType(
-							hex(substr($msgData,0,2))
+							hex($requestData)
 						);
 						my $modelName  = HM485::Device::getModelName($model);
 						if (defined($modelName) && $modelName) {
@@ -305,13 +310,13 @@ sub HM485_ProcessResponse($$$$) {
 					}
 
 				} elsif ($type eq '6E') {                                       # n (report serial number)
-					$attrVal = HM485_parseSerialNumber($msgData);
+					$attrVal = HM485_parseSerialNumber($requestData);
 
 				} elsif ($type eq '70') {                                       # p (report packet size, only in bootloader mode)
 				} elsif ($type eq '72') {                                       # r (report firmwared data, only in bootloader mode)
 	
 				} elsif ($type eq '76') {                                       # v (report firmware version)
-					$attrVal = HM485_parseFirmwareVersion($msgData);
+					$attrVal = HM485_parseFirmwareVersion($requestData);
 
 				}
 	
@@ -352,6 +357,7 @@ sub HM485_ProcessResponse($$$$) {
 		}
 	}
 	
+	delete ($ioHash->{'.waitForAck'}{$msgId});
 	delete ($ioHash->{'.waitForInfo'}{$msgId});
 }
 
@@ -445,11 +451,7 @@ sub HM485_getHashByHmwid ($) {
 	return $retVal;
 }
 
-
-
-
-
-
+############################
 
 sub HM485_ProcessEvent($$$) {
 	my ($hash, $msgId, $msgData) = @_;
@@ -519,7 +521,8 @@ sub HM485_getInfos($$$) {
 sub HM485_parseModuleType($) {
 	my ($data) = @_;
 	
-	my $modelNr = hex(substr($data,0,2));
+	my $modelNr = hex($data);
+	print Dumper($data);
 	my $retVal   = HM485::Device::getModelFromType($modelNr);
 	$retVal =~ s/-/_/g;
 	
@@ -568,6 +571,7 @@ sub HM485_sendCommand($$$) {
 	if ($requestId && grep $_ eq $requestType, @validRequestTypes) {
 		$ioHash->{'.waitForInfo'}{$requestId}{requestType} = $requestType;
 		$ioHash->{'.waitForInfo'}{$requestId}{target}      = $target;
+		$ioHash->{'.waitForInfo'}{$requestId}{requestData} = substr($data, 2);
 	}
 } 
 

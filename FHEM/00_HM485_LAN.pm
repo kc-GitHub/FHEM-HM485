@@ -29,7 +29,7 @@ use lib::HM485::Constants;
 use lib::HM485::Device;
 use lib::HM485::Util;
 
-use vars qw {%attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC IDE
+use vars qw {%data %attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC IDE
 
 # Function prototypes
 
@@ -209,6 +209,10 @@ sub HM485_LAN_Read($) {
 	$buffer    = HM485::Util::unescapeMessage($buffer);
 
 	if($buffer) {
+		# Remove timer to avoid duplicates
+		RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
+		RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
+
 		if ($buffer eq 'Connection refused. Only on Client allowed') {
 			$hash->{ERROR} = $buffer;
 
@@ -234,15 +238,6 @@ sub HM485_LAN_Read($) {
 				# initialize keepalive flags
 				$hash->{keepalive}{ok}    = 1;
 				$hash->{keepalive}{retry} = 0;
-				
-				my $name = $hash->{NAME};
-				# Remove timer to avoid duplicates
-				RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
-				RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
-			
-				InternalTimer(
-					gettimeofday() + KEEPALIVE_TIMEOUT, 'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
-				);
 
 				# Send the Initialize sequence	
 				HM485_LAN_Write($hash, HM485::CMD_INITIALIZE);				
@@ -252,6 +247,10 @@ sub HM485_LAN_Read($) {
 
 			}
 		}
+
+		InternalTimer(
+			gettimeofday() + KEEPALIVE_TIMEOUT, 'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
+		);
 	}
 }
 
@@ -276,8 +275,26 @@ sub HM485_LAN_Write($$;$) {
 			
 		my $sendData = '';
 		if ($cmd == HM485::CMD_SEND) {
-			# Todo: We must set valit ctrl byte
-			my $ctrl = (exists($params->{ctrl})) ? $params->{ctrl} : '98';
+
+			# ctrl check for sending
+			my $ctrl = $params->{ctrl};
+			if (!$ctrl) {
+				$ctrl = $hash->{ctrl}{$params->{target}};
+				if (!$ctrl) {
+					$ctrl = '98';
+				} else {
+					$ctrl = hex($ctrl);
+					my $txNum = HM485::Util::ctrlTxNum($ctrl);
+					$txNum = ($txNum < 3) ? $txNum + 1 : 0;
+					# Set new txNum and reset sync bit (& 0x7F)
+					$ctrl = HM485::Util::setCtrlTxNum($ctrl & 0x7F, $txNum);
+					$ctrl = sprintf('%02X', $ctrl);					
+				}
+			}
+			$hash->{ctrl}{$params->{target}} = $ctrl;
+			# todo:
+			# reset ctrl byte if sync sent from device
+			# respect nack 
 
 			my $source = (exists($params->{source})) ? $params->{source} : AttrVal($name, 'hmwId', '00000001');
 			my $target = $params->{target};
