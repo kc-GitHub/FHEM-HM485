@@ -207,8 +207,9 @@ sub HM485_LAN_Shutdown($) {
 sub HM485_LAN_Read($) {
 	my ($hash) = @_;
 
+	my $name   = $hash->{NAME};
 	my $buffer = DevIo_SimpleRead($hash);
-	$buffer = HM485::Util::unescapeMessage($buffer);
+	$buffer    = HM485::Util::unescapeMessage($buffer);
 
 	if($buffer) {
 		if ($buffer eq 'Connection refused. Only on Client allowed') {
@@ -219,10 +220,17 @@ sub HM485_LAN_Read($) {
 			if ($msgStart eq 'H') {
 				# we got an answer to keepalive request
 				my (undef, $msgCounter, $interfaceType, $version, $serialNumber) = split(',', $buffer);
-				$hash->{InterfaceType} = $interfaceType;
-				$hash->{Version} = $version;
-				$hash->{SerialNumber} = $serialNumber;
-				$hash->{msgCounter} = hex($msgCounter);
+				$hash->{InterfaceType}   = $interfaceType;
+				$hash->{ProtokolVersion} = int($msgCounter);                    # Protocoll version is the initial message counter
+				$hash->{Version}         = $version;
+				$hash->{SerialNumber}    = $serialNumber;
+				$hash->{msgCounter}      = $msgCounter;
+
+				HM485::Util::logger($name, 3, 'Lan Device Information');
+				HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
+				HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
+				HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
+				HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
 
 				# initialize keepalive flags
 				$hash->{keepalive}{ok}    = 1;
