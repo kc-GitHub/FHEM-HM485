@@ -68,11 +68,11 @@ use constant {
 	CMD_SEND             => 0x53,
 
 	### Commands from interface
-	CMD_RESPONSE         => 0x72,
 	CMD_ALIVE            => 0x61,
-	CMD_EVENT            => 0x65,
-	CMD_DISCOVERY_RESULT => 0x64,
 	CMD_DISCOVERY_END    => 0x63,
+	CMD_DISCOVERY_RESULT => 0x64,
+	CMD_EVENT            => 0x65,
+	CMD_RESPONSE         => 0x72,
 };
 
 1;

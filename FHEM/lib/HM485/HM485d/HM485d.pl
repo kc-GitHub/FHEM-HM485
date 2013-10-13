@@ -197,7 +197,8 @@ use Data::Dumper;
 use constant {
 	HM485D_NAME      => 'HM485d',
 	INTERFACE_NAME   => 'HMW-SOFT-GW',
-	VERSION          => '0.2.0',
+	VERSION          => '0.2.1',
+	PROTOCOL_VERSION => 1,
 	SERIALNUMBER_DEF => 'SGW0123456',
 	CRLF             => "\r\n"
 };
@@ -213,7 +214,7 @@ my $gpioTxenCmd0   = '';
 my @deviceRxBuffer = ();
 my $clientCount    = 0;
 my $serialNumber   = SERIALNUMBER_DEF;
-my $msgCounter     = 1;
+my $msgCounter     = 0;
 
 ################################################
 
@@ -365,8 +366,8 @@ sub clientWelcome($) {
 	
 	if ($clientNum == 1) {
 		my $welcomeMsg = sprintf(
-			'H00,%02X,%s,%s,%s%s',
-			$msgCounter, INTERFACE_NAME, VERSION , $serialNumber, CRLF
+			'H%02X,%02X,%s,%s,%s%s',
+			($msgCounter-1), PROTOCOL_VERSION, INTERFACE_NAME, VERSION , $serialNumber, CRLF
 		); 
 
 		# switch protocol command
