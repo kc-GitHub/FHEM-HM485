@@ -248,6 +248,7 @@ sub HM485_Parse($$$) {
 	my ($ioHash, $message) = @_;
 
 	my @messages = split(chr(0xFD), $message);
+	my $retVal = '';
 	foreach my $message (@messages) {
 		if ($message) {
 			my $msgId   = ord(substr($message, 1, 1));
@@ -538,8 +539,10 @@ sub HM485_autocreate($$) {
 
 	my $deviceName = '_' . $serialNr;
 	$deviceName = ($model ne $modelType) ? $model . $deviceName : 'HMW_' . $model . $deviceName;
+
+print Dumper ("global",  'UNDEFINED ' . $deviceName . ' HM485 '.$target);
 		
-	DoTrigger("global",  'UNDEFINED ' . $deviceName . ' HM485 '.$target);
+#	DoTrigger("global",  'UNDEFINED ' . $deviceName . ' HM485 '.$target);
 }
 
 sub HM485_getInfos($$$) {
@@ -641,8 +644,9 @@ sub HM485_doSendCommand($$) {
 	my $hash    = $pHash->{hash};
 
 	my $ioHash = $hash->{IODev};
+#	print Dumper($ioHash);
 
-	if (exists($hash->{msgCounter})) {
+	if (defined($hash->{msgCounter})) {
 		# we recocnise the IODev hash with msgCounter
 		# Todo: we should change this
 		
@@ -650,6 +654,8 @@ sub HM485_doSendCommand($$) {
 		$hash = $modules{HM485}{defptr}{$target};
 		$hash->{IODev} = $ioHash;
 		$hash->{NAME} = '.tmp';
+#		print Dumper($hash);
+#		die;
 	}
 
 	my %params    = (target => $target, data   => $data);

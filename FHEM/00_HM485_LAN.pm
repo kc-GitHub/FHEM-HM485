@@ -209,45 +209,58 @@ sub HM485_LAN_Read($) {
 
 	my $name   = $hash->{NAME};
 	my $buffer = DevIo_SimpleRead($hash);
-	$buffer    = HM485::Util::unescapeMessage($buffer);
 
-	if($buffer) {
-		# Remove timer to avoid duplicates
-		RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
-		RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
+	# Remove timer to avoid duplicates
+	RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
+	RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
+	
+	if ($buffer eq 'Connection refused. Only on Client allowed') {
+		$hash->{ERROR} = $buffer;
 
-		if ($buffer eq 'Connection refused. Only on Client allowed') {
-			$hash->{ERROR} = $buffer;
+	} else {
+		my $msgStart = substr($buffer,0,1);
+		if ($msgStart eq 'H') {
+			# we got an answer to keepalive request
+			$buffer =~ s/\r\n/,/g;
+			my (undef, $protokolVersion, $interfaceType, $version, $serialNumber, $msgCounter) = split(',', $buffer);
 
-		} else {
-			my $msgStart = substr($buffer,0,1);
-			if ($msgStart eq 'H') {
-				# we got an answer to keepalive request
-				$buffer =~ s/\r\n/,/g;
-				my (undef, $protokolVersion, $interfaceType, $version, $serialNumber, $msgCounter) = split(',', $buffer);
+			$hash->{InterfaceType}   = $interfaceType;
+			$hash->{ProtokolVersion} = $protokolVersion;
+			$hash->{Version}         = $version;
+			$hash->{SerialNumber}    = $serialNumber;
+			$hash->{msgCounter}      = hex(substr($msgCounter,1));
 
-				$hash->{InterfaceType}   = $interfaceType;
-				$hash->{ProtokolVersion} = $protokolVersion;
-				$hash->{Version}         = $version;
-				$hash->{SerialNumber}    = $serialNumber;
-				$hash->{msgCounter}      = hex(substr($msgCounter,1));
+			HM485::Util::logger($name, 3, 'Lan Device Information');
+			HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
+			HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
+			HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
+			HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
 
-				HM485::Util::logger($name, 3, 'Lan Device Information');
-				HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
-				HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
-				HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
-				HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
+			# initialize keepalive flags
+			$hash->{keepalive}{ok}    = 1;
+			$hash->{keepalive}{retry} = 0;
 
-				# initialize keepalive flags
-				$hash->{keepalive}{ok}    = 1;
-				$hash->{keepalive}{retry} = 0;
+			# Send the Initialize sequence	
+			HM485_LAN_Write($hash, HM485::CMD_INITIALIZE);				
 
-				# Send the Initialize sequence	
-				HM485_LAN_Write($hash, HM485::CMD_INITIALIZE);				
+		} elsif ($msgStart eq chr(0xFD)) {
 
-			} elsif ($msgStart eq chr(0xFD)) {
-				HM485_LAN_parseIncommingCommand($hash, $buffer);
+			my @messages = split(chr(0xFD), $buffer);
+		
+			foreach my $message (@messages) {
+				if ($message) {
+					$message = chr(0xFD) . $message;
+		
+					$message = HM485::Util::unescapeMessage($message);
 
+					### Debug ###
+#					my $m = $message;
+#					my $l = uc( unpack ('H*', $m) );
+##					$m =~ s/^.*CRLF//g;
+#					Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
+
+					HM485_LAN_parseIncommingCommand($hash, $message);
+				}
 			}
 		}
 
@@ -277,6 +290,7 @@ sub HM485_LAN_Write($$;$) {
 		$cmd == HM485::CMD_KEEPALIVE || HM485::CMD_INITIALIZE) {
 			
 		my $sendData = '';
+		my $sendDataLog = '';
 		if ($cmd == HM485::CMD_SEND) {
 
 			# ctrl check for sending
@@ -315,8 +329,8 @@ sub HM485_LAN_Write($$;$) {
 				datalen => length($data) + 2,
 				data    => pack('H*', $data . 'FFFF'),
 			);
-			HM485::Util::logger($name, 3, 'TX: (' . $msgId . ')', \%RD);
 
+			$sendDataLog = HM485::Util::logger($name, 3, 'TX: (' . $msgId . ')', \%RD, 1);
 			$sendData = pack('H*',
 				sprintf(
 					'%02X%02X%s%s%s%s%s', $msgId, $cmd, 'C8', $target, $ctrl, $source, $data
@@ -343,15 +357,82 @@ sub HM485_LAN_Write($$;$) {
 				$sendData = chr(0xFD) . chr(length($sendData)) . HM485::Util::escapeMessage($sendData);
 			}
 
-			DevIo_SimpleWrite($hash, $sendData, 0);
+			if ($cmd == HM485::CMD_SEND) {
+				HM485_LAN_SendQueue($hash, $msgId, $sendData, $sendDataLog);				
+			} else {
+				DevIo_SimpleWrite($hash, $sendData, 0);
+			}
 		} 
 	}
 
-	$msgId = ($hash->{msgCounter} >= 0xFF) ? 1 : ($hash->{msgCounter} + 1);
-	$hash->{msgCounter} = $msgId;
+	$hash->{msgCounter} = ($hash->{msgCounter} >= 0xFF) ? 1 : ($hash->{msgCounter} + 1);
 
 	return $msgId;
 }
+
+####################################################################
+sub HM485_LAN_SendQueue($$) {
+	my ($hash, $msgId, $sendData, $sendDataLog) = @_;
+
+	$hash->{queueId}++;
+	my $queueId = sprintf('%08X', $hash->{queueId});
+
+	$hash->{sendQueue}{$queueId}{data}  = $sendData;
+	$hash->{sendQueue}{$queueId}{msgId} = $msgId;
+	$hash->{sendQueue}{$queueId}{dataLog} = $sendDataLog;
+
+	if (!$hash->{queueRunning}) {
+		$hash->{queueRunning} = 1;
+		HM485_LAN_SendQueueNextItem($hash);
+	}
+}
+
+sub HM485_LAN_SendQueueNextItem($) {
+	my ($hash) = @_;
+	my $name = $hash->{NAME};
+
+	delete ($hash->{sendQueue}{0});
+
+	my $queueCount = scalar(keys (%{$hash->{sendQueue}}));
+	if ($queueCount > 0) {
+		my $currentQueueId = (sort keys %{$hash->{sendQueue}})[0];
+		$hash->{currentQueueId} = $currentQueueId;
+		
+		DevIo_SimpleWrite($hash, $hash->{sendQueue}{$currentQueueId}{data}, 0);
+		Log3 ($hash, 3, $hash->{sendQueue}{$currentQueueId}{dataLog});
+		
+		InternalTimer(
+			gettimeofday() + 1 ,'HM485_LAN_CheckResendQueueItems', $name . ':queueTimer:' . $currentQueueId, 0
+		);
+	} else {
+		$hash->{queueRunning} = 0;
+	}
+}
+
+sub HM485_LAN_CheckResendQueueItems($) {
+	my ($param) = @_;
+
+	my($name, $timerName, $currentQueueId) = split(':', $param);
+	if ($timerName eq 'queueTimer') {
+		my $hash = $defs{$name};
+	
+		if (exists($hash->{sendQueue}{$currentQueueId})) {
+			HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId)
+		}
+	
+		# prozess next queue item.
+		HM485_LAN_SendQueueNextItem($hash);
+	}
+}
+
+sub HM485_LAN_DeleteCurrentItemFromQueue($$) {
+	my ($hash, $currentQueueId) = @_;
+
+	delete ($hash->{sendQueue}{$currentQueueId});
+	$hash->{currentQueueId} = 0;	
+}
+
+###################################################################
 
 =head2
 	Implements SetFn function.
@@ -633,6 +714,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
+
 		# Debug
 		HM485::Util::logger($name, 3, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
 
@@ -666,6 +748,13 @@ sub HM485_LAN_parseIncommingCommand($$) {
 
 	if ($canDispatch) {
 		Dispatch($hash, $message, '');
+	}
+
+	my $currentQueueId = $hash->{currentQueueId};
+	if ($currentQueueId) {
+		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
+		HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
+		HM485_LAN_CheckResendQueueItems($name . ':queueTimer:' . $currentQueueId);
 	}
 }
 

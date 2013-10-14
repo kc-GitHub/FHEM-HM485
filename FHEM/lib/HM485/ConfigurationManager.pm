@@ -141,8 +141,8 @@ sub getConfigSetting($) {
 
 sub convertSettingsToEepromData($$) {
 	my ($hash, $configData) = @_;
-	print Dumper($configData);
-	die;	
+#	print Dumper($configData);
+#	die;	
 
 	my $chNr = HM485::Device::getChannelNrFromDevice($hash);
 	my $adressOffset = 0;

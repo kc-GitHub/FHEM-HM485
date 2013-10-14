@@ -63,8 +63,8 @@ sub checkForAutocreate() {
 				-argument1 => string	$txt		Log text
 				-argument1 => hash		$dataHash	optional logdata
 =cut
-sub logger ($$$;$) {
-	my ($tag, $level, $txt, $dataHash) = @_;
+sub logger ($$$;$$) {
+	my ($tag, $level, $txt, $dataHash, $return) = @_;
 	my $logTxt = '';
 
 	my $logCCU = 1;
@@ -125,9 +125,16 @@ sub logger ($$$;$) {
 		}
 	}
 	
+	my $retVal = '';
 	if ($txt . $logTxt) {
-		main::Log3('', $level, $tag . ': ' . $txt . $logTxt);
+		$retVal = $tag . ': ' . $txt . $logTxt;
+
+		if (!defined($return)) {
+			main::Log3('', $level, $tag . ': ' . $txt . $logTxt);					
+		}
 	}
+	
+	return $retVal;
 }
 
 sub printByte($$) {
