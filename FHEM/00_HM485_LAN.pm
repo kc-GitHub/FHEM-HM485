@@ -32,8 +32,6 @@ use lib::HM485::Util;
 use vars qw {%data %attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC IDE
 
 # Function prototypes
-
-# FHEM Interface related functions
 sub HM485_LAN_Initialize($);
 sub HM485_LAN_Define($$);
 sub HM485_LAN_Ready($);
@@ -71,9 +69,6 @@ sub HM485_LAN_Initialize($) {
 	my $dev  = $hash->{DEF};
 	my $name = $hash->{NAME};
 	
-	# ToDo: remove after debugging
-#	do '/opt/FHEM/fhem.dev/FHEM/lib/HM485/Device.pm';
-
 	my $ret = HM485::Device::init();
 
 	if (defined($ret)) {
@@ -210,63 +205,65 @@ sub HM485_LAN_Read($) {
 	my $name   = $hash->{NAME};
 	my $buffer = DevIo_SimpleRead($hash);
 
-	# Remove timer to avoid duplicates
-	RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
-	RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
+	if ($buffer) {
+		# Remove timer to avoid duplicates
+		RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
+		RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
+		
+		if ($buffer eq 'Connection refused. Only on Client allowed') {
+			$hash->{ERROR} = $buffer;
 	
-	if ($buffer eq 'Connection refused. Only on Client allowed') {
-		$hash->{ERROR} = $buffer;
-
-	} else {
-		my $msgStart = substr($buffer,0,1);
-		if ($msgStart eq 'H') {
-			# we got an answer to keepalive request
-			$buffer =~ s/\r\n/,/g;
-			my (undef, $protokolVersion, $interfaceType, $version, $serialNumber, $msgCounter) = split(',', $buffer);
-
-			$hash->{InterfaceType}   = $interfaceType;
-			$hash->{ProtokolVersion} = $protokolVersion;
-			$hash->{Version}         = $version;
-			$hash->{SerialNumber}    = $serialNumber;
-			$hash->{msgCounter}      = hex(substr($msgCounter,1));
-
-			HM485::Util::logger($name, 3, 'Lan Device Information');
-			HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
-			HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
-			HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
-			HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
-
-			# initialize keepalive flags
-			$hash->{keepalive}{ok}    = 1;
-			$hash->{keepalive}{retry} = 0;
-
-			# Send the Initialize sequence	
-			HM485_LAN_Write($hash, HM485::CMD_INITIALIZE);				
-
-		} elsif ($msgStart eq chr(0xFD)) {
-
-			my @messages = split(chr(0xFD), $buffer);
-		
-			foreach my $message (@messages) {
-				if ($message) {
-					$message = chr(0xFD) . $message;
-		
-					$message = HM485::Util::unescapeMessage($message);
-
-					### Debug ###
-#					my $m = $message;
-#					my $l = uc( unpack ('H*', $m) );
-##					$m =~ s/^.*CRLF//g;
-#					Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
-
-					HM485_LAN_parseIncommingCommand($hash, $message);
+		} else {
+			my $msgStart = substr($buffer,0,1);
+			if ($msgStart eq 'H') {
+				# we got an answer to keepalive request
+				$buffer =~ s/\r\n/,/g;
+				my (undef, $protokolVersion, $interfaceType, $version, $serialNumber, $msgCounter) = split(',', $buffer);
+	
+				$hash->{InterfaceType}   = $interfaceType;
+				$hash->{ProtokolVersion} = $protokolVersion;
+				$hash->{Version}         = $version;
+				$hash->{SerialNumber}    = $serialNumber;
+				$hash->{msgCounter}      = hex(substr($msgCounter,1));
+	
+				HM485::Util::logger($name, 3, 'Lan Device Information');
+				HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
+				HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
+				HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
+				HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
+	
+				# initialize keepalive flags
+				$hash->{keepalive}{ok}    = 1;
+				$hash->{keepalive}{retry} = 0;
+	
+				# Send the Initialize sequence	
+				HM485_LAN_Write($hash, HM485::CMD_INITIALIZE);				
+	
+			} elsif ($msgStart eq chr(0xFD)) {
+	
+				my @messages = split(chr(0xFD), $buffer);
+			
+				foreach my $message (@messages) {
+					if ($message) {
+						$message = chr(0xFD) . $message;
+			
+						$message = HM485::Util::unescapeMessage($message);
+	
+						### Debug ###
+	#					my $m = $message;
+	#					my $l = uc( unpack ('H*', $m) );
+	##					$m =~ s/^.*CRLF//g;
+	#					Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
+	
+						HM485_LAN_parseIncommingCommand($hash, $message);
+					}
 				}
 			}
+	
+			InternalTimer(
+				gettimeofday() + KEEPALIVE_TIMEOUT, 'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
+			);
 		}
-
-		InternalTimer(
-			gettimeofday() + KEEPALIVE_TIMEOUT, 'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
-		);
 	}
 }
 
@@ -469,7 +466,6 @@ sub HM485_LAN_Set($@) {
 			foreach my $arg (sort keys %sets) {
 				$arguments.= $arg . ($sets{$arg} ? (':' . $sets{$arg}) : '') . ' ';
 			}
-						
 			$msg = 'Unknown argument ' . $cmd . ', choose one of ' . $arguments;
 
 		} elsif ($cmd && exists($hash->{discoveryRunning}) && $hash->{discoveryRunning} > 0) {
@@ -618,22 +614,26 @@ sub HM485_LAN_discoveryEnd($) {
 
 	if (exists($hash->{discoveryFound})) {
 		foreach my $discoverdAddress (keys %{$hash->{discoveryFound}}) {
-			my $message = pack('H*',
-				sprintf(
-					'FD0E00%02X%s%s%s%s', HM485::CMD_EVENT,
-					$hash->{hmwId}, '98', $discoverdAddress, '690000'
-				)
-			);
-	
-			### Debug ###
-			my $m = $message;
-			my $l = uc( unpack ('H*', $m) );
-			$m =~ s/^.*CRLF//g;
-	
- 			HM485::Util::logger($name, 1, 'Dispatch: ' . $discoverdAddress);
-			HM485::Util::logger($name, 1, $l . ' (RX: ' . $m . ')' . "\n");
-	
-			Dispatch($hash, $message, '');
+
+			# we try to autocreate device only if not extist
+			if (!$modules{HM485}{defptr}{$discoverdAddress}) {
+				# build dummy message. With this message we can autocreate the device 
+				my $message = pack('H*',
+					sprintf(
+						'FD0E00%02X%s%s%s%s', HM485::CMD_EVENT,
+						$hash->{hmwId}, '98', $discoverdAddress, '690000'
+					)
+				);
+		
+				### Debug ###
+				my $m = $message;
+				my $l = uc( unpack ('H*', $m) );
+				$m =~ s/^.*CRLF//g;
+				HM485::Util::logger($name, 1, $l . ' (RX: ' . $m . ')');
+		
+	 			HM485::Util::logger($name, 1, 'Dispatch: ' . $discoverdAddress);
+				Dispatch($hash, $message, '');
+			}
 		}
 		delete ($hash->{discoveryFound});
 	}

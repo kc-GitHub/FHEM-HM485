@@ -214,7 +214,7 @@ my $gpioTxenCmd0   = '';
 my @deviceRxBuffer = ();
 my $clientCount    = 0;
 my $serialNumber   = SERIALNUMBER_DEF;
-my $msgCounter     = 0;
+my $msgCounter     = 1;
 
 ################################################
 
@@ -298,6 +298,9 @@ sub clientRead($) {
 	my ($msg) = @_;
 	my @messages = split(chr(0xFD), $msg);
 
+	# todo:
+	# in case of buffer overflow in ServerTools_serverRead we lost the last mesage
+	# there only 10240 bytes buffer
 	foreach my $message (@messages) {
 		if ($message) {
 			$message = chr(0xFD) . $message;
@@ -372,6 +375,10 @@ sub clientWelcome($) {
 
 		# switch protocol command
 		$welcomeMsg.= sprintf('S%02X%s', $msgCounter, CRLF); 
+
+		my $logMessage = $welcomeMsg;
+		$logMessage =~ s/\r\n/ /g;
+		Log3 ('', 3, 'Tx: ' . $logMessage);
 		
 		ServerTools_serverWriteClient($welcomeMsg);
 		
