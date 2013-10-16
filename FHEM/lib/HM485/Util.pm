@@ -177,7 +177,7 @@ sub escapeMessage($) {
 		
 		$message =~ s/\xFC/\xFC\x7C/g;
 		$message =~ s/\xFD/\xFC\x7D/g;
-	#	$message =~ s/\xFE/\xFC\x7E/g;
+#		$message =~ s/\xFE/\xFC\x7E/g;
 	}
 
 	return $start . $message;
@@ -189,7 +189,7 @@ sub unescapeMessage($) {
 	if ($message) {
 		$message =~ s/\xFC\x7C/\xFC/g;
 		$message =~ s/\xFC\x7D/\xFD/g;
-	#	$message =~ s/\xFC\x7E/\xFE/g;
+#		$message =~ s/\xFC\x7E/\xFE/g;
 	}
 	
 	return $message

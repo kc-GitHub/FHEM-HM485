@@ -55,7 +55,7 @@ use constant {
 	SERIALNUMBER_DEF   => 'SGW0123456',
 	KEEPALIVE_TIMER    => 'keepAlive:',
 	KEEPALIVECK_TIMER  => 'keepAliveCk:',
-	KEEPALIVE_TIMEOUT  => 25, # Todo: check if we need to modify the timeout via attribute
+	KEEPALIVE_TIMEOUT  => 20, # CCU2 send keepalife each 20 seconds, Todo: check if we need to modify the timeout via attribute
 	KEEPALIVE_MAXRETRY => 3,
 };
 
@@ -351,7 +351,8 @@ sub HM485_LAN_Write($$;$) {
 			if ($cmd == HM485::CMD_INITIALIZE) {
 				$sendData = chr(0xFD) . $sendData;
 			} else {
-				$sendData = chr(0xFD) . chr(length($sendData)) . HM485::Util::escapeMessage($sendData);
+				$sendData = chr(0xFD) . chr(length($sendData)) . $sendData;
+				$sendData = HM485::Util::escapeMessage($sendData);
 			}
 
 			if ($cmd == HM485::CMD_SEND) {
