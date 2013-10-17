@@ -159,7 +159,6 @@ sub convertSettingsToEepromData($$) {
 	
 	my $addressData = {};
 	foreach my $config (keys %{$configData}) {
-#		print Dumper($configData);
 		my $addressId = $configData->{$config}{config}{physical}{address_id};
 		my $address = $adressOffset + int($addressId);
 

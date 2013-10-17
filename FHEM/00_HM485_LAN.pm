@@ -471,6 +471,7 @@ sub HM485_LAN_Set($@) {
 
 		} elsif ($cmd && exists($hash->{discoveryRunning}) && $hash->{discoveryRunning} > 0) {
 			$msg = 'Discovery is running. Pleas wait for finishing.';
+			# Todo: timeout for aute exit discovery mode
 
 		} elsif ($cmd eq 'RAW') {
 			my $paramError = 0;
@@ -715,6 +716,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
+		HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ')');
 
 		# Debug
 		HM485::Util::logger($name, 3, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
@@ -729,7 +731,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 			$canDispatch = 0;
 		} else {
 			$hash->{Last_Sent_RAW_CMD_State} = 'NACK';
-			HM485::Util::logger($name, 3, 'NACK: ' . $msgId);
+			HM485::Util::logger($name, 3, 'NACK: (' . $msgId . ')');
 		}
 
 	} elsif ($msgCmd == HM485::CMD_EVENT) {

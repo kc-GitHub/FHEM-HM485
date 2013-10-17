@@ -61,7 +61,7 @@ sub makeConfigTable($$) {
 
 	my $rowClass = ($rowCount & 1) ? 'odd' : 'even';
 	$content.= wrapTr(
-		wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.config" disabled="disabled" value="Save Config" class="attr">'),
+		wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.config" d_isabled="disabled" value="Save Config" class="attr">'),
 		$rowClass
 	);
 	
