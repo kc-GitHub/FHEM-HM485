@@ -572,7 +572,7 @@ sub HM485_getConfig($$) {
 	}
 }
 
-sub HM485_eepromMapToHash($) {
+sub HM485_eepromMapToHash($$) {
 	my ($hash, $eepromMap) = @_;
 
 	foreach my $adrStart (sort keys %{$eepromMap}) {
