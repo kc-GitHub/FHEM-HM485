@@ -224,8 +224,8 @@ sub getSubtypeFromChannelNo($$) {
 	@param	hash	the hash of the IO device
 	@param	string	message to parse
 =cut
-sub parseFrameData($$$$) {
-	my ($model, $data, $type, $action) = @_;
+sub parseFrameData($$$) {
+	my ($model, $data, $actionType) = @_;
 
 	my $modelGroup  = getModelGroup($model);
 	my $frameData   = getFrameInfos($modelGroup, $data, 1, 'from_device');
@@ -749,5 +749,83 @@ sub getChannelNrFromDevice($) {
 
 	return $chNr;
 }
+
+
+
+
+
+
+
+
+sub internalUpdateEEpromData($$) {
+	my ($devHash, $requestData) = @_;
+
+	my $start = substr($requestData, 0,4);
+	my $len   = substr($requestData, 4,2);
+	my $data  = substr($requestData, 6);
+	
+	setRawEEpromData($devHash, $start, $len, $data);
+}
+
+sub parseModuleType($) {
+	my ($data) = @_;
+	
+	my $modelNr = hex(substr($data,0,2));
+	my $retVal   = getModelFromType($modelNr);
+	$retVal =~ s/-/_/g;
+	
+	return $retVal;
+}
+
+sub parseSerialNumber($) {
+	my ($data) = @_;
+	
+	my $retVal = substr(pack('H*',$data), 0, 10);
+	
+	return $retVal;
+}
+
+sub parseFirmwareVersion($) {
+	my ($data) = @_;
+	my $retVal = undef;
+	
+	if (length($data) == 4) {
+		$retVal = hex(substr($data,0,2));
+		$retVal = $retVal + (hex(substr($data,2,2))/100);
+	}
+
+	return $retVal;
+}
+
+sub getAllowedSets($) {
+	my ($hash) = @_;
+
+	my $name  = $hash->{NAME};
+	my $model = $hash->{MODEL};
+
+	my $retVal = undef;
+	if (defined($model) && $model) {
+		
+		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+
+		if (defined($chNr)) {
+			my $modelGroup = getModelGroup($model);
+			my $subType    = getSubtypeFromChannelNo($modelGroup, $chNr);
+
+			if ($subType eq 'key') {
+#				$retVal = 'press_short:press_long';
+	
+			} elsif ($subType eq 'switch' || $subType eq 'digitaloutput') {
+				$retVal = 'on off';
+
+			} elsif ($subType eq 'dimmer') {
+				$retVal = 'on off level:slider,0,1,100 ';
+			}
+		}
+	}
+
+	return $retVal;
+}
+
 
 1;
