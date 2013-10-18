@@ -69,10 +69,10 @@ sub HM485_LAN_Initialize($) {
 	my $dev  = $hash->{DEF};
 	my $name = $hash->{NAME};
 	
-	my $ret = HM485::Device::init();
+	my $initResult = HM485::Device::init();
 
-	if (defined($ret)) {
-		HM485::Util::logger($name, 1, $ret);
+	if ($initResult) {
+		HM485::Util::logger($name, 1, $initResult);
 	} else {
 
 		require $attr{global}{modpath} . '/FHEM/DevIo.pm';

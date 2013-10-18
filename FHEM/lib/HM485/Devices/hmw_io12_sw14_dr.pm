@@ -1,4 +1,4 @@
-package HM485::Devices;
+package HM485::Devicefile;
 
 our %definition = (
 	'HMW-IO-12-SW14'	=>{

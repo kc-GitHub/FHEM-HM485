@@ -170,7 +170,7 @@ sub HM485_Define($$) {
 					}
 				}
 				
-				# ToDo: check for needing
+				# ToDo: check if wee need this here
 				#$attr{$name}{peerIDs} = AttrVal($devName, 'peerIDs', '');
 				#$hash->{READINGS}{peerList}{VAL} = ReadingsVal($devName, 'peerList', '');
 				#$hash->{peerList} = $devHash->{peerList} ? $devHash->{peerList} : undef;

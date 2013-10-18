@@ -6,11 +6,12 @@ use Data::Dumper;
 use Scalar::Util qw(looks_like_number);
 use POSIX qw(ceil);
 
-use vars qw {%attr %defs %modules}; #supress errors in Eclipse EPIC
+use Cwd qw(abs_path);
+use FindBin;
+use lib abs_path("$FindBin::Bin");
+use lib::HM485::Constants;
 
-use constant {
-	DEVICE_PATH		=> '/FHEM/lib/HM485/Devices/',
-};
+use vars qw {%attr %defs %modules}; #supress errors in Eclipse EPIC
 
 # prototypes
 sub parseForEepromData($;$$);
@@ -18,60 +19,67 @@ sub parseForEepromData($;$$);
 my %deviceDefinitions;
 my %models = ();
 
+=head2
+	Initialize all devices
+	Load available device files
+=cut
 sub init () {
-	my $devicesPath = $main::attr{global}{modpath} . DEVICE_PATH;
-	opendir(DH, $devicesPath) || return 'HM485: ERROR! Can\'t read devicePath: ' . $devicesPath . $!;
+	my $retVal      = '';
+	my $devicesPath = $main::attr{global}{modpath} . HM485::DEVICE_PATH;
 
-	main::Log (3, 'HM485: Loading available device files');
-	main::Log (3, '=====================================');
-	foreach my $m (sort readdir(DH)) {
-		next if($m !~ m/(.*)\.pm$/);
-		
-		my $deviceFile = $devicesPath . $m;
-		if(-r $deviceFile) {
-#			main::Log (GetLogLevel($name,5), 'HM485: Loading device file: ' .  $deviceFile);
-			main::Log (1, 'HM485: Loading device file: ' .  $deviceFile);
-
-			my $ret=do $deviceFile;
-
-			if($ret) {
-				foreach my $dev (keys %HM485::Devices::definition) {
-					$deviceDefinitions{$dev} = $HM485::Devices::definition{$dev};
-				}
-			} else {
-				main::Log (1, 'HM485: Error in device file: ' . $deviceFile . ' deactivated:' . "\n $@");
-			}
-
-			%HM485::Devices::definition = ();
-		} else {
-			main::Log (1, 'HM485: Error loading device file: ' .  $deviceFile);
-		}
-	}
-	closedir(DH);
-
-	if (scalar(keys %deviceDefinitions) < 1 ) {
-		return 'HM485: Warning, no device definitions loaded!';
-	}
-
-	initModels();
+	if (opendir(DH, $devicesPath)) {
+		HM485::Util::logger(HM485::LOGTAG_HM485, 3, 'HM485: Loading available device files');
+		HM485::Util::logger(HM485::LOGTAG_HM485, 3, '=====================================');
+		foreach my $m (sort readdir(DH)) {
+			next if($m !~ m/(.*)\.pm$/);
+			
+			my $deviceFile = $devicesPath . $m;
+			if(-r $deviceFile) {
+				HM485::Util::logger(HM485::LOGTAG_HM485, 3, 'Loading device file: ' .  $deviceFile);
+				my $includeResult = do $deviceFile;
 	
-	return undef;
+				if($includeResult) {
+					foreach my $dev (keys %HM485::Devicefile::definition) {
+						$deviceDefinitions{$dev} = $HM485::Devicefile::definition{$dev};
+					}
+				} else {
+					HM485::Util::logger(
+						HM485::LOGTAG_HM485, 3,
+						'HM485: Error in device file: ' . $deviceFile . ' deactivated:' . "\n $@"
+					);
+				}
+				%HM485::Devicefile::definition = ();
+
+			} else {
+				HM485::Util::logger(
+					HM485::LOGTAG_HM485, 1,
+					'HM485: Error loading device file: ' .  $deviceFile
+				);
+			}
+		}
+		closedir(DH);
+	
+		if (scalar(keys %deviceDefinitions) < 1 ) {
+			return 'HM485: Warning, no device definitions loaded!';
+		}
+	
+		initModels();
+	} else {
+		$retVal = 'HM485: ERROR! Can\'t read devicePath: ' . $devicesPath . $!;
+	}
+		
+	return $retVal;
 }
 
-=head2 initModels
-	Title		: initModels
-	Usage		: initModels();
-	Function	: Get modellist.
-	              Returns a hash of hardwareType => modelName combination
-	Returns 	: nothing
-	Args 		: nothing
+=head2
+	Initialize all loaded models
 =cut
 sub initModels () {
 	foreach my $modelGroupKey (keys %deviceDefinitions) {
 
-		if ( defined($deviceDefinitions{$modelGroupKey}{models}) ) {
+		if ($deviceDefinitions{$modelGroupKey}{models}) {
 			foreach my $modelKey (keys (%{$deviceDefinitions{$modelGroupKey}{models}})) {
-				if (defined ($deviceDefinitions{$modelGroupKey}{models}{$modelKey}{type}) ) {
+				if ($deviceDefinitions{$modelGroupKey}{models}{$modelKey}{type}) {
 					$models{$modelKey}{modelkey} = $modelGroupKey;
 					$models{$modelKey}{model} = $modelKey;
 					$models{$modelKey}{name} = $deviceDefinitions{$modelGroupKey}{models}{$modelKey}{name};
@@ -81,6 +89,11 @@ sub initModels () {
 		}
 	}
 }
+
+
+
+
+### we should rework below this ###
 
 =head2
 	Get the model from numeric hardware type

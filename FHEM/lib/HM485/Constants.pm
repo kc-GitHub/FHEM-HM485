@@ -40,6 +40,10 @@ our %responseAttrMap = (
 #FRAME_START_SHORT{0xFE};
 
 use constant {
+	DEVICE_PATH				=> '/FHEM/lib/HM485/Devices/',
+	LOGTAG_HM485			=> 'HM485',
+	
+	
 #	FRAME_START_SHORT		=> 0xFE,
 	FRAME_START_LONG		=> 0xFD,
 	ESCAPE_CHAR				=> 0xFC,
