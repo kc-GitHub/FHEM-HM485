@@ -568,55 +568,10 @@ sub HM485_GetConfig($$) {
 			setReadingsVal($devHash, '.eeprom_' . $adrStart, $eepromMap->{$adrStart}, TimeNow());
 		}
 
-<<<<<<< HEAD
 		foreach my $adrStart (sort keys %{$eepromMap}) {
 			# (R) request eeprom data
 			HM485_SendCommand($devHash, $hmwId, '52' . $adrStart . '10');   
 		}
-=======
-sub HM485_eepromMapToHash($$) {
-	my ($hash, $eepromMap) = @_;
-
-	foreach my $adrStart (sort keys %{$eepromMap}) {
-		setReadingsVal($hash, '.eeprom_' . $adrStart, $eepromMap->{$adrStart}, TimeNow());
-	}
-}
-
-sub HM485_processEepromData($$$) {
-	my ($hash, $requestData, $msgData) = @_;
-	my $name = $hash->{NAME};
-
-	my $adr = substr($requestData, 0, 4); 
-	
-	setReadingsVal($hash, '.eeprom_' . $adr, $msgData, TimeNow());
-}
-
-sub HM485_parseModuleType($) {
-	my ($data) = @_;
-	
-	my $modelNr = hex(substr($data,0,2));
-	my $retVal   = HM485::Device::getModelFromType($modelNr);
-	$retVal =~ s/-/_/g;
-	
-	return $retVal;
-}
-
-sub HM485_parseSerialNumber($) {
-	my ($data) = @_;
-	
-	my $retVal = substr(pack('H*',$data), 0, 10);
-	
-	return $retVal;
-}
-
-sub HM485_parseFirmwareVersion($) {
-	my ($data) = @_;
-	my $retVal = undef;
-	
-	if (length($data) == 4) {
-		$retVal = hex(substr($data,0,2));
-		$retVal = $retVal + (hex(substr($data,2,2))/100);
->>>>>>> e24cbba325514899f3cac9bf124e44d7ad0d8b40
 	}
 }
 

@@ -369,7 +369,7 @@ sub HM485_LAN_Write($$;$) {
 }
 
 ####################################################################
-sub HM485_LAN_SendQueue($$$$) {
+sub HM485_LAN_SendQueue($$) {
 	my ($hash, $msgId, $sendData, $sendDataLog) = @_;
 
 	$hash->{queueId}++;
