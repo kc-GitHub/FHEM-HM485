@@ -1071,7 +1071,7 @@ sub HM485_ChannelUpdate($$) {
 	my $name = $chHash->{NAME};
 	
 	if ($valueHash && !AttrVal($name, 'ignore', 0)) {
-		my %params = (chHash => $chHash, valueHash => $valueHash);
+		my %params = (chHash => $chHash, valueHash => $valueHash, doTrigger => 1);
 		
 		if (AttrVal($name, 'do_not_notify', 0)) {
 			$params{doTrigger} = 0;
