@@ -183,7 +183,11 @@ sub HM485_Define($$) {
 		} else {
 			# We defined a the device
 			AssignIoPort($hash);
-			Log3 ($hash, 1, 'Assigned ' . $name . ' (' . $addr . ') to ' . $hash->{IODev}->{NAME});
+
+			HM485::Util::logger(
+				HM485::LOGTAG_HM485, 2,
+				'Assigned ' . $name . ' (' . $addr . ') to ' . $hash->{IODev}->{NAME}
+			);
 		}
 
 		if (!$msg) {
@@ -192,7 +196,10 @@ sub HM485_Define($$) {
 			
 			if (defined($hash->{IODev}{STATE})) {
 				if ($hash->{IODev}{STATE} eq 'open') {
-					Log3 ($hash, 1, 'Auto get info for : ' . $name);
+					HM485::Util::logger(
+						HM485::LOGTAG_HM485, 2, 'Auto get info for : ' . $name
+					);
+
 					HM485_GetInfos($hash, $hmwId, 0b111);
 	#				HM485_GetConfig($hash, $addr);
 				} else {
@@ -580,7 +587,10 @@ sub HM485_GetConfig($$) {
 	my ($hash, $hmwId) = @_;
 
 	my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
-	Log3 ($devHash, 3, 'Request config for device ' . substr($hmwId,0,8));
+
+	HM485::Util::logger(
+		HM485::LOGTAG_HM485, 3, 'Request config for device ' . substr($hmwId,0,8)
+	);
 
 	# here we query eeprom data wit device settings
 	my $model = $devHash->{MODEL};
@@ -695,7 +705,10 @@ sub HM485_SetConfig($@) {
 		);
 		if (scalar (keys %{$convertetSettings})) {
 			foreach my $adr (keys %{$convertetSettings}) {
-				Log3($hash, 3, 'Set config for ' . $name . ': ' . $convertetSettings->{$adr}{text});
+				HM485::Util::logger(
+					HM485::LOGTAG_HM485, 3,
+					'Set config for ' . $name . ': ' . $convertetSettings->{$adr}{text}
+				);
 
 			 	my $hmwId = $hash->{DEF};
 				my $size  = $convertetSettings->{$adr}{size} ? $convertetSettings->{$adr}{size} : 1;
@@ -870,7 +883,8 @@ sub HM485_SetStateNack($$) {
 	my $txt = 'RESPONSE TIMEOUT';
 #	$devHash->{STATE} = 'NACK';
 	readingsSingleUpdate($devHash, 'state', $txt, 1);
-	Log3 ($hash, 1, $txt . ' for ' . $hmwId);
+
+	HM485::Util::logger(HM485::LOGTAG_HM485, 3, $txt . ' for ' . $hmwId);
 }
 
 =head2
@@ -888,8 +902,10 @@ sub HM485_SetStateAck($$$) {
 	}
 	
 	if ($hmwId) {
-		my $devHash = HM485_GetHashByHmwid($hmwId);	
-		readingsSingleUpdate($devHash, 'state', 'ACK', 1);
+		my $devHash = HM485_GetHashByHmwid($hmwId);
+		if ($devHash->{NAME}) {
+			readingsSingleUpdate($devHash, 'state', 'ACK', 1);
+		}
 	}
 }
 
@@ -978,11 +994,15 @@ sub HM485_CheckForAutocreate($$;$$) {
 	}
 
 	if (!$ioHash->{'.forAutocreate'}{$hmwId}{'68'}) {
-		Log3 ($ioHash, 3, sprintf ($logTxt , $hmwId, 'type'));
+		HM485::Util::logger(
+			HM485::LOGTAG_HM485, 4, sprintf ($logTxt , $hmwId, 'type')
+		);
 		HM485_GetInfos($ioHash, $hmwId, 0b001);
 
 	} elsif (!$ioHash->{'.forAutocreate'}{$hmwId}{'6E'}) {
-		Log3 ($ioHash, 3, sprintf ($logTxt , $hmwId, 'serial number'));
+		HM485::Util::logger(
+			HM485::LOGTAG_HM485, 4, sprintf ($logTxt , $hmwId, 'serial number')
+		);
 		HM485_GetInfos($ioHash, $hmwId, 0b010);
 
 	} elsif ( $ioHash->{'.forAutocreate'}{$hmwId}{'68'} &&
@@ -1135,7 +1155,9 @@ sub HM485_ChannelDoUpdate($) {
 			    $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
 
 				readingsBulkUpdate($chHash, $valueKey, $value);
-				Log3($chHash, 2, $name . ': ' . $valueKey . ' -> ' . $value);
+				HM485::Util::logger(
+					HM485::LOGTAG_HM485, 2, $name . ': ' . $valueKey . ' -> ' . $value
+				);
 			}
 		}
 	}

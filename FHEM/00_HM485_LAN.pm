@@ -409,14 +409,29 @@ sub HM485_LAN_SendQueueNextItem($) {
 	if ($queueCount > 0) {
 		my $currentQueueId = (sort keys %{$hash->{sendQueue}})[0];
 		$hash->{currentQueueId} = $currentQueueId;
+
+		my $sendData = $hash->{sendQueue}{$currentQueueId}{data};
 		
-		DevIo_SimpleWrite($hash, $hash->{sendQueue}{$currentQueueId}{data}, 0);
+		DevIo_SimpleWrite($hash, $sendData, 0);
 		if ($hash->{sendQueue}{$currentQueueId}{dataLog}) {
 			Log3 ($hash, 3, $hash->{sendQueue}{$currentQueueId}{dataLog});
 		}
 		
+		my $checkResendQueueItemsDelay = 1;
+
+		my $hmwId = $hash->{sendQueue}{$currentQueueId}{hmwId};
+		if ($hmwId) {
+			# For messages to broadcast, with z or Z command we don't wait for ack.
+			if ($hmwId eq 'FFFFFFFF' || $sendData eq '5A' || $sendData eq '7A') {
+				HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
+				$checkResendQueueItemsDelay = 0.1
+			}
+		}
+		
 		InternalTimer(
-			gettimeofday() + 1 ,'HM485_LAN_CheckResendQueueItems', $name . ':queueTimer:' . $currentQueueId, 0
+			gettimeofday() + $checkResendQueueItemsDelay,
+			'HM485_LAN_CheckResendQueueItems',
+			$name . ':queueTimer:' . $currentQueueId, 0
 		);
 	} else {
 		$hash->{queueRunning} = 0;
@@ -648,9 +663,9 @@ sub HM485_LAN_discoveryEnd($) {
 				my $m = $message;
 				my $l = uc( unpack ('H*', $m) );
 				$m =~ s/^.*CRLF//g;
-				HM485::Util::logger($name, 1, $l . ' (RX: ' . $m . ')');
+				HM485::Util::logger($name, 4, $l . ' (RX: ' . $m . ')');
 		
-	 			HM485::Util::logger($name, 1, 'Dispatch: ' . $discoverdAddress);
+	 			HM485::Util::logger($name, 4, 'Dispatch: ' . $discoverdAddress);
 				Dispatch($hash, $message, '');
 			}
 		}

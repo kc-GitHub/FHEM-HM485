@@ -152,8 +152,7 @@ sub sendRawQueue($$$$;$) {
 	$self->{sendQueue}{$queueId}{SEND_COUNT} = 0;
 
 	# Messages to broadcast, messages with z or Z command must not acked
-#	if ( (uc( unpack ('H*', $targetAddr)) eq 'FFFFFFFF') || $data eq 'z' || $data eq 'Z') {
-	if ( (uc( unpack ('H*', $targetAddr)) eq 'FFFFFFFF') ) {
+	if ( (uc( unpack ('H*', $targetAddr)) eq 'FFFFFFFF') || $data eq 'z' || $data eq 'Z') {
 		$self->{sendQueue}{$queueId}{STATE}	= STATE_IDLE;
 		
 	} else {

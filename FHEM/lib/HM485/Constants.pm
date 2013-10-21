@@ -11,7 +11,7 @@ our %commands = (
 	'52' => 'Read eeprom',									# (R) to device
 	'53' => 'Level get',									# (S) to device
 	'57' => 'Write eeprom',									# (W) to device
-	'5A' => 'End discovery mode',							# (Z) to device
+	'5A' => 'Zero-Communication Mode End',					# (Z) to device
 	'63' => 'HS485 Delete target address',					# (c) needed for HM485 anymore ???
 	'65' => '65 - unknown (response for event 45?)',		# (e) ???
 	'67' => 'Firmware update related',						# (g) to device
@@ -27,7 +27,7 @@ our %commands = (
 	'76' => 'Read firmware version',						# (v) to device
 	'77' => 'Firmware update related (write firmware)',		# (w) to device
 	'78' => 'Level set',									# (x) to device
-	'7A' => 'Start discovery mode',							# (z) to device
+	'7A' => 'Zero-Communication Mode Start',				# (z) to device
 	'CB' => 'Key press simmulation',						# (Ë) to device
 );
 
