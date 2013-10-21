@@ -306,10 +306,10 @@ sub clientRead($) {
 			$message = chr(0xFD) . $message;
 			
 			### Debug ###
-#			my $m = $message;
-#			my $l = uc( unpack ('H*', $m) );
-#			$m =~ s/^.*CRLF//g;
-#			Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
+			my $m = $message;
+			my $l = uc( unpack ('H*', $m) );
+			$m =~ s/^.*CRLF//g;
+			Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
 		
 			my $msgFirstByte = substr($message, 0, 1);
 			my $msgId        = ord(substr($message, 2, 1));
@@ -350,10 +350,10 @@ sub clientWrite($$$) {
 	$msg = HM485::Util::escapeMessage($msg);
 
 	### Debug ###
-#	my $m = $msg;
-#	my $l = uc( unpack ('H*', $m) );
-#	$m =~ s/^.*CRLF//g;
-#	Log3 ('', 1, $l . ' (TX: ' . $m . ')' . "\n");
+	my $m = $msg;
+	my $l = uc( unpack ('H*', $m) );
+	$m =~ s/^.*CRLF//g;
+	Log3 ('', 1, $l . ' (TX: ' . $m . ')' . "\n");
 
 	if ($clientCount > 0) {
 		ServerTools_serverWriteClient($msg);

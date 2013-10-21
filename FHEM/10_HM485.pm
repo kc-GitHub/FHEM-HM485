@@ -42,7 +42,7 @@ sub HM485_Initialize($);
 sub HM485_Define($$);
 sub HM485_Undefine($$);
 sub HM485_Rename($$);
-sub HM485_Parse($$$);
+sub HM485_Parse($$);
 sub HM485_Set($@);
 sub HM485_Get($@);
 sub HM485_Attr ($$$$);
@@ -58,8 +58,9 @@ sub HM485_SetWebCmd($$);
 sub HM485_GetHashByHmwid ($);
 
 #Communication related functions
-sub HM485_ProcessResponse($$$$);
-sub HM485_SetStateNack($$$);
+sub HM485_ProcessResponse($$$);
+sub HM485_SetStateNack($$);
+sub HM485_SetStateAck($$$);
 sub HM485_SetAttributeFromResponse($$$);
 sub HM485_ProcessEvent($$);
 sub HM485_CheckForAutocreate($$;$$);
@@ -272,10 +273,33 @@ sub HM485_Rename($$) {
 	@param	hash	the hash of the IO device
 	@param	string	message to parse
 =cut
-sub HM485_Parse($$$) {
+sub HM485_Parse($$) {
+	my ($ioHash, $message) = @_;
+	my $msgId   = ord(substr($message, 2, 1));
+	my $msgCmd  = ord(substr($message, 3, 1));
+	my $msgData = uc( unpack ('H*', substr($message, 4)));
+
+	if ($msgCmd == HM485::CMD_RESPONSE) {
+		HM485_SetStateAck($ioHash, $msgId, $msgData);
+		HM485_ProcessResponse($ioHash, $msgId, substr($msgData,2));
+
+	} elsif ($msgCmd == HM485::CMD_EVENT) {
+		HM485_SetStateAck($ioHash, $msgId, $msgData);
+
+		# Todo: check if events triggered on ack only?
+		HM485_ProcessEvent($ioHash, $msgData);
+
+	} elsif ($msgCmd == HM485::CMD_ALIFE && substr($msgData, 0, 2) eq '01') {
+		HM485_SetStateNack($ioHash, $msgData);
+	}
+	
+	return $ioHash->{NAME};
+}
+
+sub HM485_Parse_old($$$) {
 	my ($ioHash, $message) = @_;
 
-	my @messages = split(chr(0xFD), $message);
+	my @messages = split(chr(HM485::FRAME_START_LONG), $message);
 	foreach my $message (@messages) {
 
 		if ($message && length($message) > 3) {
@@ -283,9 +307,9 @@ sub HM485_Parse($$$) {
 			my $msgCmd  = ord(substr($message, 2, 1));
 			my $msgData = uc( unpack ('H*', substr($message, 3)));
 
-			if ($msgCmd == HM485::CMD_RESPONSE || $msgCmd == HM485::CMD_ALIVE) {
+			if ($msgCmd == HM485::CMD_RESPONSE || $msgCmd == HM485::CMD_ALIFE) {
 				my $ack = ($msgCmd == HM485::CMD_RESPONSE) ? 1 : 0;
-				HM485_ProcessResponse($ioHash, $msgId, $ack, substr($msgData,2));
+#				HM485_ProcessResponse($ioHash, $msgId, $ack, substr($msgData,2));
 		
 			} elsif ($msgCmd == HM485::CMD_EVENT) {
 				# Todo: check if events triggered on ack only?
@@ -773,8 +797,8 @@ sub HM485_GetHashByHmwid ($) {
 	@param	string  the message data
 	
 =cut
-sub HM485_ProcessResponse($$$$) {
-	my ($ioHash, $msgId, $ack, $msgData) = @_;
+sub HM485_ProcessResponse($$$) {
+	my ($ioHash, $msgId, $msgData) = @_;
 
 	if ($ioHash->{'.waitForResponse'}{$msgId}) {
 		my $requestType = $ioHash->{'.waitForResponse'}{$msgId}{requestType};
@@ -782,41 +806,33 @@ sub HM485_ProcessResponse($$$$) {
 		my $requestData = $ioHash->{'.waitForResponse'}{$msgId}{requestData};
 		my $hash        = $modules{HM485}{defptr}{$hmwId};
 
-		if ($ack) {
-			# We got an ACK
-
-			# Check if main device exists or we need create it
-			if($hash->{DEF} && $hash->{DEF} eq $hmwId) {
-		
-				if (grep $_ eq $requestType, ('53', '78')) {                    # S (level_get), x (level_set) reports State
-					#HM485_processStateData($msgData);
-#				} elsif (grep $_ eq $requestType, ('4B', 'CB')) {                # K (Key), Ë (Key-sim) report State
-					#HM485_processStateData($msgData);
+		# Check if main device exists or we need create it
+		if($hash->{DEF} && $hash->{DEF} eq $hmwId) {
 	
-				} elsif ($requestType eq '52') {                                # R (report Eeprom Data)
-					HM485_ProcessEepromData($hash, $requestData, $msgData);
+			if (grep $_ eq $requestType, ('53', '78')) {                    # S (level_get), x (level_set) reports State
+				#HM485_processStateData($msgData);
+#			} elsif (grep $_ eq $requestType, ('4B', 'CB')) {                # K (Key), Ë (Key-sim) report State
+				#HM485_processStateData($msgData);
+
+			} elsif ($requestType eq '52') {                                # R (report Eeprom Data)
+				HM485_ProcessEepromData($hash, $requestData, $msgData);
+
+			} elsif (grep $_ eq $requestType, ('68', '6E', '76')) {         # h (module type), n (serial number), v (firmware version)
+				HM485_SetAttributeFromResponse($hash, $requestType, $msgData);
 	
-				} elsif (grep $_ eq $requestType, ('68', '6E', '76')) {         # h (module type), n (serial number), v (firmware version)
-					HM485_SetAttributeFromResponse($hash, $requestType, $msgData);
-		
-#				} elsif ($requestType eq '70') {                                # p (report packet size, only in bootloader mode)
-#				} elsif ($requestType eq '72') {                                # r (report firmwared data, only in bootloader mode)
-				}
-
-				HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
-
-				# Todo: check if we need this
-#				readingsSingleUpdate(
-#					$hash, 'state', $HM485::commands{$requestType}, 1
-#				);
-				
-			} else {
-			 	HM485_CheckForAutocreate($ioHash, $hmwId, $requestType, $msgData);
+#			} elsif ($requestType eq '70') {                                # p (report packet size, only in bootloader mode)
+#			} elsif ($requestType eq '72') {                                # r (report firmwared data, only in bootloader mode)
 			}
 
+			HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
+
+			# Todo: check if we need this
+#			readingsSingleUpdate(
+#				$hash, 'state', $HM485::commands{$requestType}, 1
+#			);
+			
 		} else {
-			# We got an NACK
-			HM485_SetStateNack($hmwId, $hmwId, $requestType);
+		 	HM485_CheckForAutocreate($ioHash, $hmwId, $requestType, $msgData);
 		}
 
 	} elsif ($ioHash->{'.waitForAck'}{$msgId}) {
@@ -826,15 +842,10 @@ sub HM485_ProcessResponse($$$$) {
 		my $hash        = $modules{HM485}{defptr}{$hmwId};
 
 		if($hash->{DEF} eq $hmwId) {
-			if ($ack) {
-				if ($requestType eq '57') {                                     # W (ACK written Eeprom Data)
-					# AKC for write EEprom data
-					my $devHash = HM485_GetHashByHmwid(substr($hmwId, 0,8));
-					HM485::Device::internalUpdateEEpromData($devHash, $requestData);
-				}
-			} else {
-				# We got an NACK
-				HM485_SetStateNack($hash, $hmwId, $requestType);
+			if ($requestType eq '57') {                                     # W (ACK written Eeprom Data)
+				# AKC for write EEprom data
+				my $devHash = HM485_GetHashByHmwid(substr($hmwId, 0,8));
+				HM485::Device::internalUpdateEEpromData($devHash, $requestData);
 			}
 		}
 	}
@@ -844,22 +855,42 @@ sub HM485_ProcessResponse($$$$) {
 }
 
 =head2
-	Notify the defice if we got a nack
+	Notify the device if we got a nack
 	
 	@param	hash    the hash of the device
-	@param	string   the HMW id
-	@param	string  the request type
+	@param	string  the message data
 
 =cut
-sub HM485_SetStateNack($$$) {
-	my ($hash, $hmwId, $requestType) = @_;	
+sub HM485_SetStateNack($$) {
+	my ($hash, $msgData) = @_;
+	my $hmwId = substr($msgData, 2,8);	
 
-	#$hash->{STATE} = 'NACK';
-	readingsSingleUpdate(
-		$hash, 'STATE', 'RESPONSE TIMEOUT: ' . $HM485::commands{$requestType}, 1
-	);
+	my $devHash = HM485_GetHashByHmwid($hmwId);
+	
+	my $txt = 'RESPONSE TIMEOUT';
+#	$devHash->{STATE} = 'NACK';
+	readingsSingleUpdate($devHash, 'state', $txt, 1);
+	Log3 ($hash, 1, $txt . ' for ' . $hmwId);
+}
 
-	Log3 ($hash, 1, 'RESPONSE TIMEOUT for ' . $hmwId . ' | ' . $requestType);
+=head2
+	Notify the device if we got a ack
+	
+	@param	hash    the hash of the io device
+	@param	string  the message data
+=cut
+sub HM485_SetStateAck($$$) {
+	my ($ioHash, $msgId, $msgData) = @_;
+
+	my $hmwId = $ioHash->{'.waitForResponse'}{$msgId}{hmwId};
+	if (!$hmwId) {
+		my $hmwId = substr($msgData, 2,8);		
+	}
+	
+	if ($hmwId) {
+		my $devHash = HM485_GetHashByHmwid($hmwId);	
+		readingsSingleUpdate($devHash, 'state', 'ACK', 1);
+	}
 }
 
 =head2
@@ -1018,7 +1049,7 @@ sub HM485_DoSendCommand($) {
 	my @validRequestTypes = ('4B', '52', '53', '52', '68', '6E', '70', '72', '76', '78', 'CB');
 
 	# frame types which must be acked only
-	my @waitForAckTypes   = ('57');
+	my @waitForAckTypes   = ('21', '43', '57', '67', '6C', '73');
 
 	if ($requestId && grep $_ eq $requestType, @validRequestTypes) {
 		$ioHash->{'.waitForResponse'}{$requestId}{requestType} = $requestType;
