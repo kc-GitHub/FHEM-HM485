@@ -82,8 +82,8 @@ sub getConfigValueFromEeprom($$$$) {
 		my $address_id = $dataConfig->{physical}{address_id} + $adressStart;
 		my $data = HM485::Device::getRawEEpromData($hash, int($address_id), ceil($size));
 
-my $t = unpack ('H*', $data);
-print Dumper("$t, $address_id, $size");		
+#my $t = unpack ('H*', $data);
+#print Dumper("$t, $address_id, $size");		
 
 		my $value = HM485::Device::getValue($data, $address_id, $size);
 
