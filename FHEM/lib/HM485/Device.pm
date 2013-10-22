@@ -300,8 +300,11 @@ sub translateFrameDataToValue($$) {
 	if ($params) {
 		foreach my $param (keys %{$params}) {
 			$param = lc($param);
-			my $id = ($params->{$param}{id} - 9);
-			my $size = ($params->{$param}{size});
+
+			my $id    = ($params->{$param}{id} - 9);
+			my $size  = ($params->{$param}{size});
+#			my $value = getValue($data, $id, $size);
+
 			my $value;
 			if (isInt($id) && $size >=1) {
 				$value = hex(unpack ('H*', substr($data, $id, $size)));
@@ -311,6 +314,8 @@ sub translateFrameDataToValue($$) {
 				$value = ord(substr($data, int($id), 1));
 				$value = subBit($value, $bitsId, $bitsSize);
 			}
+#print Dumper(unpack ('H*',$data));
+#print Dumper($value);
 
 			my $constValue = $params->{$param}{const_value};
 			if (!defined($constValue) || $constValue eq $value) {
@@ -323,6 +328,28 @@ sub translateFrameDataToValue($$) {
 	}
 	
 	return $dataValid ? \%retVal : undef;
+}
+
+sub getValue($;$$) {
+	my ($data, $start, $size) = @_;
+
+	$start = $start ? $start : 0;
+	$size  = $size ? $size : 1;
+#print Dumper($data,$start, $size);
+#	print Dumper(unpack ('H*', $data));
+
+
+	my $retVal;
+	if (isInt($start) && $size >=1) {
+		$retVal = hex(unpack ('H*', substr($data, $start, $size)));
+	} else {
+		my $bitsId = ($start - int($start)) * 10;
+		my $bitsSize  = ($size - int($size)) * 10;
+		$retVal = ord(substr($data, int($start), 1));
+		$retVal = subBit($retVal, $bitsId, $bitsSize);
+	}
+#	print Dumper($retVal);
+	return $retVal;
 }
 
 sub convertFrameDataToValue($$) {
@@ -547,6 +574,9 @@ sub getEmptyEEpromMap ($) {
 sub getRawEEpromData($;$$$) {
 	my ($hash, $start, $len, $hex) = @_;
 
+	my $hmwId   = $hash->{DEF};
+	my $devHash = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
+
 	my $blockLen = 16;
 	my $addrMax = 1024;
 	my $blockStart = 0;
@@ -563,8 +593,8 @@ sub getRawEEpromData($;$$$) {
 	my $retVal = '';
 	for ($blockCount = $blockStart; $blockCount < (ceil($addrMax / $blockLen)); $blockCount++) {
 		my $blockId = sprintf ('.eeprom_%04X' , ($blockCount * $blockLen));
-		if ($hash->{READINGS}{$blockId}{VAL}) {
-			$retVal.= $hash->{READINGS}{$blockId}{VAL};
+		if ($devHash->{READINGS}{$blockId}{VAL}) {
+			$retVal.= $devHash->{READINGS}{$blockId}{VAL};
 		} else {
 			$retVal = 'FF' x $blockLen;
 		}

@@ -200,7 +200,8 @@ use constant {
 	VERSION          => '0.2.1',
 	PROTOCOL_VERSION => 1,
 	SERIALNUMBER_DEF => 'SGW0123456',
-	CRLF             => "\r\n"
+	CRLF             => "\r\n",
+	LOGTAG           => 'HM485d'
 };
 
 ##################################################
@@ -306,10 +307,7 @@ sub clientRead($) {
 			$message = chr(0xFD) . $message;
 			
 			### Debug ###
-			my $m = $message;
-			my $l = uc( unpack ('H*', $m) );
-			$m =~ s/^.*CRLF//g;
-			Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
+			HM485::Util::debugBinData(LOGTAG, 4, $message, 'Rx', 1);
 		
 			my $msgFirstByte = substr($message, 0, 1);
 			my $msgId        = ord(substr($message, 2, 1));
@@ -350,10 +348,7 @@ sub clientWrite($$$) {
 	$msg = HM485::Util::escapeMessage($msg);
 
 	### Debug ###
-	my $m = $msg;
-	my $l = uc( unpack ('H*', $m) );
-	$m =~ s/^.*CRLF//g;
-	Log3 ('', 1, $l . ' (TX: ' . $m . ')' . "\n");
+	HM485::Util::debugBinData(LOGTAG, 4, $msg, 'Tx', 1);
 
 	if ($clientCount > 0) {
 		ServerTools_serverWriteClient($msg);
@@ -373,12 +368,11 @@ sub clientWelcome($) {
 			($msgCounter-1), PROTOCOL_VERSION, INTERFACE_NAME, VERSION , $serialNumber, CRLF
 		); 
 
+		# Debug
+		HM485::Util::debugBinData(LOGTAG, 4, $welcomeMsg, 'Tx', 2);
+
 		# switch protocol command
 		$welcomeMsg.= sprintf('S%02X%s', $msgCounter, CRLF); 
-
-		my $logMessage = $welcomeMsg;
-		$logMessage =~ s/\r\n/ /g;
-		Log3 ('', 3, 'Tx: ' . $logMessage);
 		
 		ServerTools_serverWriteClient($welcomeMsg);
 		
@@ -487,7 +481,7 @@ sub interfaceInit($) {
 		}
 	}
 
-	Log3 ($hash, 2, $name . ' connected to device ' . $dev);
+	HM485::Util::logger(LOGTAG, 2, $name . ' connected to device ' . $dev);
 	$hash->{ReadFn} = 'interfaceRead';
 	$hash->{STATE} = 'open';
 	

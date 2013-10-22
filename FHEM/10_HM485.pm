@@ -153,7 +153,7 @@ sub HM485_Define($$) {
 	} else {
 		my $name = $hash->{NAME};
 		
-		if (defined($chNr)) {
+		if ($chNr) {
 			# We defined a channel of a device
 			my $devHash = $modules{HM485}{defptr}{$addr};
 
@@ -360,7 +360,7 @@ sub HM485_Set($@) {
 	}
 	
 	# add config setter if config for this device or channel avilable
-	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash);
+	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
 	if (scalar (keys %{$configHash})) {
 		$sets{'config'} = '';
 	}
@@ -423,7 +423,7 @@ sub HM485_Get($@) {
 
 	my $name = $params[0];
 	my $cmd  = $params[1];
-	my %gets = defined($chNr) ? %getsCh : %getsDev;
+	my %gets = $chNr ? %getsCh : %getsDev;
 	my $msg  = '';
 
 	if (@params < 2) {
@@ -494,7 +494,7 @@ sub HM485_Attr ($$$$) {
 					}
 
 					$hash->{MODEL} = $val;
-					if (!$msg && defined($chNr)) {
+					if (!$msg && $chNr) {
 						# if we are a channel, we set webCmd attribute
 						HM485_SetWebCmd($hash, $val);
 					}
@@ -503,7 +503,7 @@ sub HM485_Attr ($$$$) {
 		}
 		
 		if (!$msg) {
-			if (!defined($chNr)) {
+			if (!$chNr) {
 				# we are a device we try to copy some attributes to all defined channels
 				foreach my $attrBindCh (@attrListBindCh) {
 					if ( $attrName eq $attrBindCh && AttrVal($name, $attrName, undef) ) {
@@ -531,8 +531,9 @@ sub HM485_FhemwebShowConfig($$$) {
 	my ($fwName, $name, $roomName) = @_;
 
 	my $hash = $defs{$name};
+	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
-	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash);
+	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
 
 	# Todo: make ready
 	my $peerHash = $hash->{PEERINGS};
@@ -813,7 +814,7 @@ sub HM485_GetHashByHmwid ($) {
 sub HM485_ProcessResponse($$$) {
 	my ($ioHash, $msgId, $msgData) = @_;
 
-	if ($ioHash->{'.waitForResponse'}{$msgId}) {
+	if ($ioHash->{'.waitForResponse'}{$msgId}{hmwId}) {
 		my $requestType = $ioHash->{'.waitForResponse'}{$msgId}{requestType};
 		my $hmwId       = $ioHash->{'.waitForResponse'}{$msgId}{hmwId};
 		my $requestData = $ioHash->{'.waitForResponse'}{$msgId}{requestData};
@@ -823,7 +824,8 @@ sub HM485_ProcessResponse($$$) {
 		if($hash->{DEF} && $hash->{DEF} eq $hmwId) {
 	
 			if (grep $_ eq $requestType, ('53', '78')) {                    # S (level_get), x (level_set) reports State
-				#HM485_processStateData($msgData);
+#				HM485_processStateData($msgData);
+
 #			} elsif (grep $_ eq $requestType, ('4B', 'CB')) {                # K (Key), Ë (Key-sim) report State
 				#HM485_processStateData($msgData);
 
@@ -834,12 +836,14 @@ sub HM485_ProcessResponse($$$) {
 				HM485_SetAttributeFromResponse($hash, $requestType, $msgData);
 	
 #			} elsif ($requestType eq '70') {                                # p (report packet size, only in bootloader mode)
+
 #			} elsif ($requestType eq '72') {                                # r (report firmwared data, only in bootloader mode)
+
 			}
 
 			HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
 
-			# Todo: check if we need this
+# Todo: check if we need this
 #			readingsSingleUpdate(
 #				$hash, 'state', $HM485::commands{$requestType}, 1
 #			);
@@ -848,7 +852,7 @@ sub HM485_ProcessResponse($$$) {
 		 	HM485_CheckForAutocreate($ioHash, $hmwId, $requestType, $msgData);
 		}
 
-	} elsif ($ioHash->{'.waitForAck'}{$msgId}) {
+	} elsif ($ioHash->{'.waitForAck'}{$msgId}{hmwId}) {
 		my $requestType = $ioHash->{'.waitForAck'}{$msgId}{requestType};
 		my $hmwId       = $ioHash->{'.waitForAck'}{$msgId}{hmwId};
 		my $requestData = $ioHash->{'.waitForAck'}{$msgId}{requestData};

@@ -288,7 +288,7 @@ sub sendFrame($$$$;$) {
 	$FRAME_SEND_BUFFER = '';
 	
 	$sendCount = (defined($sendCount)) ? '(' . $sendCount . ')' : '';
-	HM485::Util::logger(LOGTAG, 3, 'TX' . $sendCount . ':', \%logData);
+	HM485::Util::logger(LOGTAG, 3, 'Tx: ' . $sendCount, \%logData);
 }
 
 =head2 NAME
@@ -458,13 +458,13 @@ sub readFrame($$) {
 							if (!HM485::Util::ctrlIsDiscovery($RD{cb})) {
 								$self->parseFrame();
 							} else {
-								HM485::Util::logger(LOGTAG, 3, 'RX:', \%RD);
+								HM485::Util::logger(LOGTAG, 3, 'Rx: ', \%RD);
 								
 								# Receiving external discovery frame
 								# Nothing to do yet
 							}
 						} else {
-							HM485::Util::logger(LOGTAG, 3, 'RX: data -> crc error', \%RD);
+							HM485::Util::logger(LOGTAG, 3, 'Rx: data -> crc error', \%RD);
 						}
 					}
 				}
@@ -491,7 +491,7 @@ sub parseFrame() {
 	    $addressLastMsgMap{$RD{sender}}{data} eq $RD{data} &&
 	    !HM485::Util::ctrlSynSet($RD{cb}) ) {
 			
-		HM485::Util::logger(LOGTAG, 3, 'RX: dup frame: ', \%RD);
+		HM485::Util::logger(LOGTAG, 3, 'Rx: dup frame: ', \%RD);
 			
 	} else {
 		$addressLastMsgMap{$RD{sender}} = {
@@ -532,14 +532,14 @@ sub parseFrame() {
 		my $txtResponse = '';
 		if ($responseId > -1) {
 			if ( !HM485::Util::ctrlIsAck($RD{cb}) ) {
-				$txtResponse = ' Response: (' . $responseId . ')';
+				$txtResponse = 'Response: (' . $responseId . ')';
 			}
 			my $response = uc(substr(unpack ('H*', $RD{data}), 0, -4));
 		} else {
 			my $event = uc(substr(unpack ('H*', $RD{data}), 0, -4));
 		}
 	
-		HM485::Util::logger(LOGTAG, 3, 'RX:' . $txtResponse, \%RD);
+		HM485::Util::logger(LOGTAG, 3, 'Rx: ' . $txtResponse, \%RD);
 	
 		# TODO: maybe we want ack messages from all sender adress
 		if ( HM485::Util::ctrlIsIframe($RD{cb}) && $RD{target} eq pack('H*', $hmwId) ) {
@@ -716,7 +716,7 @@ sub discoveryNextStep ($) {
 				}
 			}
 		} else {
-			HM485::Util::logger(LOGTAG, 3, 'HM485 Discovery: We found more than 255 Modules. Cancel with error.');
+			HM485::Util::logger(LOGTAG, 3, 'Discovery: We found more than 255 Modules. Cancel with error.');
 			$done = 1;
 		}
 
@@ -747,7 +747,7 @@ sub discoveryEnd ($) {
 	$self->setStateIdle();
 
 	$self->sendDiscoveryEnd($msgId, $foundModuleCount);
-	HM485::Util::logger(LOGTAG, 3, 'Discovery end:');
+	HM485::Util::logger(LOGTAG, 3, 'Discovery: END');
 }
 
 sub discoveryFound() {

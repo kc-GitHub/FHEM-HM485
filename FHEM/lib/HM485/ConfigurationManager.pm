@@ -2,30 +2,39 @@ package HM485::ConfigurationManager;
 
 use strict;
 use warnings;
+use POSIX qw(ceil);
+
 use Data::Dumper;
 
 
-sub getConfigFromDevice($) {
-	my ($hash) = @_;
-	my $name   = $hash->{NAME};
+sub getConfigFromDevice($$) {
+	my ($hash, $chNr) = @_;
 
 	my $retVal = {};
 	my $configHash = getConfigSettings($hash);
 	if (ref($configHash) eq 'HASH') {
-#		print Dumper($configHash);
-		foreach my $config (keys %{$configHash}) {
 
+		my $adressStart = $configHash->{address_start} ? $configHash->{address_start} : 0;
+		my $adressStep  = $configHash->{address_step}  ? $configHash->{address_step}  : 0;
+		my $adressOffset = $adressStart + ($chNr - 1) * $adressStep;
+		
+		foreach my $config (keys %{$configHash}) {
 			my $dataConfig = $configHash->{$config};
 			if (ref($dataConfig) eq 'HASH') {
 				my $type = $dataConfig->{logical}{type} ? $dataConfig->{logical}{type} : undef;
-				
 				my $unit = $dataConfig->{logical}{unit} ? $dataConfig->{logical}{unit} : '';
-				my $min  = $dataConfig->{logical}{min} ? $dataConfig->{logical}{min} : undef;
-				my $max  = $dataConfig->{logical}{max} ? $dataConfig->{logical}{max} : undef;
-	
+				my $min  = $dataConfig->{logical}{min}  ? $dataConfig->{logical}{min}  : undef;
+				my $max  = $dataConfig->{logical}{max}  ? $dataConfig->{logical}{max}  : undef;
+
 				$retVal->{$config}{type}  = $type;
 				$retVal->{$config}{unit}  = $unit;
-				$retVal->{$config}{value} = getConfigValueFromEeprom($hash, $dataConfig);
+
+#				print Dumper($config);
+#				print Dumper($dataConfig);
+
+				$retVal->{$config}{value} = getConfigValueFromEeprom (
+					$hash, $dataConfig, $adressStart + $adressOffset
+				);
 			
 				if ($type ne 'option') {
 					$retVal->{$config}{min} = $min;
@@ -64,15 +73,19 @@ sub convertOptionToValue($$) {
 	return $retVal;
 }
 
-sub getConfigValueFromEeprom() {
-	my ($hash, $dataConfig) = @_;
+sub getConfigValueFromEeprom($$$$) {
+	my ($hash, $dataConfig, $adressStart) = @_;
 
 	my $retVal = '';
-	if ($dataConfig->{physical}{address_id}) {
-		my $size = $dataConfig->{physical}{size} ? $dataConfig->{physical}{size} : 1;
-		my $data = HM485::Device::getRawEEpromData($hash, $dataConfig->{physical}{address_id}, $size);
-		
-		my $value = hex(unpack ('H*', substr($data, 0, $size)));
+	if (defined($dataConfig->{physical}{address_id})) {
+		my $size       = $dataConfig->{physical}{size} ? $dataConfig->{physical}{size} : 1;
+		my $address_id = $dataConfig->{physical}{address_id} + $adressStart;
+		my $data = HM485::Device::getRawEEpromData($hash, int($address_id), ceil($size));
+
+my $t = unpack ('H*', $data);
+print Dumper("$t, $address_id, $size");		
+
+		my $value = HM485::Device::getValue($data, $address_id, $size);
 
 		$retVal = HM485::Device::dataConversion($value, $dataConfig->{conversion}, 'from_device');
 		my $default = $dataConfig->{logical}{'default'};
@@ -89,19 +102,21 @@ sub getConfigValueFromEeprom() {
 		}
 
 	}
-	
+
 	return $retVal;
 }
 
 sub getConfigSettings($) {
 	my ($hash) = @_;
 
-	my $configSettings = $hash->{cache}{configSettings};
+	my $hmwId   = $hash->{DEF};
+	my $devHash = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
+
+	my $configSettings = $devHash->{cache}{configSettings};
 #	print Dumper($configSettings);
 #	if (!$configSettings) {
-		my $name   = $hash->{NAME};
-		my $model  = $hash->{MODEL};
-		my $hmwId  = $hash->{DEF};
+		my $name   = $devHash->{NAME};
+		my $model  = $devHash->{MODEL};
 		my $addr   = substr($hmwId,0,8);
 		my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
 		
@@ -118,7 +133,7 @@ sub getConfigSettings($) {
 
 			$configSettings = getConfigSetting($configSettings);
 		}
-#		$hash->{cache}{configSettings} = $configSettings;
+#		$devHash->{cache}{configSettings} = $configSettings;
 #	}
 
 	return $configSettings;

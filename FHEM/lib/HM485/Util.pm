@@ -79,14 +79,14 @@ sub logger ($$$;$$) {
 			# TODO: Loglevel, settings relevant!
 			if (defined($dataHash->{cb}) && ctrlIsDiscovery($dataHash->{cb}) ) {
 				if ($logDiscovery) {
-					$logTxt.= ' DISCOVERY(' . ctrlDiscoveryMask($dataHash->{cb}) . ') 00000000';
+					$logTxt.= 'DISCOVERY(' . ctrlDiscoveryMask($dataHash->{cb}) . ') 00000000';
 					$logTxt.= ' -> ' . printByte($dataHash->{target}, $formatHex);
 				} else {
 					$txt = '';
 				}
 			} else {
 				my $ctrlTxt = '';
-				$ctrlTxt.= 'I[' . ctrlTxNum($dataHash->{cb}) . ']' if (ctrlIsIframe($dataHash->{cb}));
+				$ctrlTxt.= ' I[' . ctrlTxNum($dataHash->{cb}) . ']' if (ctrlIsIframe($dataHash->{cb}));
 				$ctrlTxt.= 'ACK'                                   if (ctrlIsAck($dataHash->{cb}));
 				$ctrlTxt.= '(' . ctrlAckNum($dataHash->{cb});
 
@@ -96,7 +96,7 @@ sub logger ($$$;$$) {
 				}
 				$ctrlTxt.= (ctrlHasSender($dataHash->{cb})   ? ',B' : '') . ')';
 				
-				$logTxt.= ' '    . $ctrlTxt . '(' . sprintf('%02X', $dataHash->{cb}) . ')';
+				$logTxt.= $ctrlTxt . '(' . sprintf('%02X', $dataHash->{cb}) . ')';
 				$logTxt.= ' '    . printByte($dataHash->{sender}, $formatHex);
 				$logTxt.= ' -> ' . printByte($dataHash->{target}, $formatHex);
 
@@ -135,6 +135,31 @@ sub logger ($$$;$$) {
 	}
 	
 	return $retVal;
+}
+
+sub debugBinData($$$;$$) {
+	my ($logtag, $level, $msg, $prefix, $logMask) = @_;
+	$prefix  = $prefix ? $prefix . ': ' : '';
+	$logMask = $logMask ? $logMask : 1;
+
+	my $hexMsg = '';
+
+	if ($logMask & 0b01) {
+		$hexMsg = uc( unpack ('H*', $msg) );
+	} else {
+		$hexMsg = '';
+	}
+
+	if ($logMask & 0b10) {
+		$msg =~ s/^.*CRLF//g;
+		if ($logMask & 0b01) {
+			$msg = ' (' . $msg . ')';
+		}
+	} else {
+		$msg = '';
+	}
+
+	HM485::Util::logger($logtag, $level, $prefix . $hexMsg . $msg);	
 }
 
 sub printByte($$) {
@@ -211,15 +236,33 @@ sub ctrlTxNum         ($) {return ((shift >> 1) & 0x03);}
 sub setCtrlTxNum     ($$) {return ((0b11111001 & $_[0]) | ($_[1] << 1));}
 sub setCtrlRxNum     ($$) {return ((0b10011111 & $_[0]) | ($_[1] << 5));}
 
+# TODO: some loggings
+# CCU1 Log
+# Mar 19 16:44:39 (none) user.err hs485d: HS485PhysicalDataInterfaceCommand::PutData SendMessage() failed
+# Mar 19 16:44:39 (none) user.err hs485d: HSSParameter::SetValue() 1.000000 Put failed
+# Mar 19 16:45:02 (none) user.debug hs485d: RX: I[1](0,Y,F,B) #52 00000001 -> FFFFFFFF: Z
+# Mar 19 16:45:02 (none) user.debug hs485d: RX: ACK(1,B) #53 00008F14 -> 00000001:
+# Mar 19 16:45:02 (none) user.debug hs485d: Event: JEQ0271055:0.UNREACH=0
 
-
-################################################################################
+# Mar 19 16:45:14 (none) user.debug hs485d: TX: I[2](0,F,B) #51 00000001 -> 00008F14: x 02 C8
+# Mar 19 16:45:14 (none) user.debug hs485d: RX: Response I[0](2,Y,F,B) on #51 : 69 02 64 10
+# Mar 19 16:45:14 (none) user.debug hs485d: Event: JEQ0271055:3.LEVEL=0.500000
+# Mar 19 16:45:14 (none) user.debug hs485d: Event: JEQ0271055:3.WORKING=true
+# Mar 19 16:45:14 (none) user.debug hs485d: Event: JEQ0271055:3.DIRECTION=1
+# Mar 19 16:45:16 (none) user.debug hs485d: RX: I[1](2,F,B) #52 00008F14 -> 00000001: i 02 8C 10
+# Mar 19 16:45:16 (none) user.debug hs485d: Event: JEQ0271055:3.LEVEL=0.700000
+# Mar 19 16:45:16 (none) user.debug hs485d: Event: JEQ0271055:3.WORKING=true
+# Mar 19 16:45:16 (none) user.debug hs485d: Event: JEQ0271055:3.DIRECTION=1
+# Mar 19 16:45:28 (none) user.debug hs485d: RX: I[2](2,F,B) #53 00008F14 -> 00000001: i 02 C8 00
+# Mar 19 16:45:28 (none) user.debug hs485d: Event: JEQ0271055:3.LEVEL=1.000000
+# Mar 19 16:45:28 (none) user.debug hs485d: Event: JEQ0271055:3.WORKING=false
+# Mar 19 16:45:28 (none) user.debug hs485d: Event: JEQ0271055:3.DIRECTION=0
 
 sub getHmwIdAndChNrFromHash($) {
 	my ($hash) = @_;
 	
 	my $hmwId = $hash->{DEF};
-	my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
+	my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : 0;
 	
 	return ($hmwId, $chNr); 
 }
