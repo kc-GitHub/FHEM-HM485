@@ -32,8 +32,6 @@ use lib::HM485::Util;
 use vars qw {%data %attr %defs %selectlist %modules}; #supress errors in Eclipse EPIC IDE
 
 # Function prototypes
-
-# FHEM Interface related functions
 sub HM485_LAN_Initialize($);
 sub HM485_LAN_Define($$);
 sub HM485_LAN_Ready($);
@@ -46,19 +44,21 @@ sub HM485_LAN_Attr(@);
 
 # Helper functions
 sub HM485_LAN_Init($);
+sub HM485_LAN_InitInterface($$);
 sub HM485_LAN_parseIncommingCommand($$);
 sub HM485_LAN_Connect($);
 sub HM485_LAN_RemoveValuesFromAttrList($@);
 sub HM485_LAN_openDev($;$);
 sub HM485_LAN_checkAndCreateHM485d($);
 sub HM485_LAN_HM485dGetPid($$);
+sub HM485_LAN_DispatchNack($$);
 
 use constant {
 	SERIALNUMBER_DEF   => 'SGW0123456',
-	KEEPALIVE_TIMER    => 'keepAlive:',
-	KEEPALIVECK_TIMER  => 'keepAliveCk:',
-	KEEPALIVE_TIMEOUT  => 25, # Todo: check if we need to modify the timeout via attribute
-	KEEPALIVE_MAXRETRY => 3,
+	KEEPALIFE_TIMER    => 'keepAlife:',
+	KEEPALIFECK_TIMER  => 'keepAlifeCk:',
+	KEEPALIFE_TIMEOUT  => 20, # CCU2 send keepalife each 20 seconds, Todo: check if we need to modify the timeout via attribute
+	KEEPALIFE_MAXRETRY => 3,
 };
 
 =head2
@@ -71,13 +71,10 @@ sub HM485_LAN_Initialize($) {
 	my $dev  = $hash->{DEF};
 	my $name = $hash->{NAME};
 	
-	# ToDo: remove after debugging
-#	do '/opt/FHEM/fhem.dev/FHEM/lib/HM485/Device.pm';
+	my $initResult = HM485::Device::init();
 
-	my $ret = HM485::Device::init();
-
-	if (defined($ret)) {
-		HM485::Util::logger($name, 1, $ret);
+	if ($initResult) {
+		HM485::Util::logger($name, 1, $initResult);
 	} else {
 
 		require $attr{global}{modpath} . '/FHEM/DevIo.pm';
@@ -144,6 +141,9 @@ sub HM485_LAN_Define($$) {
 	$hash->{msgCounter} = 0;
 	$hash->{STATE} = '';
 
+	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday()
+		. '"><script type="text/javascript" charset="UTF-8';
+
 	return $ret;
 }
 
@@ -206,52 +206,78 @@ sub HM485_LAN_Read($) {
 
 	my $name   = $hash->{NAME};
 	my $buffer = DevIo_SimpleRead($hash);
-	$buffer    = HM485::Util::unescapeMessage($buffer);
 
-	if($buffer) {
+	if ($buffer) {
 		# Remove timer to avoid duplicates
-		RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
-		RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
-
+		RemoveInternalTimer(KEEPALIFECK_TIMER . $name);
+		RemoveInternalTimer(KEEPALIFE_TIMER   . $name);
+		
 		if ($buffer eq 'Connection refused. Only on Client allowed') {
 			$hash->{ERROR} = $buffer;
-
+	
 		} else {
 			my $msgStart = substr($buffer,0,1);
 			if ($msgStart eq 'H') {
-				# we got an answer to keepalive request
-				$buffer =~ s/\r\n/,/g;
-				my (undef, $protokolVersion, $interfaceType, $version, $serialNumber, $msgCounter) = split(',', $buffer);
-
-				$hash->{InterfaceType}   = $interfaceType;
-				$hash->{ProtokolVersion} = $protokolVersion;
-				$hash->{Version}         = $version;
-				$hash->{SerialNumber}    = $serialNumber;
-				$hash->{msgCounter}      = hex(substr($msgCounter,1));
-
-				HM485::Util::logger($name, 3, 'Lan Device Information');
-				HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
-				HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
-				HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
-				HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
-
-				# initialize keepalive flags
-				$hash->{keepalive}{ok}    = 1;
-				$hash->{keepalive}{retry} = 0;
-
-				# Send the Initialize sequence	
-				HM485_LAN_Write($hash, HM485::CMD_INITIALIZE);				
-
-			} elsif ($msgStart eq chr(0xFD)) {
-				HM485_LAN_parseIncommingCommand($hash, $buffer);
-
+				HM485_LAN_InitInterface($hash, $buffer);
+	
+			} elsif ($msgStart eq chr(HM485::FRAME_START_LONG)) {
+	
+				my @messages = split(chr(HM485::FRAME_START_LONG), $buffer);
+				foreach my $message (@messages) {
+					if ($message) {
+						$message = chr(HM485::FRAME_START_LONG) . $message;
+			
+						$message = HM485::Util::unescapeMessage($message);
+	
+						### Debug ###
+	#					my $m = $message;
+	#					my $l = uc( unpack ('H*', $m) );
+	##					$m =~ s/^.*CRLF//g;
+	#					Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
+	
+						HM485_LAN_parseIncommingCommand($hash, $message);
+					}
+				}
 			}
+	
+			InternalTimer(
+				gettimeofday() + KEEPALIFE_TIMEOUT, 'HM485_LAN_KeepAlife', KEEPALIFE_TIMER . $name, 1
+			);
 		}
-
-		InternalTimer(
-			gettimeofday() + KEEPALIVE_TIMEOUT, 'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
-		);
 	}
+}
+
+=head2
+	Initialize the Interface
+
+	@param	hash      hash of device addressed
+=cut
+sub HM485_LAN_InitInterface($$) {
+	my ($hash, $message) = @_;	
+
+	my $name = $hash->{NAME};
+	$message =~ s/\r\n/,/g;
+	
+	my (undef, $protokolVersion, $interfaceType, $version, $serialNumber, $msgCounter) = split(',', $message);
+
+	$hash->{InterfaceType}   = $interfaceType;
+	$hash->{ProtokolVersion} = $protokolVersion;
+	$hash->{Version}         = $version;
+	$hash->{SerialNumber}    = $serialNumber;
+	$hash->{msgCounter}      = hex(substr($msgCounter,1));
+
+	HM485::Util::logger($name, 3, 'Lan Device Information');
+	HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
+	HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
+	HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
+	HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
+
+	# initialize keepalife flags
+	$hash->{keepalife}{ok}    = 1;
+	$hash->{keepalife}{retry} = 0;
+
+	# Send the Initialize sequence	
+	HM485_LAN_Write($hash, HM485::CMD_INITIALIZE);				
 }
 
 =head2
@@ -268,12 +294,13 @@ sub HM485_LAN_Read($) {
 sub HM485_LAN_Write($$;$) {
 	my ($hash, $cmd, $params) = @_;
 	my $name = $hash->{NAME};
-	my $msgId = $hash->{msgCounter};
+	my $msgId = $hash->{msgCounter} ? $hash->{msgCounter} : 1;
 
 	if ($cmd == HM485::CMD_SEND || $cmd == HM485::CMD_DISCOVERY ||
-		$cmd == HM485::CMD_KEEPALIVE || HM485::CMD_INITIALIZE) {
+		$cmd == HM485::CMD_KEEPALIFE || HM485::CMD_INITIALIZE) {
 			
 		my $sendData = '';
+		my $sendDataLog = '';
 		if ($cmd == HM485::CMD_SEND) {
 
 			# ctrl check for sending
@@ -312,8 +339,8 @@ sub HM485_LAN_Write($$;$) {
 				datalen => length($data) + 2,
 				data    => pack('H*', $data . 'FFFF'),
 			);
-			HM485::Util::logger($name, 3, 'TX: (' . $msgId . ')', \%RD);
 
+			$sendDataLog = HM485::Util::logger($name, 3, 'TX: (' . $msgId . ')', \%RD, 1);
 			$sendData = pack('H*',
 				sprintf(
 					'%02X%02X%s%s%s%s%s', $msgId, $cmd, 'C8', $target, $ctrl, $source, $data
@@ -323,9 +350,9 @@ sub HM485_LAN_Write($$;$) {
 		} elsif ($cmd == HM485::CMD_DISCOVERY) {
 			$sendData = pack('H*',sprintf('%02X%02X00FF', $msgId, $cmd));
 
-		} elsif ($cmd == HM485::CMD_KEEPALIVE) {
+		} elsif ($cmd == HM485::CMD_KEEPALIFE) {
 			$sendData = pack('H*',sprintf('%02X%02X', $msgId, $cmd));
-			HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgId);
+			HM485::Util::logger($name, 3, 'keepalife msgNo: ' . $msgId);
 
 		} elsif ($cmd == HM485::CMD_INITIALIZE) {
 			my $txtMsgId = unpack('H4', sprintf('%02X', $msgId));
@@ -335,20 +362,107 @@ sub HM485_LAN_Write($$;$) {
 
 		if ($sendData) {
 			if ($cmd == HM485::CMD_INITIALIZE) {
-				$sendData = chr(0xFD) . $sendData;
+				$sendData = chr(HM485::FRAME_START_LONG) . $sendData;
 			} else {
-				$sendData = chr(0xFD) . chr(length($sendData)) . HM485::Util::escapeMessage($sendData);
+				$sendData = chr(HM485::FRAME_START_LONG) . chr(length($sendData)) . $sendData;
+				$sendData = HM485::Util::escapeMessage($sendData);
 			}
 
-			DevIo_SimpleWrite($hash, $sendData, 0);
+			if ($cmd == HM485::CMD_SEND || $cmd == HM485::CMD_DISCOVERY) {
+				my $target = $params->{target};
+				HM485_LAN_SendQueue($hash, $msgId, $sendData, $target, $sendDataLog);				
+			} else {
+				DevIo_SimpleWrite($hash, $sendData, 0);
+			}
 		} 
 	}
 
-	$msgId = ($hash->{msgCounter} >= 0xFF) ? 1 : ($hash->{msgCounter} + 1);
-	$hash->{msgCounter} = $msgId;
+	$hash->{msgCounter} = ($hash->{msgCounter} >= 0xFF) ? 1 : ($hash->{msgCounter} + 1);
 
 	return $msgId;
 }
+
+####################################################################
+sub HM485_LAN_SendQueue($$$$$) {
+	my ($hash, $msgId, $sendData, $hmwId, $sendDataLog) = @_;
+
+	$hash->{queueId}++;
+	my $queueId = sprintf('%08X', $hash->{queueId});
+
+	$hash->{sendQueue}{$queueId}{data}    = $sendData;
+	$hash->{sendQueue}{$queueId}{msgId}   = $msgId;
+	$hash->{sendQueue}{$queueId}{hmwId}   = $hmwId;
+	$hash->{sendQueue}{$queueId}{dataLog} = $sendDataLog;
+
+	if (!$hash->{queueRunning}) {
+		$hash->{queueRunning} = 1;
+		HM485_LAN_SendQueueNextItem($hash);
+	}
+}
+
+sub HM485_LAN_SendQueueNextItem($) {
+	my ($hash) = @_;
+	my $name = $hash->{NAME};
+	delete ($hash->{sendQueue}{0});
+
+	my $queueCount = scalar(keys (%{$hash->{sendQueue}}));
+	if ($queueCount > 0) {
+		my $currentQueueId = (sort keys %{$hash->{sendQueue}})[0];
+		$hash->{currentQueueId} = $currentQueueId;
+
+		my $sendData = $hash->{sendQueue}{$currentQueueId}{data};
+		
+		DevIo_SimpleWrite($hash, $sendData, 0);
+		if ($hash->{sendQueue}{$currentQueueId}{dataLog}) {
+			Log3 ($hash, 3, $hash->{sendQueue}{$currentQueueId}{dataLog});
+		}
+		
+		my $checkResendQueueItemsDelay = 1;
+
+		my $hmwId = $hash->{sendQueue}{$currentQueueId}{hmwId};
+		if ($hmwId) {
+			# For messages to broadcast, with z or Z command we don't wait for ack.
+			if ($hmwId eq 'FFFFFFFF' || $sendData eq '5A' || $sendData eq '7A') {
+				HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
+				$checkResendQueueItemsDelay = 0.1
+			}
+		}
+		
+		InternalTimer(
+			gettimeofday() + $checkResendQueueItemsDelay,
+			'HM485_LAN_CheckResendQueueItems',
+			$name . ':queueTimer:' . $currentQueueId, 0
+		);
+	} else {
+		$hash->{queueRunning} = 0;
+	}
+}
+
+sub HM485_LAN_CheckResendQueueItems($) {
+	my ($param) = @_;
+
+	my($name, $timerName, $currentQueueId) = split(':', $param);
+	if ($timerName eq 'queueTimer') {
+		my $hash = $defs{$name};
+	
+#		print Dumper($hash->{sendQueue}{$currentQueueId});
+		if (exists($hash->{sendQueue}{$currentQueueId})) {
+			HM485_LAN_DispatchNack($hash, $currentQueueId);
+		}
+	
+		# prozess next queue item.
+		HM485_LAN_SendQueueNextItem($hash);
+	}
+}
+
+sub HM485_LAN_DeleteCurrentItemFromQueue($$) {
+	my ($hash, $currentQueueId) = @_;
+
+	delete ($hash->{sendQueue}{$currentQueueId});
+	$hash->{currentQueueId} = 0;	
+}
+
+###################################################################
 
 =head2
 	Implements SetFn function.
@@ -385,11 +499,11 @@ sub HM485_LAN_Set($@) {
 			foreach my $arg (sort keys %sets) {
 				$arguments.= $arg . ($sets{$arg} ? (':' . $sets{$arg}) : '') . ' ';
 			}
-						
 			$msg = 'Unknown argument ' . $cmd . ', choose one of ' . $arguments;
 
 		} elsif ($cmd && exists($hash->{discoveryRunning}) && $hash->{discoveryRunning} > 0) {
 			$msg = 'Discovery is running. Pleas wait for finishing.';
+			# Todo: timeout for aute exit discovery mode
 
 		} elsif ($cmd eq 'RAW') {
 			my $paramError = 0;
@@ -534,22 +648,26 @@ sub HM485_LAN_discoveryEnd($) {
 
 	if (exists($hash->{discoveryFound})) {
 		foreach my $discoverdAddress (keys %{$hash->{discoveryFound}}) {
-			my $message = pack('H*',
-				sprintf(
-					'FD0E00%02X%s%s%s%s', HM485::CMD_EVENT,
-					$hash->{hmwId}, '98', $discoverdAddress, '690000'
-				)
-			);
-	
-			### Debug ###
-			my $m = $message;
-			my $l = uc( unpack ('H*', $m) );
-			$m =~ s/^.*CRLF//g;
-	
- 			HM485::Util::logger($name, 1, 'Dispatch: ' . $discoverdAddress);
-			HM485::Util::logger($name, 1, $l . ' (RX: ' . $m . ')' . "\n");
-	
-			Dispatch($hash, $message, '');
+
+			# we try to autocreate device only if not extist
+			if (!$modules{HM485}{defptr}{$discoverdAddress}) {
+				# build dummy message. With this message we can autocreate the device 
+				my $message = pack('H*',
+					sprintf(
+						'FD0E00%02X%s%s%s%s', HM485::CMD_EVENT,
+						$hash->{hmwId}, '98', $discoverdAddress, '690000'
+					)
+				);
+		
+				### Debug ###
+				my $m = $message;
+				my $l = uc( unpack ('H*', $m) );
+				$m =~ s/^.*CRLF//g;
+				HM485::Util::logger($name, 3, $l . ' (RX: ' . $m . ')');
+		
+	 			HM485::Util::logger($name, 4, 'Dispatch: ' . $discoverdAddress);
+				Dispatch($hash, $message, '');
+			}
 		}
 		delete ($hash->{discoveryFound});
 	}
@@ -609,11 +727,12 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	my ($hash, $message) = @_;
 	
 	my $name           = $hash->{NAME};
-	my $msgId          = ord(substr($message, 2, 1));
 	my $msgLen         = ord(substr($message, 1, 1));
+	my $msgId          = ord(substr($message, 2, 1));
 	my $msgCmd         = ord(substr($message, 3, 1));
 	my $msgData        = uc( unpack ('H*', substr($message, 4, $msgLen)));
-	my $canDispatch    = 1;
+	my $currentQueueId = $hash->{currentQueueId};
+	my $canDispatch    = 0;
 	
 	if ($msgCmd == HM485::CMD_DISCOVERY_END) {
 		my $foundDevices = hex($msgData);
@@ -621,32 +740,33 @@ sub HM485_LAN_parseIncommingCommand($$) {
 		
 		HM485_LAN_setBroadcastSleepMode($hash, 0);
 		InternalTimer(gettimeofday() + 1, 'HM485_LAN_discoveryEnd', $hash, 0);
-		$canDispatch = 0;
 
 	} elsif ($msgCmd == HM485::CMD_DISCOVERY_RESULT) {
 		HM485::Util::logger($name, 3, 'Discovery - found device: ' . $msgData);
-		$canDispatch = 0;
 		$hash->{discoveryFound}{$msgData} = 1;
 
+	} elsif ($msgCmd == HM485::CMD_ALIFE) {
+		my $alifeStatus = substr($msgData, 0, 2);
+		HM485::Util::logger($name, 3, 'Alife: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
+		if ($alifeStatus == '00') {
+			# we got a response from keepalife
+			$hash->{keepalife}{ok}    = 1;
+			$hash->{keepalife}{retry} = 0;
+		} else {
+			HM485_LAN_DispatchNack($hash, $currentQueueId);
+		}
+
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
+		$canDispatch = 1;
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
+		HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ')');
+
 		# Debug
 		HM485::Util::logger($name, 3, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
 
-	} elsif ($msgCmd == HM485::CMD_ALIVE) {
-		my $alifeStatus = substr($msgData, 0, 2);
-		HM485::Util::logger($name, 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
-		if ($alifeStatus == '00') {
-			# we got a response from keepalive
-			$hash->{keepalive}{ok}    = 1;
-			$hash->{keepalive}{retry} = 0;
-			$canDispatch = 0;
-		} else {
-			$hash->{Last_Sent_RAW_CMD_State} = 'NACK';
-			HM485::Util::logger($name, 3, 'NACK: ' . $msgId);
-		}
-
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
+		$canDispatch = 1;
+
 		# Debug
 		my %RD = (
 			target  => pack('H*',substr($msgData, 0,8)),
@@ -656,13 +776,16 @@ sub HM485_LAN_parseIncommingCommand($$) {
 			data    => pack('H*',substr($msgData, 18)),
 		);
 		HM485::Util::logger($name, 3, 'RX:', \%RD);
-
-	} else {
-		$canDispatch = 0;
 	}		
 
-	if ($canDispatch) {
+	if ($canDispatch && length($message) > 3) {
 		Dispatch($hash, $message, '');
+	}
+
+	if ($currentQueueId) {
+		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
+		HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
+		HM485_LAN_CheckResendQueueItems($name . ':queueTimer:' . $currentQueueId);
 	}
 }
 
@@ -692,11 +815,11 @@ sub HM485_LAN_ConnectOrStartHM485d($) {
 }
 
 =head2
-	Keepalive check of the interface  
+	Keepalife check of the interface  
 	
-	@param	string    name of keepalive timer
+	@param	string    name of keepalife timer
 =cut
-sub HM485_LAN_KeepAlive($) {
+sub HM485_LAN_KeepAlife($) {
 	my($param) = @_;
 
 	my(undef,$name) = split(':',$param);
@@ -704,57 +827,95 @@ sub HM485_LAN_KeepAlive($) {
 
 	my $msgCounter = $hash->{msgCounter};
 	
-	$hash->{keepalive}{ok} = 1;
+	$hash->{keepalife}{ok} = 1;
 
 	if ($hash->{FD}) {
-		HM485_LAN_Write($hash, HM485::CMD_KEEPALIVE);
+		HM485_LAN_Write($hash, HM485::CMD_KEEPALIFE);
 
 		# Remove timer to avoid duplicates
-		RemoveInternalTimer(KEEPALIVE_TIMER . $name);
+		RemoveInternalTimer(KEEPALIFE_TIMER . $name);
 
-		# Timeout where foreign device must response keepalive commands
+		# Timeout where foreign device must response keepalife commands
 		my $responseTime = AttrVal($name, 'respTime', 1);
 
-		# start timer to check keepalive response
+		# start timer to check keepalife response
 		InternalTimer(
-			gettimeofday() + $responseTime, 'HM485_LAN_KeepAliveCheck', KEEPALIVECK_TIMER . $name, 1
+			gettimeofday() + $responseTime, 'HM485_LAN_KeepAlifeCheck', KEEPALIFECK_TIMER . $name, 1
 		);
 
-		# start timeout for next keepalive check
+		# start timeout for next keepalife check
 		InternalTimer(
-			gettimeofday() + KEEPALIVE_TIMEOUT ,'HM485_LAN_KeepAlive', KEEPALIVE_TIMER . $name, 1
+			gettimeofday() + KEEPALIFE_TIMEOUT ,'HM485_LAN_KeepAlife', KEEPALIFE_TIMER . $name, 1
 		);
 	}
 }
 
 =head2
-	Check keepalive response.
-	If keepalive response is missing, retry keepalive up to KEEPALIVE_MAXRETRY count. 
+	Check keepalife response.
+	If keepalife response is missing, retry keepalife up to KEEPALIFE_MAXRETRY count. 
 	
-	@param	string    name of keepalive timer
+	@param	string    name of keepalife timer
 =cut
-sub HM485_LAN_KeepAliveCheck($) {
+sub HM485_LAN_KeepAlifeCheck($) {
 	my($param) = @_;
 
 	my(undef,$name) = split(':', $param);
 	my $hash = $defs{$name};
 
-	if (!$hash->{keepalive}{ok}) {
-		# we got no keepalive answer 
-		if ($hash->{keepalive}{retry} >= KEEPALIVE_MAXRETRY) {
-			# keepalive retry count reached. Disonnect.
+	if (!$hash->{keepalife}{ok}) {
+		# we got no keepalife answer 
+		if ($hash->{keepalife}{retry} >= KEEPALIFE_MAXRETRY) {
+			# keepalife retry count reached. Disonnect.
 			DevIo_Disconnected($hash);
 		} else {
-			$hash->{keepalive}{retry} ++;
+			$hash->{keepalife}{retry} ++;
 
 			# Remove timer to avoid duplicates
-			RemoveInternalTimer(KEEPALIVE_TIMER . $name);
+			RemoveInternalTimer(KEEPALIFE_TIMER . $name);
 
-			# start timeout for repeated keepalive check
-			HM485_LAN_KeepAlive(KEEPALIVE_TIMER . $name);
+			# start timeout for repeated keepalife check
+			HM485_LAN_KeepAlife(KEEPALIFE_TIMER . $name);
 		}
 	} else {
-		$hash->{keepalive}{retry} = 0;
+		$hash->{keepalife}{retry} = 0;
+	}
+}
+
+=head2
+	Notify the defice if we got a nack
+	
+	@param	hash    the hash of the device
+	@param	string   the HMW id
+	@param	string  the request type
+
+=cut
+sub HM485_LAN_DispatchNack($$) {
+	my ($hash, $currentQueueId) = @_;	
+	my $name = $hash->{NAME};
+
+	$hash->{Last_Sent_RAW_CMD_State} = 'NACK';
+
+	if ($currentQueueId) {
+		my $msgId = $hash->{sendQueue}{$currentQueueId}{msgId};
+		if ($msgId) {
+			my $hmwId = $hash->{sendQueue}{$currentQueueId}{hmwId};
+			if ($hmwId) {
+				if ($modules{HM485}{defptr}{$hmwId}) {
+					# We use CMD_ALIFE and second byte for signalize NACK messages internaly
+					# The last 4 bytes identify the HMW-ID which was not acked
+					my $message = pack('H*',
+						sprintf(
+							'%02X%02X%02X%02X%02X%s',
+							HM485::FRAME_START_LONG, 3, $msgId, HM485::CMD_ALIFE, 1, $hmwId
+						)
+					);
+					Dispatch($hash, $message, '');
+				} else {
+					HM485::Util::logger($name, 3, 'NACK: (' . $msgId . ') ' . $hmwId);
+				}
+			}
+		}
+		HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
 	}
 }
 

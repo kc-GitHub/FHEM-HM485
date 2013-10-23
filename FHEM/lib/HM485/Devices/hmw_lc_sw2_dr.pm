@@ -1,13 +1,13 @@
 package HM485::Devicefile;
 
 our %definition = (
-	'HMW-IO12-SW7'	=> {
-		'version'		=> 11,													# internal version number
+	'HMW-LC-SW2-DR'	=> {
+		'version'		=> 12,													# internal version number
 		'eeprom-size'	=> 1024,												# the eprom size of the device
 		'models'	=> {
-			'HMW_IO_12_Sw7_DR'	=> {
-				'name'			=> 'RS485 I/O module 12-channel in and switch actuator 7-channel (DIN rails)',
-				'type'			=> 18,
+			'HMW_LC_Sw2_DR'	=> {
+				'name'			=> 'RS485 switch actuator 2-channel (DIN rails)',
+				'type'			=> 17,
 				'minFW_version'	=> 0x0303										# The device file only valid for devices with firmware 3.3 or greater
 			},
 		},
@@ -33,9 +33,9 @@ our %definition = (
 						'offset'	=> 0.0
 					}
 				},
-				'central_address'	=> {										# all devices knowing the adress of ther central.
+				'central_address'	=> {										# all devices knowing the adress of their central.
 					'hidden'		=> 1,										# the parameter should not visible by the user?
-					'enforce'		=> 0x00000001,								# tha central address is fixed in all devices. so the central must have 0x00000001
+					'enforce'		=> 0x00000001,								# the central address is fixed in all devices. so the central must have 0x00000001
 					'logical'		=> {
 						'type'		=> 'int',
 					},
@@ -247,7 +247,7 @@ our %definition = (
 			},
 			'key'	=> {														# channel for all keys
 				'id'	=> 1,													# start id of this channel collection
-				'count'	=> 12,													# count of channels of this type
+				'count'	=> 2,													# count of channels of this type
 				'physical_id_offset'	=> -1,									# = id + physical_id_offset, we need them?
 				'link_roles'	=> {											# the roles of this channel in peering
 					'source'	=> 'switch',									# this is a source of type switch
@@ -317,8 +317,8 @@ our %definition = (
 					'link'	=> {
 						'peer_param'	=> 'actuator',
 						'channel_param'	=> 'channel',
-						'count'			=> 27,
-						'address_start'	=> 0x359,
+						'count'			=> 28,
+						'address_start'	=> 0x357,
 						'address_step'	=> 6,
 						'channel'	=> {
 							'operations'	=> 'none', 
@@ -425,15 +425,15 @@ our %definition = (
 				}
 			},
 			'switch' => {
-				'id'	=> 13,
-				'count'	=> 7,
+				'id'	=> 3,
+				'count'	=> 2,
 				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0
 				'link_roles'	=> {
 					'target'	=> 'switch',
 				},
 				'params'	=> {
 					'master'	=> {
-						'address_start'	=> 0x1F,
+						'address_start'	=> 0x0B,
 						'address_step'	=> 2,
 						'logging'	=> {
 							'logical'	=> {
@@ -452,8 +452,8 @@ our %definition = (
 					'link'	=> {
 						'peer_param'	=> 'sensor',
 						'channel_param'	=> 'channel',
-						'count'			=> 29,
-						'address_start'	=> 0x2D,
+						'count'			=> 30,
+						'address_start'	=> 0x0F,
 						'address_step'	=> 28,
 						'params'	=> {
 							'ui_hint'	=> {

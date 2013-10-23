@@ -63,8 +63,8 @@ sub checkForAutocreate() {
 				-argument1 => string	$txt		Log text
 				-argument1 => hash		$dataHash	optional logdata
 =cut
-sub logger ($$$;$) {
-	my ($tag, $level, $txt, $dataHash) = @_;
+sub logger ($$$;$$) {
+	my ($tag, $level, $txt, $dataHash, $return) = @_;
 	my $logTxt = '';
 
 	my $logCCU = 1;
@@ -79,14 +79,14 @@ sub logger ($$$;$) {
 			# TODO: Loglevel, settings relevant!
 			if (defined($dataHash->{cb}) && ctrlIsDiscovery($dataHash->{cb}) ) {
 				if ($logDiscovery) {
-					$logTxt.= ' DISCOVERY(' . ctrlDiscoveryMask($dataHash->{cb}) . ') 00000000';
+					$logTxt.= 'DISCOVERY(' . ctrlDiscoveryMask($dataHash->{cb}) . ') 00000000';
 					$logTxt.= ' -> ' . printByte($dataHash->{target}, $formatHex);
 				} else {
 					$txt = '';
 				}
 			} else {
 				my $ctrlTxt = '';
-				$ctrlTxt.= 'I[' . ctrlTxNum($dataHash->{cb}) . ']' if (ctrlIsIframe($dataHash->{cb}));
+				$ctrlTxt.= ' I[' . ctrlTxNum($dataHash->{cb}) . ']' if (ctrlIsIframe($dataHash->{cb}));
 				$ctrlTxt.= 'ACK'                                   if (ctrlIsAck($dataHash->{cb}));
 				$ctrlTxt.= '(' . ctrlAckNum($dataHash->{cb});
 
@@ -96,7 +96,7 @@ sub logger ($$$;$) {
 				}
 				$ctrlTxt.= (ctrlHasSender($dataHash->{cb})   ? ',B' : '') . ')';
 				
-				$logTxt.= ' '    . $ctrlTxt . '(' . sprintf('%02X', $dataHash->{cb}) . ')';
+				$logTxt.= $ctrlTxt . '(' . sprintf('%02X', $dataHash->{cb}) . ')';
 				$logTxt.= ' '    . printByte($dataHash->{sender}, $formatHex);
 				$logTxt.= ' -> ' . printByte($dataHash->{target}, $formatHex);
 
@@ -125,9 +125,41 @@ sub logger ($$$;$) {
 		}
 	}
 	
+	my $retVal = '';
 	if ($txt . $logTxt) {
-		main::Log3('', $level, $tag . ': ' . $txt . $logTxt);
+		$retVal = $tag . ': ' . $txt . $logTxt;
+
+		if (!defined($return)) {
+			main::Log3('', $level, $tag . ': ' . $txt . $logTxt);					
+		}
 	}
+	
+	return $retVal;
+}
+
+sub debugBinData($$$;$$) {
+	my ($logtag, $level, $msg, $prefix, $logMask) = @_;
+	$prefix  = $prefix ? $prefix . ': ' : '';
+	$logMask = $logMask ? $logMask : 1;
+
+	my $hexMsg = '';
+
+	if ($logMask & 0b01) {
+		$hexMsg = uc( unpack ('H*', $msg) );
+	} else {
+		$hexMsg = '';
+	}
+
+	if ($logMask & 0b10) {
+		$msg =~ s/^.*CRLF//g;
+		if ($logMask & 0b01) {
+			$msg = ' (' . $msg . ')';
+		}
+	} else {
+		$msg = '';
+	}
+
+	HM485::Util::logger($logtag, $level, $prefix . $hexMsg . $msg);	
 }
 
 sub printByte($$) {
@@ -170,7 +202,7 @@ sub escapeMessage($) {
 		
 		$message =~ s/\xFC/\xFC\x7C/g;
 		$message =~ s/\xFD/\xFC\x7D/g;
-	#	$message =~ s/\xFE/\xFC\x7E/g;
+#		$message =~ s/\xFE/\xFC\x7E/g;
 	}
 
 	return $start . $message;
@@ -182,7 +214,7 @@ sub unescapeMessage($) {
 	if ($message) {
 		$message =~ s/\xFC\x7C/\xFC/g;
 		$message =~ s/\xFC\x7D/\xFD/g;
-	#	$message =~ s/\xFC\x7E/\xFE/g;
+#		$message =~ s/\xFC\x7E/\xFE/g;
 	}
 	
 	return $message
@@ -225,5 +257,14 @@ sub setCtrlRxNum     ($$) {return ((0b10011111 & $_[0]) | ($_[1] << 5));}
 # Mar 19 16:45:28 (none) user.debug hs485d: Event: JEQ0271055:3.LEVEL=1.000000
 # Mar 19 16:45:28 (none) user.debug hs485d: Event: JEQ0271055:3.WORKING=false
 # Mar 19 16:45:28 (none) user.debug hs485d: Event: JEQ0271055:3.DIRECTION=0
+
+sub getHmwIdAndChNrFromHash($) {
+	my ($hash) = @_;
+	
+	my $hmwId = $hash->{DEF};
+	my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : 0;
+	
+	return ($hmwId, $chNr); 
+}
 
 1;
