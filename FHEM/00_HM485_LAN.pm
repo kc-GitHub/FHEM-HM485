@@ -663,7 +663,7 @@ sub HM485_LAN_discoveryEnd($) {
 				my $m = $message;
 				my $l = uc( unpack ('H*', $m) );
 				$m =~ s/^.*CRLF//g;
-				HM485::Util::logger($name, 3, $l . ' (RX: ' . $m . ')');
+				HM485::Util::logger($name, 4, $l . ' (RX: ' . $m . ')');
 		
 	 			HM485::Util::logger($name, 4, 'Dispatch: ' . $discoverdAddress);
 				Dispatch($hash, $message, '');

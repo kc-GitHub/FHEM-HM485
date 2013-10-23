@@ -215,7 +215,7 @@ my $gpioTxenCmd0   = '';
 my @deviceRxBuffer = ();
 my $clientCount    = 0;
 my $serialNumber   = SERIALNUMBER_DEF;
-my $msgCounter     = 0;
+my $msgCounter     = 1;
 
 ################################################
 
