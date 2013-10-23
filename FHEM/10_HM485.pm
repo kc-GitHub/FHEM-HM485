@@ -296,7 +296,7 @@ sub HM485_Parse($$) {
 		# Todo: check if events triggered on ack only?
 		HM485_ProcessEvent($ioHash, $msgData);
 
-	} elsif ($msgCmd == HM485::CMD_ALIFE && substr($msgData, 0, 2) eq '01') {
+	} elsif ($msgCmd == HM485::CMD_ALIVE && substr($msgData, 0, 2) eq '01') {
 		HM485_SetStateNack($ioHash, $msgData);
 	}
 	
@@ -314,7 +314,7 @@ sub HM485_Parse_old($$$) {
 			my $msgCmd  = ord(substr($message, 2, 1));
 			my $msgData = uc( unpack ('H*', substr($message, 3)));
 
-			if ($msgCmd == HM485::CMD_RESPONSE || $msgCmd == HM485::CMD_ALIFE) {
+			if ($msgCmd == HM485::CMD_RESPONSE || $msgCmd == HM485::CMD_ALIVE) {
 				my $ack = ($msgCmd == HM485::CMD_RESPONSE) ? 1 : 0;
 #				HM485_ProcessResponse($ioHash, $msgId, $ack, substr($msgData,2));
 		

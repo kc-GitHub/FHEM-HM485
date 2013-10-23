@@ -68,11 +68,11 @@ use constant {
 	### Commands to interface
 	CMD_INITIALIZE       => 0x3E,
 	CMD_DISCOVERY        => 0x44,
-	CMD_KEEPALIFE        => 0x4B,
+	CMD_KEEPALIVE        => 0x4B,
 	CMD_SEND             => 0x53,
 
 	### Commands from interface
-	CMD_ALIFE            => 0x61,
+	CMD_ALIVE            => 0x61,
 	CMD_DISCOVERY_END    => 0x63,
 	CMD_DISCOVERY_RESULT => 0x64,
 	CMD_EVENT            => 0x65,

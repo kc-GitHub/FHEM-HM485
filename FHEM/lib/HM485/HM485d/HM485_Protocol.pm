@@ -817,7 +817,7 @@ sub checkStateDiscoveryWait() {
 
 # Startzeichen FD (hab noch kein FE gesehen)
 # |  Länge der Nachricht inkl. MessageCounter
-# |  |  MessageCounter, wird mit jedem KeepAlife oder anderer Message hochgezählt, Overflow bei 0xFF --> 0x01, startet nach Transparenzbefehl mit 01
+# |  |  MessageCounter, wird mit jedem KeepAlive oder anderer Message hochgezählt, Overflow bei 0xFF --> 0x01, startet nach Transparenzbefehl mit 01
 # |  |  |  Befehl (S steht für Senden)
 # |  |  |  |  ???
 # |  |  |  |  |  ab hier kommen die Nutzdaten
