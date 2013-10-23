@@ -291,6 +291,40 @@ sub getFrameInfos($$;$$) {
 	return \%retVal;
 }
 
+sub getValueFromEepromData($$$) {
+	my ($hash, $dataConfig, $adressStart) = @_;
+#print Dumper($dataConfig);
+#print Dumper($adressStart);
+	my $retVal = '';
+	if (defined($dataConfig->{physical}{address_id})) {
+		my $size       = $dataConfig->{physical}{size} ? $dataConfig->{physical}{size} : 1;
+		my $address_id = $dataConfig->{physical}{address_id} + $adressStart;
+		my $data = HM485::Device::getRawEEpromData($hash, int($address_id), ceil($size));
+		my $eepromValue = 0;
+
+		$address_id = $address_id - int($address_id);
+		$eepromValue = getValueFromHexData($data, $address_id, $size);
+
+		$retVal = dataConversion($eepromValue, $dataConfig->{conversion}, 'from_device');
+		my $default = $dataConfig->{logical}{'default'};
+		if ($default) {
+			if ($size == 1) {
+				$retVal = ($eepromValue != 0xFF) ? $retVal : $default;
+
+			} elsif ($size == 2) {
+				$retVal = ($eepromValue != 0xFFFF) ? $retVal : $default;
+
+			} elsif ($size == 4) {
+				$retVal = ($eepromValue != 0xFFFFFFFF) ? $retVal : $default;
+			}
+		}
+
+	}
+#print Dumper($retVal);
+
+	return $retVal;
+}
+
 sub translateFrameDataToValue($$) {
 	my ($data, $params) = @_;
 	$data = pack('H*', $data);
@@ -303,17 +337,7 @@ sub translateFrameDataToValue($$) {
 
 			my $id    = ($params->{$param}{id} - 9);
 			my $size  = ($params->{$param}{size});
-#			my $value = getValue($data, $id, $size);
-
-			my $value;
-			if (isInt($id) && $size >=1) {
-				$value = hex(unpack ('H*', substr($data, $id, $size)));
-			} else {
-				my $bitsId = ($id - int($id)) * 10;
-				my $bitsSize  = ($size - int($size)) * 10;
-				$value = ord(substr($data, int($id), 1));
-				$value = subBit($value, $bitsId, $bitsSize);
-			}
+			my $value = getValueFromHexData($data, $id, $size);
 #print Dumper(unpack ('H*',$data));
 #print Dumper($value);
 
@@ -330,16 +354,14 @@ sub translateFrameDataToValue($$) {
 	return $dataValid ? \%retVal : undef;
 }
 
-sub getValue($;$$) {
+sub getValueFromHexData($;$$) {
 	my ($data, $start, $size) = @_;
 
 	$start = $start ? $start : 0;
 	$size  = $size ? $size : 1;
-#print Dumper($data,$start, $size);
-#	print Dumper(unpack ('H*', $data));
-
 
 	my $retVal;
+
 	if (isInt($start) && $size >=1) {
 		$retVal = hex(unpack ('H*', substr($data, $start, $size)));
 	} else {
@@ -348,7 +370,7 @@ sub getValue($;$$) {
 		$retVal = ord(substr($data, int($start), 1));
 		$retVal = subBit($retVal, $bitsId, $bitsSize);
 	}
-#	print Dumper($retVal);
+
 	return $retVal;
 }
 

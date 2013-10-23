@@ -684,6 +684,7 @@ sub HM485_SetConfig($@) {
 	my $configHash = {};
 	if (scalar (keys %{$setConfigHash})) {
 		$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
+#		print Dumper($configHash);
 		foreach my $setConfig (keys %{$setConfigHash}) {
 			my $configTypeHash = $configHash->{$setConfig};
 			$msg = HM485_ValidateSettings(

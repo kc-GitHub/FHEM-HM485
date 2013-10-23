@@ -266,4 +266,5 @@ sub getHmwIdAndChNrFromHash($) {
 	
 	return ($hmwId, $chNr); 
 }
+
 1;

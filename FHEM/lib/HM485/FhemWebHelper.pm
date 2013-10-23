@@ -34,22 +34,27 @@ sub makeConfigTable($$) {
 	my $content = '';
 	my $rowCount = 1;
 	foreach my $cKey (sort keys %{$configHash}) {
+		my $config = $configHash->{$cKey};
 		my $rowContent.= wrapTd($cKey . ':');
 		
 		my $value = '';
-		if ($configHash->{$cKey}{type} eq 'option') {
-			$value = configSelect($cKey, $configHash->{$cKey}{posibleValues}, $configHash->{$cKey}{value})
-
-		} elsif ($configHash->{$cKey}{type} eq 'boolean') {
+		if ($config->{type} eq 'option') {
 			$value = configSelect(
-				$cKey, 'no:0,yes:1', ($configHash->{$cKey}{value} ? 'yes' : 'no')
+				$cKey, $config->{posibleValues}, $config->{value}
+			)
+
+		} elsif ($config->{type} eq 'boolean') {
+			$value = configSelect(
+				$cKey, 'no:0,yes:1', ($config->{value} ? 'yes' : 'no')
 			);
 
 		} else {
-			$value = configInput($cKey, $configHash->{$cKey}{value}, $configHash->{$cKey}{min}, $configHash->{$cKey}{max})
+			$value = configInput(
+				$cKey, $config->{value}, $config->{min}, $config->{max}
+			)
 		}
 		
-		my $unit = $configHash->{$cKey}{unit} ? $configHash->{$cKey}{unit} : '';
+		my $unit = $config->{unit} ? $config->{unit} : '';
 		$value = wrapDiv($value . ' ' .  $unit, '', 'dval');
 		
 		$rowContent.= wrapTd($value);
@@ -85,15 +90,36 @@ sub configInput($$;$$) {
 	return $content;
 }
 
+=head2
+	Generate a select list of $posibleValues
+	$posibleValues splits at : for name value pais if exists
+	
+	@param	string	name of the select list
+	@param	string	posible items (comma seperated)
+	@param	string	the value for specific item sould selected
+=cut
 sub configSelect($$$) {
 	my ($name, $posibleValues, $value) = @_;
 	
 	my $content = '<select onchange="FW_HM485setChange(this)" name="' . $name . '" class="arg.HM485.config">';
 	my $options = '';
-	foreach my $oKey (split(',', $posibleValues)) {
-		my ($name, $value) = split(':', $oKey);
-		$value = defined($value) ? $value : $name;
-		$options.= '<option value="' . $value . '">' . $name . '</option>';
+	my @posibleValuesArray = split(',', $posibleValues);
+
+	# Trim all items in the array
+	@posibleValuesArray = grep(s/^\s*(.*)\s*$/$1/, @posibleValuesArray);
+	
+	my $cc = 0;
+	foreach my $oKey (@posibleValuesArray) {
+		my ($optionName, $optionValue) = split(':', $oKey);
+
+		$optionValue = defined($optionValue) ? $optionValue : $optionName;
+		my $selected = '';
+		if ($optionName eq $value || $cc eq $value) {
+			$selected = ' selected="selected"';
+		}
+
+		$options.= '<option value="' . $optionValue . '"' . $selected . '>' . $optionName . '</option>';
+		$cc++;
 	}
 	
 	$content.= $options . '</select>';
