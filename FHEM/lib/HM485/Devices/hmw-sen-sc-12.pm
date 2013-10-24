@@ -6,89 +6,105 @@ our %definition = (
 		'eeprom-size'	=> 1024,
 		'models'	=> {
 			'HMW_Sen_SC_12_DR'	=> {
-				'name'	=> 'rs485 shutter contact 12-channel (din rails)',
+				'name'	=> 'RS485 shutter contact 12-channel (DIN rails)',
 				'type'		=> 25,
 			},
 			'HMW_SEN_SC_12_FM'	=> {
-				'name'	=> 'rs485 shutter contact 12-channel (flush-mount)',
+				'name'	=> 'RS485 shutter contact 12-channel (flush-mount)',
 				'type'		=> 26,
 			},
 		},
 		'params' => {
 			'master'	=> {
-				'central_address'	=> {										# parameter id
-					'hidden'		=> 1,										# should not vidible in ui ???
-					'enforce'		=> 0x00000001,								# sould always set to this value ???
+				'central_address'	=> {
+					'hidden'		=> 1,
+					'enforce'		=> 0x00000001,
 					'logical'		=> {
-						'type'		=> 'int',									# parameter value type
+						'type'		=> 'int',
 					},
 					'physical'		=> {
-						'type'		=> 'int',									# parameter value type
-						'size'		=> 4,										# 4 bytes
-						'interface'	=> 'eeprom',								# 4 bytes
+						'type'		=> 'int',
+						'size'		=> 4,
+						'interface'	=> 'eeprom',
 						'address'	=> {
-							'id'	=> 0x0002,
-						},
+							'id'	=> 0x0002
+						}
+					}
+				}
+			}
+			'master'	=> {
+				'direct_link_deactivate'	=> {
+					'hidden'		=> 1,
+					'enforce'		=> 1,
+					'logical'		=> {
+						'type'		=> 'boolean',
 					},
-				},
-			},
+					'physical'		=> {
+						'type'		=> 'int',
+						'size'		=> 0.1,
+						'interface'	=> 'eeprom',
+						'address'	=> {
+							'id'	=> 0x0006
+						}
+					}
+				}
+			}
 		},
-		'frames'	=> {														# supported frames ???
-			'level_get'	=> {													# frame id
-				'type'		=> 0x73,											# s
+		'frames'	=> {
+			'level_get'	=> {
+				'type'		=> 0x53,
 				'dir'		=> 'to_device', 
-				'ch_field'	=> 10,												# position in frame ??? we need them???
+				'ch_field'	=> 10,
 			},
 			'info_level'	=> {
-				'type'		=> 0x69,											# i
+				'type'		=> 0x69,
 				'dir'		=> 'from_device',
-				'event'		=> 1,												# frame should triger event???
+				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
-					'state'		=> {											# aditional frame parameter (state)
-						'type'	=> 'int',										# value type
-						'id'	=> 11.0,										# position in frame ???
-						'size'	=> 2											# value length
-					},
-				},
+					'state'		=> {
+						'type'	=> 'int',
+						'id'	=> 11.0,
+						'size'	=> 2
+					}
+				}
 			},
 			'info_frequency'	=> {
-				'type'		=> 0x69,											# i
+				'type'		=> 0x69,
 				'dir'		=> 'from_device',
-				'event'		=> 1,												# frame should triger event???
+				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
-					'state'		=> {											# aditional frame parameter (state)
-						'type'	=> 'int',										# value type
-						'id'	=> 11.0,										# position in frame ???
-						'size'	=> 3											# value length
+					'state'		=> {
+						'type'	=> 'int',
+						'id'	=> 11.0,
+						'size'	=> 3
 					},
-				},
+				}
 			},
-			'level_set'	=> {													# parameter id, must match to chanel/parameter/physical/value_id
-				'type'		=> 0x78,											# x
+			'level_set'	=> {
+				'type'		=> 0x73,
 				'dir'		=> 'to_device',
 				'ch_field'	=> 10,
 				'params'	=> {
-					'state'		=> {											# aditional frame parameter (state)
-						'type'	=> 'int',										# value type
-						'id'	=> 11.0,										# position in frame ???
-						'size'	=> 2											# value length
-					},
-				},
-			},
+					'state'		=> {
+						'type'	=> 'int',
+						'id'	=> 11.0,
+						'size'	=> 2
+					}
+				}
+			}
 		},
 		'channels'	=> {
-			'maintenance'	=> {												
+			'maintenance'	=> {
 				'id'		=> 0,
-				'ui-flags'	=> 'internal',										# flages for ui rendering ???
+				'ui-flags'	=> 'internal',
 				'class'		=> 'maintenance',
-				'count'	=> 1,													# count of channels of this type it the device
+				'count'	=> 1,
 				'params'	=> {
-					'master'	=> {
-					},
+					'master'	=> {},
 					'values'	=> {
-						'unreach'	=> {										# this parameter is set when device is not reachable
+						'unreach'	=> {
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -99,7 +115,7 @@ our %definition = (
 								'interface'	=> 'internal',
 							},
 						},
-						'sticky_unreach'	=> {								# this parameter is set when device is not reachable again
+						'sticky_unreach'	=> {
 							'operations'	=> 'read,write,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -110,7 +126,7 @@ our %definition = (
 								'interface'	=> 'internal',
 							}
 						},
-						'config_pending'	=> {								# not used this time with fhem
+						'config_pending'	=> {
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -120,75 +136,432 @@ our %definition = (
 								'type'		=> 'int',
 								'interface'	=> 'internal',
 							}
-						},
-					},
-				},
+						}
+					}
+				}
 			},
-			'sensor'	=> {
+			'digitaloutput'	=> {
 				'id'	=> 1,
-				'count'	=> 12,													# count of channels of this type it the device
-				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0 
+				'count'	=> 6,
+				'physical_id_offset'	=> -1, 
 				'params'	=> {
-					'master'	=> {
-						'address_start'	=> 0x07,
-						'address_step'	=> 2,
-						'input_locked'	=> {
+					'master'	=> {},
+					'values'	=> {
+						'state'	=> {
+							'operations'	=> 'read,write,event', 
+							'control'		=> 'switch.state',
 							'logical'		=> {
-								'type'		=> 'boolean',						# logical type (the availabe states) boolean -> on/off
-								'default'	=> 0,								# the default state after power on the device ???
+								'type'		=> 'boolean',
+								'default'	=> 0,
 							},
-							'physical'		=> {								# physical parameters
-								'type'		=> 'int',							# the locical type mapped to this physical type
-								'size'		=> 0.1,								# 1 bit
-								'interface'	=> 'eeprom',
-								'address'	=> {
-									'id'	=> +0.1								# 1 bit each channel
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'state',
+								'set'		=> {
+									'request'	=> 'level_set'
 								},
+								'get'		=> {
+									'request'	=> 'level_get',
+									'response'	=> 'info_level'
+								},
+								'event'		=> {
+									'frame'	=> 'info_level'
+								}
 							},
 							'conversion'	=> {
-								'type'		=> 'boolean-int',					# conversion type @see logical / physical types 
-								'invert'	=> 1,
+								'type'		=> 'boolean_integer',
+								'threshold'	=> 1,
+								'false'		=> 0,
+								'true'		=> 1023
+							}
+						}
+					}
+				}
+			},
+			'digital_analog_output'	=> {
+				'id'	=> 7,
+				'count'	=> 8,
+				'physical_id_offset'	=> -1,
+				'spechial_param'	=> {
+					'behaviour'	=> {
+						'logical'		=> {
+							'type'		=> 'int',
+						},
+						'physical'			=> {
+							'type'			=> 'int',
+							'size'			=> 0.1,
+							'interface'		=> 'eeprom',
+							'address_id'	=> 7.0,
+							'address_step'	=> 0.1 
+						}
+					}
+				}, 
+				'params'	=> {
+					'master'	=> {
+						'behaviour'	=> {
+							'ui-flags'	=> 'transform', 
+							'logical'		=> {
+								'type'		=> 'option',
+								'options'	=> 'analog_output, digital_output',
+								'default'	=> 'digital_output'
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+								'value_id'	=> 'behaviour'
+							},
+						},
+						'pulsetime'	=> {
+							'logical'	=> {
+								'type'	=> 'float',
+								'min'	=> 0.0,
+								'max'	=> 600.0,
+								'unit'	=> 's'
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'size'		=> 2,
+								'interface'	=> 'eeprom',
+								'address_id'	=> 16,
+								'address_step'	=> 2 
+							},
+							'conversion'	=> {
+								'type'		=> 'float_integer_scale',
+								'factor'	=> 100,
+								'offset'	=> 0.0,
+								'value_map'	=>	{
+									'type'	=> 'integer_integer_map',
+									'01'	=> {
+										'device_value'		=> 0xFFFF,
+										'parameter_value'	=> 0,
+										'from_device'		=> 1,
+										'to_device'			=> 0
+									}
+								}
 							}
 						}
 					},
 					'values'	=> {
-						'sensor'	=> {
-							'operations'	=> 'read,event',					# which type of actions supports the channel ??? 
-							'control'		=> 'door_sensor.state',				# ui related ???
+						'frequency' => {
+							'operations'	=> 'read,write,event', 
+							'control'		=> 'digital_analog_output.frequency',
 							'logical'		=> {
-								'type'		=> 'boolean',
+								'type'		=> 'float',
+								'min'		=> 0.0,
+								'max'		=> 50000.0,
+								'unit'		=> 'mHz',
 							},
-							'physical'		=> {								# physical parameters
-								'type'		=> 'int',							# the locical type mapped to this physical type
-								'interface'	=> 'command',						# ???
-								'get'		=> {								# getter (fhem get) ???
-									'request'	=> 'level_get',					# request a level_get frame on get
-									'response'	=> 'info_level'					# expect info_level frame on get
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'state',
+								'set'		=> {
+									'request'	=> 'level_set'
 								},
-								'event'		=> {								# event (fhem notify) ???
-									'frame'					=> 'info_level',		# trigger event on info_level frame
-									'auth_violate_policy'	=>	'reject',		#???
+								'get'		=> {
+									'request'	=> 'level_get',
+									'response'	=> 'info_level'
 								},
+								'event'		=> {
+									'frame'	=> 'info_level'
+								}
 							},
-						},
-						'install_test'	=> {
-							'operations'	=> 'event',							# which type of actions supports the channel ??? 
-							'ui_flags'		=> 'internal',
+							'conversion'	=> {
+								'type'		=> 'float_integer_scale',
+							}
+						}
+					}
+				},
+				'subconfig'	=> {
+					'master'	=> {
+						'behaviour'	=> {
+							'ui_flags'	=> 'transform',
 							'logical'		=> {
-								'type'		=> 'action',						# ???
+								'type'		=> 'option',
+								'options'	=> 'analog_output, digital_output',
+								'default'	=> 'digital_output',
 							},
-							'physical'		=> {								# physical parameters
-								'type'		=> 'int',							# the locical type mapped to this physical type
-								'interface'	=> 'command',						# ???
-								'value_id'	=> 'test_counter',					# ???
-								'event'		=> {								# event (fhem notify) ???
-									'frame'					=> 'info_level'		# trigger event on info_level frame
-								},
-							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+								'value_id'	=> 'behaviour',
+							}
 						}
 					},
+					'values'	=> {
+						'state'	=> {
+							'operations'	=> 'read,write,event',
+							'control'		=> 'switch.state',
+							'logical'		=> {
+								'type'		=> 'boolean',
+								'default'	=> 0,
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'state',
+								'set'		=> {
+									'request'	=> 'level_set'
+								},
+								'get'		=> {
+									'request'	=> 'level_get',
+									'response'	=> 'info_level'
+								},
+								'event'		=> {
+									'frame'	=> 'info_level'
+								}
+							},
+							'conversion'	=> {
+								'type'		=> 'boolean_integer',
+								'threshold'	=> 1,
+								'false'		=> 0,
+								'true'		=> 1023
+							}
+						}
+					}
 				}
 			},
+			'digital_input'	=> {
+				'id'	=> 15,
+				'count'	=> 6,
+				'physical_id_offset'	=> -1,
+				'spechial_param'	=> {
+					'behaviour'	=> {
+						'logical'	=> {
+							'type'	=> 'int',
+						},
+						'physical'			=> {
+							'type'			=> 'int',
+							'size'			=> 0.1,
+							'interface'		=> 'eeprom',
+							'address_id'	=> 9.0,
+							'address_step'	=> 0.1 
+						}
+					}
+				}, 
+				'params'	=> {
+					'master'	=> {
+						'behaviour'	=> {
+							'ui-flags'	=> 'transform', 
+							'logical'		=> {
+								'type'		=> 'option',
+								'options'	=> 'frequency_input, digital_input',
+								'default'	=> 'digital_input',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+								'value_id'	=> 'behaviour'
+							}
+						}
+					},
+					'values'	=> {
+						'frequency'	=> {
+							'operations'	=> 'read,event',
+							'logical'		=> {
+								'type'		=> 'float',
+								'min'		=> 0,
+								'max'		=> 350000,
+								'unit'		=> 'mHz',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'state',
+								'get'		=> {
+									'request'	=> 'level_get',
+									'response'	=> 'info_level'
+								},
+								'event'		=> {
+									'frame'	=> 'info_level'
+								}
+							},
+							'conversion'	=> {
+								'type'		=> 'float_integer_scale',
+								'factor'	=> 1
+							}
+						}
+					}
+				},
+				'subconfig'	=> {
+					'master'	=> {
+						'behaviour'	=> {
+							'ui_flags'	=> 'transform',
+							'logical'		=> {
+								'type'		=> 'option',
+								'options'	=> 'frequency_input, digital_input',
+								'default'	=> 'digital_input',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+								'value_id'	=> 'behaviour',
+							}
+						}
+					},
+					'values'	=> {
+						'state'	=> {
+							'operations'	=> 'read,event',
+							'logical'		=> {
+								'type'		=> 'boolean',
+								'default'	=> 0,
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'state',
+								'get'		=> {
+									'request'	=> 'level_get',
+									'response'	=> 'info_level'
+								},
+								'event'		=> {
+									'frame'	=> 'info_level'
+								}
+							},
+							'conversion'	=> {
+								'type'		=> 'boolean_integer',
+								'threshold'	=> 1,
+								'false'		=> 0,
+								'true'		=> 1023
+							}
+						}
+					}
+				}
+			},
+			'digital_analog_input'	=> {
+				'id'	=> 21,
+				'count'	=> 6,
+				'physical_id_offset'	=> -1,
+				'spechial_param'	=> {
+					'behaviour'	=> {
+						'logical'	=> {
+							'type'	=> 'int',
+						},
+						'physical'	=> {
+							'type'			=> 'int',
+							'size'			=> 0.1,
+							'interface'		=> 'eeprom',
+							'address_id'	=> 8.0,
+							'address_step'	=> 0.1 
+						}
+					}
+				},
+				'params'	=> {
+					'master'	=> {
+						'behaviour'	=> {
+							'ui-flags'	=> 'transform', 
+							'logical'		=> {
+								'type'		=> 'option',
+								'options'	=> 'analog_input, digital_input',
+								'default'	=> 'digital_input'
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+								'value_id'	=> 'behaviour'
+							},
+						},
+						'calibration'	=> {
+							'logical'		=> {
+								'type'		=> 'int',
+								'min'		=> -127,
+								'max'		=> 127,
+							},
+							'physical'	=> {
+								'type'			=> 'int',
+								'size'			=> 1,
+								'interface'		=> 'eeprom',
+								'address_id'	=> 10,
+								'address_step'	=> 1 
+							},
+							'conversion'	=> {
+								'type'		=> 'integer_integer_scale',
+								'offset'	=> 127,
+								'value_map'	=> {
+									'type'	=> 'integer_integer_map',
+									'01'	=> {
+										'device_value'		=> 0xFF,
+										'parameter_value'	=> 127,
+										'from_device'		=> 1,
+										'to_device'			=> 0
+									}
+								}
+							}
+						}
+					},
+					'values'	=> {
+						'value' => {
+							'operations'	=> 'read,event', 
+							'logical'		=> {
+								'type'		=> 'float',
+								'min'		=> 0,
+								'max'		=> 1000,
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'state',
+								'get'		=> {
+									'request'	=> 'level_get',
+									'response'	=> 'info_level'
+								},
+								'event'		=> {
+									'frame'	=> 'info_level'
+								},
+							},
+							'conversion'	=> {
+								'type'		=> 'float_integer_scale',
+								'factor'	=> 1
+							}
+						}
+					}
+				},
+				'subconfig'	=> {
+					'master'	=> {
+						'behaviour'	=> {
+							'ui_flags'	=> 'transform',
+							'logical'		=> {
+								'type'		=> 'option',
+								'options'	=> 'analog_input, digital_input',
+								'default'	=> 'digital_input',
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+								'value_id'	=> 'behaviour',
+							}
+						}
+					},
+					'values'	=> {
+						'state'	=> {
+							'operations'	=> 'read,event',
+							'logical'		=> {
+								'type'		=> 'boolean',
+								'default'	=> 0,
+							},
+							'physical'		=> {
+								'type'		=> 'int',
+								'interface'	=> 'command',
+								'value_id'	=> 'state',
+								'get'		=> {
+									'request'	=> 'level_get',
+									'response'	=> 'info_level'
+								},
+								'event'		=> {
+									'frame'	=> 'info_level'
+								}
+							},
+							'conversion'	=> {
+								'type'		=> 'boolean_integer',
+								'threshold'	=> 1,
+								'false'		=> 0,
+								'true'		=> 1023
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 );

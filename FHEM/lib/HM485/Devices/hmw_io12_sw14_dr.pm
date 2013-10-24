@@ -18,13 +18,11 @@ our %definition = (
 					'logical'		=> {
 						'type'		=> 'int',
 					},
-					'physical'		=> {
-						'type'		=> 'int',
-						'size'		=> 4,
-						'interface'	=> 'eeprom',
-						'address'	=> {
-							'id'	=> 0x0002
-						}
+					'physical'			=> {
+						'type'			=> 'int',
+						'size'			=> 4,
+						'interface'		=> 'eeprom',
+						'address_id'	=> 0x0002
 					}
 				}
 			}
