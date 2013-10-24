@@ -1,7 +1,7 @@
 package HM485::Devicefile;
 
 our %definition = (
-	'HMW-IO12-SW7'	=> {
+	'HMW_IO12_SW7'	=> {
 		'version'		=> 11,													# internal version number
 		'eeprom-size'	=> 1024,												# the eprom size of the device
 		'models'	=> {

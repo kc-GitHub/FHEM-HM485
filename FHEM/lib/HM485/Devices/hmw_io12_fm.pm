@@ -1,11 +1,11 @@
 package HM485::Devicefile;
 
 our %definition = (
-	'HMW-IO-12'	=> {
+	'HMW_IO_12'	=> {
 		'version'		=> 7,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
-			'HMW-IO-12-FM'	=> {
+			'HMW_IO_12_FM'	=> {
 				'name'	=> 'RS485 I/O module 12-channel (flush-mount)',
 				'type'	=> 27,
 			},

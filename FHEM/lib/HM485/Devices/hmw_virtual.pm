@@ -1,10 +1,10 @@
 package HM485::Devicefile;
 
 our %definition = (
-	'HMW-RCV'	=>{
+	'HMW_RCV'	=>{
 		'version'		=> 3,
 		'models'	=> {
-			'HMW-RCV-50'	=> {
+			'HMW_RCV_50'	=> {
 				'name'	=> 'Virtual Remote Control 50 Keys',
 				'type'	=> 0,
 			},
