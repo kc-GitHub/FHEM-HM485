@@ -2,18 +2,18 @@ package HM485::Devicefile;
 
 our %definition = (
 	'HMW-LC-SW2-DR'	=> {
-		'version'		=> 12,													# internal version number
-		'eeprom-size'	=> 1024,												# the eprom size of the device
+		'version'		=> 12,
+		'eeprom-size'	=> 1024,
 		'models'	=> {
 			'HMW_LC_Sw2_DR'	=> {
 				'name'			=> 'RS485 switch actuator 2-channel (DIN rails)',
 				'type'			=> 17,
-				'minFW_version'	=> 0x0303										# The device file only valid for devices with firmware 3.3 or greater
+				'minFW_version'	=> 0x0303
 			},
 		},
 		'params' => {
 			'master'	=> {
-				'logging_time'	=> {											# time after state changes reported by device via message
+				'logging_time'	=> {
 					'logical'		=> {
 						'type'		=> 'float',
 						'min'		=> 0.1,
@@ -29,60 +29,60 @@ our %definition = (
 					},
 					'conversion'	=> {
 						'type'		=> 'float_integer_scale',
-						'factor'	=> 10,										# conversion factor
+						'factor'	=> 10,
 						'offset'	=> 0.0
 					}
 				},
-				'central_address'	=> {										# all devices knowing the adress of their central.
-					'hidden'		=> 1,										# the parameter should not visible by the user?
-					'enforce'		=> 0x00000001,								# the central address is fixed in all devices. so the central must have 0x00000001
+				'central_address'	=> {
+					'hidden'		=> 1,
+					'enforce'		=> 0x00000001,
 					'logical'		=> {
 						'type'		=> 'int',
 					},
 					'physical'	=> {
 						'type'			=> 'int',
-						'size'			=> 4,									# the length of the data in eeprom
-						'interface'		=> 'eeprom',							# This parameter ist stored in the device eeprom
-						'address_id'	=> 0x0002								# start adress in device eeprom where this parameter resist
+						'size'			=> 4,
+						'interface'		=> 'eeprom',
+						'address_id'	=> 0x0002
 					}
 				},
-				'direct_link_deactivate'	=> {								# deactivate direct linking ???
+				'direct_link_deactivate'	=> {
 					'hidden'		=> 1,
-					'enforce'		=> 1,										# sould always set to this value ???
+					'enforce'		=> 1,
 					'logical'		=> {
 						'type'		=> 'boolean',
 						'default'	=> 0,
 					},
 					'physical'	=> {
 						'type'			=> 'int',
-						'size'			=> 0.1,									# sizes such 0.x means there are only used x bits in the byte value
+						'size'			=> 0.1,
 						'interface'		=> 'eeprom',
 						'address_id'	=> 0x0006
 					}
 				},
 			},
 		},
-		'frames'	=> {														# all supported frames
-			'level_set'	=> {													# parameter id, must match to chanel/parameter/physical/value_id
-				'type'		=> 0x78,											# x - frame
-				'dir'		=> 'to_device',										# the frame is received by the device
-				'event'		=> 1,												# frame maps only if received by event???, should triger event???
-				'ch_field'	=> 10,												# the position of the command byte in whole frame. Count starts at index 0 behind the start char
+		'frames'	=> {
+			'level_set'	=> {
+				'type'		=> 0x78,
+				'dir'		=> 'to_device',
+				'event'		=> 1,
+				'ch_field'	=> 10,
 				'params'	=> {
-					'state'		=> {											# aditional frame parameter (state)
-						'type'	=> 'int',										# value type
-						'id'	=> 11.0,										# position in frame (at byte pos. 11)
-						'size'	=> 1											# the length of the parameter data 
+					'state'		=> {
+						'type'	=> 'int',
+						'id'	=> 11.0,
+						'size'	=> 1 
 					},
 				},
 			},
 			'level_get'	=> {
-				'type'		=> 0x73,											# s - frame
-				'dir'		=> 'to_device', 
+				'type'		=> 0x73,
+				'dir'		=> 'to_device',
 				'ch_field'	=> 10,
 			},
 			'info_level'	=> {
-				'type'		=> 0x69,											# i - frame
+				'type'		=> 0x69,
 				'dir'		=> 'from_device',
 				'event'		=> 1,
 				'ch_field'	=> 10,
@@ -92,15 +92,15 @@ our %definition = (
 						'id'	=> 11.0,
 						'size'	=> 1
 					},
-					'state_flags'	=> {										# a second parameter data in the frame 
+					'state_flags'	=> { 
 						'type'	=> 'int',
-						'id'	=> 12.4,										# this parameter starts at bit 4 in byte 12
-						'size'	=> 0.3											# the length ot this parameter is 3 bits
+						'id'	=> 12.4,
+						'size'	=> 0.3
 					},
 				},
 			},
 			'key_event_short'	=> {
-				'type'		=> 0x4B,											# K - frame
+				'type'		=> 0x4B,
 				'dir'		=> 'from_device',
 				'event'		=> 1,
 				'ch_field'	=> 10,
@@ -109,7 +109,7 @@ our %definition = (
 						'type'			=> 'int',
 						'id'			=> 12.0,
 						'size'			=> 0.1,
-						'const_value'	=> 0									# this frame is mapped to event only if this parameter is equal 0
+						'const_value'	=> 0
 					},
 					'counter'	=> {
 						'type'	=> 'int',
@@ -128,9 +128,9 @@ our %definition = (
 						'type'			=> 'int',
 						'id'			=> 12.0,
 						'size'			=> 0.1,
-						'const_value'	=> 1									# this frame is mapped to event only if this parameter is equal 1
+						'const_value'	=> 1
 					},
-					'counter'	=> {											# aditional frame parameter (counter)
+					'counter'	=> {
 						'type'	=> 'int',
 						'id'	=> 12.2,
 						'size'	=> 0.6
@@ -138,7 +138,7 @@ our %definition = (
 				}
 			},
 			'key_sim_short'	=> {
-				'type'			=> 0x4B,										# Key-Sim frames are 0xCB? A 0x4B with set 8 bit?
+				'type'			=> 0x4B,
 				'dir'			=> 'from_device',
 				'ch_field'		=> 10,
 				'rec_ch_field'	=> 11, 
@@ -176,7 +176,7 @@ our %definition = (
 				}
 			},
 			'set_lock'	=> {
-				'type'		=> 0x6C,											# l - frame
+				'type'		=> 0x6C,
 				'dir'		=> 'to_device',
 				'ch_field'	=> 11,
 				'params'	=> {
@@ -187,7 +187,7 @@ our %definition = (
 					}
 				}
 			},
-			'toggle_install_test'	=> {										# no details at this time
+			'toggle_install_test'	=> {
 				'type'		=> 0x78,
 				'dir'		=> 'to_device',
 				'ch_field'	=> 10,
@@ -200,16 +200,16 @@ our %definition = (
 				}
 			}
 		},
-		'channels'	=> {														# all supported channels
-			'maintenance' => {													# the maintenance channel contains all device specific settings
-				'id'		=> 0,												# the start uid of this channel in all channel collection
-				'ui-flags'	=> 'internal',										# this chennel is not visible in the ui?
-				'class'		=> 'maintenance',									# ???
-				'count'	=> 1,													# count of channels of this type it the device
-				'params'	=> {												# all channel parameter
-					'master'	=> {},											# ??? we need them?
-					'values'	=> {											# we need the master channel values???
-						'unreach'	=> {										# this parameter is set when device is not reachable
+		'channels'	=> {
+			'maintenance' => {
+				'id'		=> 0,
+				'ui-flags'	=> 'internal',
+				'class'		=> 'maintenance',
+				'count'	=> 1,
+				'params'	=> {
+					'master'	=> {},
+					'values'	=> {
+						'unreach'	=> {
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -220,7 +220,7 @@ our %definition = (
 								'interface'	=> 'internal',
 							},
 						},
-						'sticky_unreach'	=> {								# this parameter is set when device is not reachable again
+						'sticky_unreach'	=> {
 							'operations'	=> 'read,write,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -231,7 +231,7 @@ our %definition = (
 								'interface'	=> 'internal',
 							}
 						},
-						'config_pending'	=> {								# is set, if the device waiting for configuration data
+						'config_pending'	=> {
 							'operations'	=> 'read,event',
 							'ui-flags'		=> 'service',
 							'logical'		=> {
@@ -245,31 +245,31 @@ our %definition = (
 					}
 				}
 			},
-			'key'	=> {														# channel for all keys
-				'id'	=> 1,													# start id of this channel collection
-				'count'	=> 2,													# count of channels of this type
-				'physical_id_offset'	=> -1,									# = id + physical_id_offset, we need them?
-				'link_roles'	=> {											# the roles of this channel in peering
-					'source'	=> 'switch',									# this is a source of type switch
+			'key'	=> {
+				'id'	=> 1,
+				'count'	=> 2,
+				'physical_id_offset'	=> -1,
+				'link_roles'	=> {
+					'source'	=> 'switch',
 				},
 				'params'	=> {
-					'master'	=> {											# the master parameter channel contains all channel specific settings
-						'address_start'	=> 0x07,								# adress start of channel params in eeprom
-						'address_step'	=> 2,									# each data for channel contains 2 bytes (length)
-						'input_type'	=> {									# type of the input
+					'master'	=> {
+						'address_start'	=> 0x07,
+						'address_step'	=> 2,
+						'input_type'	=> {
 							'logical'	=> {
-								'type'	=> 'option',							# this parameter is a select box with options
-								'options' 	=> 'switch, pushbutton',			# available options in this order
-								'default'	=> 'pushbutton',					# the default
+								'type'	=> 'option',
+								'options' 	=> 'switch, pushbutton',
+								'default'	=> 'pushbutton',
 							},
 							'physical'	=> {
-								'type'			=> 'int',						# parameter is a integer
-								'size'			=> 0.1,							# parameter length ist 1 bit
-								'interface'		=> 'eeprom',					# stored in eeprom
-								'address_id'	=> 0.0							# parameter adress starts at: address_id + address_start + address_step * (id + physical_id_offset)
+								'type'			=> 'int',
+								'size'			=> 0.1,
+								'interface'		=> 'eeprom',
+								'address_id'	=> 0.0
 							}
 						},
-						'input_locked'	=> {									# is the input locked?
+						'input_locked'	=> {
 							'logical'	=> {
 								'type'	=> 'boolean',
 								'default'	=> 0,
@@ -280,14 +280,14 @@ our %definition = (
 								'interface'		=> 'eeprom',
 								'address_id'	=> 0.1
 							},
-							'conversion'	=> {								# conversion config
+							'conversion'	=> {
 								'type'		=> 'boolean_integer',
 								'invert'	=> 1
 							}
 						},
-						'long_press_time'	=> {								# time after the input recognise a long button press
+						'long_press_time'	=> {
 							'logical'	=> {
-								'type'		=> 'float',							# this parameter is a float
+								'type'		=> 'float',
 								'min'		=> 0.4,
 								'max'		=> 5,
 								'default'	=> 1.0,
@@ -300,14 +300,14 @@ our %definition = (
 								'address_id'	=> 1.0
 							},
 							'conversion'	=> {
-								'type'		=> 'float_integer_scale',			# conversion config
-								'factor'	=> 10,								# before saving values to eeprom we multiply the parameter with factor
+								'type'		=> 'float_integer_scale',
+								'factor'	=> 10,
 								'value_map'	=> {
-									'type'	=> 'integer_integer_map',			# parameter mapping configuration
+									'type'	=> 'integer_integer_map',
 									'01'	=> {
-										'device_value'		=> 0xFF,			# if device value equal 0xFF
-										'parameter_value'	=> 10,				# this mapped to parameter value 10
-										'from_device'		=> 1,				# only data comes from device
+										'device_value'		=> 0xFF,
+										'parameter_value'	=> 10,
+										'from_device'		=> 1,
 										'to_device'			=> 0,
 									}
 								}
@@ -427,7 +427,7 @@ our %definition = (
 			'switch' => {
 				'id'	=> 3,
 				'count'	=> 2,
-				'physical_id_offset'	=> -1,									# channel in device starts from index + physical_index_offset => 0
+				'physical_id_offset'	=> -1,
 				'link_roles'	=> {
 					'target'	=> 'switch',
 				},
@@ -1033,20 +1033,20 @@ our %definition = (
 							}
 						}
 					},
-					'values' => {												# all supported values (channel <-> value mapping)
-						'state'	=> {											# the state value
-							'operations'=> 'read,write,event',					# ??? we need this???
-							'control'	=> 'switch.state',						# this value is displayed as switch state in ui
+					'values' => {
+						'state'	=> {
+							'operations'=> 'read,write,event',
+							'control'	=> 'switch.state',
 							'logical'	=> {
-								'type'	=> 'boolean',							# this is a boolean value
-								'default'	=> 0,								# default = 0
+								'type'	=> 'boolean',
+								'default'	=> 0,
 							},
 							'physical'	=> {
 								'type'		=> 'int',
-								'interface'	=> 'command',						# we need this?
-								'value_id'	=> 'state',							# this value id mapped to frame
+								'interface'	=> 'command',
+								'value_id'	=> 'state',
 								'set'	=> {
-									'request'	=> 'level_set',					# mapped only at set request (level_set) ???
+									'request'	=> 'level_set',
 								},
 								'get'	=> {
 									'request'	=> 'level_get',
@@ -1056,11 +1056,11 @@ our %definition = (
 									'frame'	=> 'info_level',
 								},
 							},
-							'conversion'	=> {								# conversion config
+							'conversion'	=> {
 								'type'		=> 'boolean_integer',
-								'threshold'	=> 1,								# values > treshold evaluated to true
-								'false'		=> 0,								# 0 is false
-								'true'		=> 200								# 200 is true
+								'threshold'	=> 1,
+								'false'		=> 0,
+								'true'		=> 200
 							}
 						},
 						'working' => {

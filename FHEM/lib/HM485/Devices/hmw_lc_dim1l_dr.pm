@@ -6,8 +6,8 @@ our %definition = (
 		'eeprom-size'	=> 1024,
 		'models'	=> {
 			'HMW_LC_Dim1L_DR'	=> {
-				'name'	=> 'RS485 dimming actuator 1-channel leading edge (DIN rails)',
-				'type'		=> 20,
+				'name'			=> 'RS485 dimming actuator 1-channel leading edge (DIN rails)',
+				'type'			=> 20,
 				'minFW_version'	=> 0x0302
 			},
 		},

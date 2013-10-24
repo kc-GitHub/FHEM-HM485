@@ -2,13 +2,12 @@ package HM485::Devicefile;
 
 our %definition = (
 	'HMW-LC-Bl1'	=> {
-		'version'		=> 13,
+		'version'		=> 7,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
 			'HMW_LC_Bl1_DR'	=> {
-				'name'			=> 'RS485 blind actuator 1-channel (DIN rails)',
-				'type'			=> 21,
-				'minFW_version'	=> 0x0303
+				'name'	=> 'RS485 blind actuator 1-channel (DIN rails)',
+				'type'		=> 21,
 			},
 		},
 		'params' => {
@@ -16,7 +15,7 @@ our %definition = (
 				'logging_time'	=> {
 					'logical'		=> {
 						'type'		=> 'float',
-						'min'		=> 0.1,
+						'min'		=> 0.0,
 						'max'		=> 25.5,
 						'default'	=> 2.0,
 						'unit'		=> 's',
@@ -200,18 +199,6 @@ our %definition = (
 					}
 				}
 			},
-			'toggle_install_test'	=> {
-				'type'		=> 0x78,
-				'dir'		=> 'to_device',
-				'ch_field'	=> 10,
-				'params'	=> {
-					'toggle_flag'	=> {
-						'type'	=> 'int',
-						'id'	=> 11.0,
-						'size'	=> 1.0
-					}
-				}
-			}
 		},
 		'channels'	=> {
 			'maintenance' => {
@@ -374,7 +361,7 @@ our %definition = (
 					},
 					'values'	=> {
 						'press_short'	=> {
-							'operations'	=> 'event,write', 
+							'operations'	=> 'event,read,write', 
 							'control'		=> 'button.short',
 							'logical'		=> {
 								'type'		=> 'action',
@@ -397,7 +384,7 @@ our %definition = (
 							}
 						},
 						'press_long'	=> {
-							'operations'	=> 'event,write', 
+							'operations'	=> 'event,read,write', 
 							'control'		=> 'button.long',
 							'logical'		=> {
 								'type'		=> 'action',
@@ -419,21 +406,6 @@ our %definition = (
 								'counter_size'	=> 6
 							}
 						},
-						'install_test'	=> {
-							'operations'	=> 'event', 
-							'ui_flags'		=> 'internal',
-							'logical'		=> {
-								'type'		=> 'action',
-							},
-							'physical'		=> {
-								'type'		=> 'int',
-								'interface'	=> 'command',
-								'value_id'	=> 'test_counter',
-								'event'		=> {
-									'frame'	=> 'key_event_short, key_event_long',
-								}
-							}
-						}
 					}
 				}
 			},
@@ -676,7 +648,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 1,
 									'interface'		=>	'eeprom',
-									'address_id'	=>	7
+									'address_id'	=>	8
 								},
 							},
 							'short_on_level'	=> {
@@ -695,7 +667,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 1,
 									'interface'		=>	'eeprom',
-									'address_id'	=>	8
+									'address_id'	=>	9
 								},
 							},
 							'short_ondelay_time'	=> {
@@ -711,7 +683,7 @@ our %definition = (
 									'size'			=> 2,
 									'interface'		=>	'eeprom',
 									'endian'		=>	'little',
-									'address_id'	=>	9
+									'address_id'	=>	10
 								},
 								'conversion'	=> {
 									'type'			=> 'float_configtime',
@@ -740,7 +712,7 @@ our %definition = (
 									'size'			=> 2,
 									'interface'		=>	'eeprom',
 									'endian'		=>	'little',
-									'address_id'	=>	11
+									'address_id'	=>	12
 								},
 								'conversion'	=> {
 									'type'			=> 'float_configtime',
@@ -772,7 +744,7 @@ our %definition = (
 									'size'			=> 2,
 									'interface'		=>	'eeprom',
 									'endian'		=>	'little',
-									'address_id'	=>	13
+									'address_id'	=>	14
 								},
 								'conversion'	=> {
 									'type'			=> 'float_configtime',
@@ -804,7 +776,7 @@ our %definition = (
 									'size'			=> 2,
 									'interface'		=>	'eeprom',
 									'endian'		=>	'little',
-									'address_id'	=>	15
+									'address_id'	=>	16
 								},
 								'conversion'	=> {
 									'type'			=> 'float_configtime',
@@ -835,7 +807,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 1,
 									'interface'		=>	'eeprom',
-									'address_id'	=>	17
+									'address_id'	=>	18
 								},
 								'conversion'	=> {
 									'type'		=> 'float_integer_scale',
@@ -869,7 +841,7 @@ our %definition = (
 									'size'			=> 0.4,
 									'interface'		=>	'eeprom',
 									'read_size'		=>	1,
-									'address_id'	=>	18
+									'address_id'	=>	19
 								}
 							},
 							'short_jt_ondelay'	=> {
@@ -883,7 +855,7 @@ our %definition = (
 									'size'			=> 0.4,
 									'interface'		=>	'eeprom',
 									'read_size'		=>	1,
-									'address_id'	=>	18.4
+									'address_id'	=>	19.4
 								}
 							},
 							'short_jt_rampon'	=> {
@@ -911,7 +883,7 @@ our %definition = (
 									'size'			=> 0.4,
 									'interface'		=>	'eeprom',
 									'read_size'		=>	1,
-									'address_id'	=>	19.4
+									'address_id'	=>	20.4
 								}
 							},
 							'short_jt_offdelay'	=> {
@@ -925,7 +897,7 @@ our %definition = (
 									'size'			=> 0.4,
 									'interface'		=>	'eeprom',
 									'read_size'		=>	1,
-									'address_id'	=>	20.0
+									'address_id'	=>	21.0
 								}
 							},
 							'short_jt_refoff'	=> {
@@ -939,7 +911,7 @@ our %definition = (
 									'size'			=> 0.4,
 									'interface'		=>	'eeprom',
 									'read_size'		=>	1,
-									'address_id'	=>	20.4
+									'address_id'	=>	21.4
 								}
 							},
 							'short_jt_rampoff'	=> {
@@ -953,7 +925,7 @@ our %definition = (
 									'size'			=> 0.4,
 									'interface'		=>	'eeprom',
 									'read_size'		=>	1,
-									'address_id'	=>	21.0
+									'address_id'	=>	22.0
 								}
 							},
 							'short_jt_off'	=> {
@@ -967,7 +939,7 @@ our %definition = (
 									'size'			=> 0.4,
 									'interface'		=>	'eeprom',
 									'read_size'		=>	1,
-									'address_id'	=>	21.4
+									'address_id'	=>	22.4
 								}
 							},
 							'long_on_time_mode'	=> {
@@ -980,7 +952,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 0.1,
 									'interface'		=>	'eeprom',
-									'address_id'	=>	22.7
+									'address_id'	=>	7.7
 								}
 							},
 							'long_off_time_mode'	=> {
@@ -993,7 +965,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 0.1,
 									'interface'		=>	'eeprom',
-									'address_id'	=>	22.6
+									'address_id'	=>	7.6
 								}
 							},
 							'long_driving_mode'	=> {
@@ -1006,7 +978,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 0.2,
 									'interface'		=>	'eeprom',
-									'address_id'	=> 22.4
+									'address_id'	=> 7.4
 								},
 							},
 							'long_toggle_use'	=> {
@@ -1019,7 +991,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 0.1,
 									'interface'		=>	'eeprom',
-									'address_id'	=>	22.3
+									'address_id'	=>	7.3
 								},
 							},
 							'long_multiexecute'	=> {
@@ -1031,7 +1003,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 0.1,
 									'interface'		=>	'eeprom',
-									'address_id'	=>	22.2
+									'address_id'	=>	7.2
 								}
 							},
 							'long_action_type'	=> {
@@ -1044,7 +1016,7 @@ our %definition = (
 									'type'			=> 'int',
 									'size'			=> 0.1,
 									'interface'		=>	'eeprom',
-									'address_id'	=>	22.0
+									'address_id'	=>	7.0
 								}
 							},
 							'long_off_level'	=> {
@@ -1494,26 +1466,6 @@ our %definition = (
 								}
 							}
 						},
-						'install_test' => {
-							'operations'=> 'write',
-							'ui_flags'	=> 'internal',
-							'logical'	=> {
-								'type'	=> 'action',
-							},
-							'physical'	=> {
-								'type'		=> 'int',
-								'interface'	=> 'command',
-								'value_id'	=> 'toggle_flag',
-								'no_init'	=> 'true',
-								'set'	=> {
-									'request'	=> 'toggle_install_test',
-								}
-							},
-							'conversion'	=> {
-								'type'		=> 'blind_test',
-								'value'	=> 201
-							}
-						}
 					}
 				}
 			}
