@@ -1,7 +1,7 @@
 package HM485::Devicefile;
 
 our %definition = (
-	'HMW_LC_SW2_DR'	=> {
+	'HMW_LC_SW2_DR_0302'	=> {
 		'version'		=> 7,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
