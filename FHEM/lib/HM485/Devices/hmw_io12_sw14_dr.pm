@@ -31,7 +31,7 @@ our %definition = (
 		},
 		'frames'	=> {
 			'level_get'	=> {
-				'type'		=> 0x73,
+				'type'		=> 0x53,
 				'dir'		=> 'to_device', 
 				'ch_field'	=> 10,
 			},
@@ -252,7 +252,7 @@ our %definition = (
 						}
 					}
 				},
-				'subconfig'	=> {												# ???
+				'subconfig'	=> {
 					'master'	=> {
 						'behaviour'	=> {
 							'ui_flags'	=> 'transform',
@@ -363,7 +363,7 @@ our %definition = (
 						}
 					}
 				},
-				'subconfig'	=> {												# ???
+				'subconfig'	=> {
 					'master'	=> {
 						'behaviour'	=> {
 							'ui_flags'	=> 'transform',
@@ -496,7 +496,7 @@ our %definition = (
 						}
 					}
 				},
-				'subconfig'	=> {												# ???
+				'subconfig'	=> {
 					'master'	=> {
 						'behaviour'	=> {
 							'ui_flags'	=> 'transform',
