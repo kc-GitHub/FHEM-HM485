@@ -1,7 +1,7 @@
 package HM485::Devicefile;
 
 our %definition = (
-	'HMW_IO_4'	=>{
+	'HMW_IO_4_0303'	=>{
 		'version'		=> 11,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
@@ -137,7 +137,7 @@ our %definition = (
 				}
 			},
 			'key_sim_short'	=> {
-				'type'			=> 0x4B,										# Key-Sim frames are 0xCB? A 0x4B with set 8 bit?
+				'type'			=> 0x4B,
 				'dir'			=> 'from_device',
 				'ch_field'		=> 10,
 				'rec_ch_field'	=> 11, 
@@ -260,8 +260,8 @@ our %definition = (
 							'type'			=> 'int',
 							'size'			=> 0.1,
 							'interface'		=> 'eeprom',
-							'address_id'	=> 0.1,
-							'step'			=> 7.0
+							'address_id'	=> 7.0,
+							'step'			=> 0.1
 						}
 					}
 				},
@@ -333,9 +333,9 @@ our %definition = (
 								'default'	=> 'input',
 							},
 							'physical'	=> {
-								'type'			=> 'int',
-								'interface'		=> 'internal',
-								'value_id'		=> 'behaviour'
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+								'value_id'	=> 'behaviour'
 							},
 						}
 					},
@@ -478,10 +478,10 @@ our %definition = (
 										'options' 	=> 'input, output',
 										'default'	=> 'input',
 									},
-									'physical'		=> {
-										'type'			=> 'int',
-										'interface'		=>	'internal',
-										'value_id'		=>	'behaviour',
+									'physical'	=> {
+										'type'		=> 'int',
+										'interface'	=>	'internal',
+										'value_id'	=>	'behaviour',
 									}
 								},
 								'link'	=> {

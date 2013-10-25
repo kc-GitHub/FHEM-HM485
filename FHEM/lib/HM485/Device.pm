@@ -75,20 +75,54 @@ sub init () {
 	Initialize all loaded models
 =cut
 sub initModels () {
-	foreach my $modelGroupKey (keys %deviceDefinitions) {
+	foreach my $deviceKey (keys %deviceDefinitions) {
 
-		if ($deviceDefinitions{$modelGroupKey}{models}) {
-			foreach my $modelKey (keys (%{$deviceDefinitions{$modelGroupKey}{models}})) {
-				if ($deviceDefinitions{$modelGroupKey}{models}{$modelKey}{type}) {
-					$models{$modelKey}{modelkey} = $modelGroupKey;
+		if ($deviceDefinitions{$deviceKey}{models}) {
+			foreach my $modelKey (keys (%{$deviceDefinitions{$deviceKey}{models}})) {
+				if ($deviceDefinitions{$deviceKey}{models}{$modelKey}{type}) {
 					$models{$modelKey}{model} = $modelKey;
-					$models{$modelKey}{name} = $deviceDefinitions{$modelGroupKey}{models}{$modelKey}{name};
-					$models{$modelKey}{type} = $deviceDefinitions{$modelGroupKey}{models}{$modelKey}{type};
+					$models{$modelKey}{name} = $deviceDefinitions{$deviceKey}{models}{$modelKey}{name};
+					$models{$modelKey}{type} = $deviceDefinitions{$deviceKey}{models}{$modelKey}{type};
+					
+					my $minFW = $deviceDefinitions{$deviceKey}{models}{$modelKey}{minFW_version};
+					$minFW = $minFW ? $minFW : 0;
+					$models{$modelKey}{versionDeviceKey}{$minFW} = $deviceKey; 
 				}
 			}
 		}
 	}
 }
+
+=head2
+	Get device key depends on firmware version
+=cut
+sub getDeviceKeyFromHash($) {
+	my ($hash) = @_;
+
+	my $retVal = '';
+	if ($hash->{MODEL}) {
+		my $model    = $hash->{MODEL};
+		my $fw1 = int($hash->{FW_VERSION});
+		my $fw2 = ($hash->{FW_VERSION} * 100) - int($hash->{FW_VERSION}) * 100;
+
+		my $fwVersion = hex(sprintf (
+			'%02X%02X',
+			($fw1 ? $fw1 : 0),
+			($fw2 ? $fw2 : 0)
+		));
+		
+		foreach my $version (keys (%{$models{$model}{versionDeviceKey}})) {
+			if ($version <= $fwVersion) {
+				$retVal = $models{$model}{versionDeviceKey}{$version};
+			} else {
+				last;
+			}
+		}
+	}
+	
+	return $retVal;
+}
+
 
 
 
@@ -131,24 +165,6 @@ sub getModelName($) {
 	}
 	
 	return $retVal;
-}
-
-=head2 getModelGroup
-	Title		: getModelGroup
-	Usage		: my $modelGroup = getModelGroup();
-	Function	: Get the model group from $models hash
-	Returns 	: string
-	Args 		: nothing
-=cut
-sub getModelGroup($) {
-	my ($hwType) = @_;
-
-	my $retVal = $hwType;
-	if (defined($models{$hwType}{modelkey})) {
-		$retVal = $models{$hwType}{modelkey};
-	}
-	
-	return $retVal; 
 }
 
 =head2 getModelList
@@ -210,13 +226,13 @@ sub getValueFromDefinitions ($) {
 }
 
 sub getSubtypeFromChannelNo($$) {
-	my ($modelGroup, $chNo) = @_;
+	my ($deviceKey, $chNo) = @_;
 	$chNo = int($chNo);
 	
 	my $retVal = undef;
 
-	my $channels = getValueFromDefinitions($modelGroup . '/channels/');
-	my @chArray  = getChannelsByModelgroup($modelGroup);
+	my $channels = getValueFromDefinitions($deviceKey . '/channels/');
+	my @chArray  = getChannelsByModelgroup($deviceKey);
 	foreach my $channel (@chArray) {
 		my $chStart = int($channels->{$channel}{id});
 		my $chCount = int($channels->{$channel}{count});
@@ -238,11 +254,11 @@ sub getSubtypeFromChannelNo($$) {
 	@param	string	message to parse
 =cut
 sub parseFrameData($$$) {
-	my ($model, $data, $actionType) = @_;
+	my ($hash, $data, $actionType) = @_;
 
-	my $modelGroup  = getModelGroup($model);
-	my $frameData   = getFrameInfos($modelGroup, $data, 1, 'from_device');
-	my $retVal      = convertFrameDataToValue($modelGroup, $frameData);
+	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
+	my $frameData = getFrameInfos($deviceKey, $data, 1, 'from_device');
+	my $retVal    = convertFrameDataToValue($deviceKey, $frameData);
 
 	return $retVal;
 }
@@ -250,18 +266,18 @@ sub parseFrameData($$$) {
 =head2
 	Get all infos of current frame data
 	
-	@param	string	the $modelGroup
+	@param	string	the deviceKey
 	@param	string	the frame data to parse
 	@param	boolean	optinal value identify the frame as event 
 	@param	string	optional frame direction (from or to device)
 =cut
 sub getFrameInfos($$;$$) {
-	my ($modelGroup, $data, $event, $dir) = @_;
+	my ($deviceKey, $data, $event, $dir) = @_;
 	
 	my $frameType = hex(substr($data, 0,2));
 	my %retVal;
 
-	my $frames = getValueFromDefinitions($modelGroup . '/frames/');
+	my $frames = getValueFromDefinitions($deviceKey . '/frames/');
 	if ($frames) {
 		foreach my $frame (keys %{$frames}) {
 			my $fType  = $frames->{$frame}{type};
@@ -320,7 +336,6 @@ sub getValueFromEepromData($$$) {
 		}
 
 	}
-#print Dumper($retVal);
 
 	return $retVal;
 }
@@ -375,11 +390,11 @@ sub getValueFromHexData($;$$) {
 }
 
 sub convertFrameDataToValue($$) {
-	my ($modelGroup, $frameData) = @_;
+	my ($deviceKey, $frameData) = @_;
 
 	if ($frameData->{ch}) {
 		foreach my $valId (keys %{$frameData->{params}}) {
-			my $valueMap = getChannelValueMap($modelGroup, $frameData, $valId);
+			my $valueMap = getChannelValueMap($deviceKey, $frameData, $valId);
 
 			if ($valueMap) {
 				$frameData->{params}{$valId}{val} = dataConversion(
@@ -520,12 +535,12 @@ sub dataConversion($$;$) {
 }
 
 sub getChannelValueMap($$$) {
-	my ($modelGroup, $frameData, $valId) = @_;
+	my ($deviceKey, $frameData, $valId) = @_;
 	
 	my $channel = $frameData->{ch};
-	my $subType = getSubtypeFromChannelNo($modelGroup, $channel);
+	my $subType = getSubtypeFromChannelNo($deviceKey, $channel);
 	my $values  = getValueFromDefinitions(
-		$modelGroup . '/channels/' . $subType . '/params/values/'
+		$deviceKey . '/channels/' . $subType . '/params/values/'
 	);
 #print Dumper($values);
 	my $retVal;
@@ -547,10 +562,10 @@ sub getChannelValueMap($$$) {
 }
 
 sub getEmptyEEpromMap ($) {
-	my ($model) = @_;
+	my ($hash) = @_;
 
-	my $modelGroup  = getModelGroup($model);
-	my $eepromAddrs = parseForEepromData(getValueFromDefinitions($modelGroup));
+	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
+	my $eepromAddrs = parseForEepromData(getValueFromDefinitions($deviceKey));
 
 	my $eepromMap = {};
 	my $blockLen = 16;
@@ -774,8 +789,8 @@ sub getEEpromData($$) {
 }
 
 sub getChannelsByModelgroup ($) {
-	my ($modelGroup) = @_;
-	my $channels = getValueFromDefinitions($modelGroup . '/channels/');
+	my ($deviceKey) = @_;
+	my $channels = getValueFromDefinitions($deviceKey . '/channels/');
 	my @retVal = ();
 	foreach my $channel (keys %{$channels}) {
 		push (@retVal, $channel);
@@ -874,8 +889,8 @@ sub getAllowedSets($) {
 		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
 		if (defined($chNr)) {
-			my $modelGroup = getModelGroup($model);
-			my $subType    = getSubtypeFromChannelNo($modelGroup, $chNr);
+			my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
+			my $subType    = getSubtypeFromChannelNo($deviceKey, $chNr);
 
 			if ($subType eq 'key') {
 #				$retVal = 'press_short:press_long';

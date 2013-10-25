@@ -26,7 +26,6 @@ sub showConfig($$$) {
 
 sub makeConfigTable($$) {
 	my ($hash, $configHash) = @_;
-
 	my $name = $hash->{NAME};
 	
 #	print Dumper($configHash);

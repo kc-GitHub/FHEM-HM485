@@ -1,7 +1,7 @@
 package HM485::Devicefile;
 
 our %definition = (
-	'HMW_IO_4_0302'	=>{
+	'HMW_IO_4'	=>{
 		'version'		=> 7,
 		'eeprom-size'	=> 1024,
 		'models'	=> {
@@ -185,6 +185,18 @@ our %definition = (
 					}
 				}
 			},
+			'toggle_install_test'	=> {
+				'type'		=> 0x78,
+				'dir'		=> 'to_device',
+				'ch_field'	=> 10,
+				'params'	=> {
+					'toggle_flag'	=> {
+						'type'	=> 'int',
+						'id'	=> 11.0,
+						'size'	=> 1.0
+					}
+				}
+			}
 		},
 		'channels'	=> {
 			'maintenance' => {
@@ -247,8 +259,8 @@ our %definition = (
 							'type'			=> 'int',
 							'size'			=> 0.1,
 							'interface'		=> 'eeprom',
-							'address_id'	=> 0.1,
-							'step'			=> 7.0
+							'address_id'	=> 7.0,
+							'step'			=> 0.1
 						}
 					}
 				},
@@ -320,9 +332,9 @@ our %definition = (
 								'default'	=> 'input',
 							},
 							'physical'	=> {
-								'type'			=> 'int',
-								'interface'		=> 'internal',
-								'value_id'		=> 'behaviour'
+								'type'		=> 'int',
+								'interface'	=> 'internal',
+								'value_id'	=> 'behaviour'
 							},
 						}
 					},
@@ -437,10 +449,10 @@ our %definition = (
 										'options' 	=> 'input, output',
 										'default'	=> 'input',
 									},
-									'physical'		=> {
-										'type'			=> 'int',
-										'interface'		=>	'internal',
-										'value_id'		=>	'behaviour',
+									'physical'	=> {
+										'type'		=> 'int',
+										'interface'	=>	'internal',
+										'value_id'	=>	'behaviour',
 									}
 								},
 								'link'	=> {

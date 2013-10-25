@@ -478,8 +478,12 @@ sub HM485_Attr ($$$$) {
 			if ( $attrName eq 'serialNr' && (!defined($val) || $val !~ m/^[A-Za-z0-9]{10}$/i) ) {
 				$msg = 'Wrong serialNr (' . $val . ') defined. serialNr must be 10 characters (A-Z, a-z or 0-9).';
 		
-			} elsif ( $attrName eq 'firmwareVersion' && (!defined($val) || !looks_like_number($val)) ) {
-				$msg = 'Firmware version must be a number.';
+			} elsif ($attrName eq 'firmwareVersion') {
+				if ($val && looks_like_number($val)) {
+					$hash->{FW_VERSION} = $val;
+				} else {
+					$msg = 'Firmware version must be a number.';
+				}
 
 			} elsif ($attrName eq 'model') {
 				my @modelList = split(',', HM485::Device::getModelList());
@@ -594,9 +598,8 @@ sub HM485_GetConfig($$) {
 	);
 
 	# here we query eeprom data wit device settings
-	my $model = $devHash->{MODEL};
-	if ($model) {
-		my $eepromMap = HM485::Device::getEmptyEEpromMap($model);
+	if ($devHash->{MODEL}) {
+		my $eepromMap = HM485::Device::getEmptyEEpromMap($devHash);
 		
 		# write eeprom map to readings
 		foreach my $adrStart (sort keys %{$eepromMap}) {
@@ -623,9 +626,9 @@ sub HM485_CreateChannels($$) {
 	my $hmwId = $hash->{DEF};
 
 	# get related subdevices for this device from config
-	my $modelGroup = HM485::Device::getModelGroup($hwType);
+	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
 
-	my $subTypes = HM485::Device::getValueFromDefinitions($modelGroup . '/channels');
+	my $subTypes = HM485::Device::getValueFromDefinitions($deviceKey . '/channels');
 	if (ref($subTypes) eq 'HASH') {
 		
 		foreach my $subType (sort keys %{$subTypes}) {
@@ -1102,10 +1105,9 @@ sub HM485_ProcessChannelState($$$$) {
 	my $name = $hash->{NAME};
 	if ($msgData) {
 		my $data  = substr($msgData, 2);
-		my $model = $hash->{MODEL};
 
-		if (defined($model) && $model) {
-			my $valueHash = HM485::Device::parseFrameData($model, $msgData, $actionType);
+		if ($hash->{MODEL}) {
+			my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);
 			
 			if ($valueHash->{ch}) {
 				my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
