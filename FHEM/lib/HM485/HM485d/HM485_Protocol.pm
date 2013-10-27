@@ -34,7 +34,8 @@ use constant {
 
 	STATE_IDLE              => 0x00,
 	STATE_WAIT_ACK          => 0x03,
-	STATE_ACKNOWLEDGED      => 0x04,
+	STATE_WAIT_RESPONSE     => 0x04,
+	STATE_ACKNOWLEDGED      => 0x05,
 	STATE_DISCOVERY         => 0x06,
 	STATE_DISCOVERY_WAIT    => 0x07,
 	
@@ -51,6 +52,8 @@ use constant {
 
 	LOGTAG                  => 'HM485d'
 };
+
+my @validRequestTypes = ('K', 'R', 'S', 'h', 'n', 'p', 'r', 'v', 'x', 'Ë');
 
 my %sendQueue;
 my %discoveryData;
@@ -143,6 +146,7 @@ sub sendRawQueue($$$$;$) {
 	# Todo: for check frame must acked?
 
 	my $queueId = $self->getQueueId();
+	my $cmd = substr($data, 0,1);
 
 	$self->{sendQueue}{$queueId}{TARGET}     = $targetAddr;
 	$self->{sendQueue}{$queueId}{CTRL}       = $ctrl;
@@ -152,11 +156,15 @@ sub sendRawQueue($$$$;$) {
 	$self->{sendQueue}{$queueId}{SEND_COUNT} = 0;
 
 	# Messages to broadcast, messages with z or Z command must not acked
-	if ( (uc( unpack ('H*', $targetAddr)) eq 'FFFFFFFF') || $data eq 'z' || $data eq 'Z') {
+	if ( (uc( unpack ('H*', $targetAddr)) eq 'FFFFFFFF') || $cmd eq 'z' || $cmd eq 'Z') {
 		$self->{sendQueue}{$queueId}{STATE}	= STATE_IDLE;
 		
 	} else {
-		$self->{sendQueue}{$queueId}{STATE}	= STATE_WAIT_ACK;
+		if (grep $_ eq $cmd, @validRequestTypes) {
+			$self->{sendQueue}{$queueId}{STATE}	= STATE_WAIT_RESPONSE;
+		} else {
+			$self->{sendQueue}{$queueId}{STATE}	= STATE_WAIT_ACK;
+		}
 	}
 
 	if (!$queueRunning) {
@@ -203,7 +211,9 @@ sub sendQueueNextItem() {
 			$self->{sendQueue}{$currentQueueId}{MSG_ID} . ':' . $self->{sendQueue}{$currentQueueId}{SEND_COUNT}
 		);
 	
-		if ($self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK) {
+		if ($self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK || 
+			$self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_RESPONSE) {
+				
 			# check if the item must resend after 100ms resend this queue item after 100 ms
 			$checkResendQueueItemsTimeout = main::setTimeout(
 				SEND_RETRY_TIMEOUT, 'checkResendQueueItems'
@@ -482,8 +492,6 @@ sub readFrame($$) {
 sub parseFrame() {
 	my ($self) = @_;
 
-	my $ackNum = HM485::Util::ctrlAckNum($RD{cb});
-	my $responseId = -1;
 	my $frameFromOtherCentralUnit = 0;
 	
 	if (exists($addressLastMsgMap{$RD{sender}}) &&
@@ -494,6 +502,9 @@ sub parseFrame() {
 		HM485::Util::logger(LOGTAG, 3, 'Rx: dup frame: ', \%RD);
 			
 	} else {
+		my $ackNum = HM485::Util::ctrlAckNum($RD{cb});
+		my $responseId = -1;
+
 		$addressLastMsgMap{$RD{sender}} = {
 			cb   => $RD{cb},
 			data => $RD{data}
@@ -507,19 +518,28 @@ sub parseFrame() {
 				# This is an echo frame. from an other central unit (CCU)
 				$frameFromOtherCentralUnit = 1;
 			}
-			
+
 			if (exists($self->{sendQueue}{$currentQueueId}{STATE}) &&
-				$self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK &&
 				$self->{sendQueue}{$currentQueueId}{TARGET} eq $RD{sender} &&
 				HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
-	
-				# This ist the ACK - Frame of last sent frame
-				$responseId = $self->{sendQueue}{$currentQueueId}{MSG_ID};
-				$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
+			
+				if ($self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK) {
+					# This ist a ACK - Frame of last sent frame
+					$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
+
+				} elsif ($self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_RESPONSE && 
+					     substr($RD{data}, 0, -2) ) {
+
+					# This ist a RESPONSE - Frame of last sent frame
+					# We process response only if STATE_WAIT_RESPONSE and response data was given 
+					$responseId = $self->{sendQueue}{$currentQueueId}{MSG_ID};
+					$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
+				}
 			}
 		} else {
 			if (exists($self->{sendQueue}{$currentQueueId}{STATE}) &&
-				$self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK &&
+				($self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK || 
+				 $self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_RESPONSE) &&
 				!HM485::Util::ctrlHasSender($self->{sendQueue}{$currentQueueId}{CTRL}) &&
 				HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
 
@@ -542,31 +562,34 @@ sub parseFrame() {
 		HM485::Util::logger(LOGTAG, 3, 'Rx: ' . $txtResponse, \%RD);
 	
 		# TODO: maybe we want ack messages from all sender adress
-		if ( HM485::Util::ctrlIsIframe($RD{cb}) && $RD{target} eq pack('H*', $hmwId) ) {
+		if (HM485::Util::ctrlIsIframe($RD{cb}) && $RD{target} eq pack('H*', $hmwId) ) {
 			# IFRAME received with receiver address eq this hmwId, we must ack it
 			$self->sendAck($RD{target}, $RD{sender}, HM485::Util::ctrlTxNum($RD{cb}));
 		}
 	
 		if ($responseId != -1) {
-			$self->sendResponse(
-				$self->{sendQueue}{$currentQueueId}{MSG_ID}, 
-				$RD{cb},
-				substr($RD{data}, 0, -2)
-			);
-	
-			# Messages acknowleded, we can delet the resend timer
-			if ($checkResendQueueItemsTimeout) {
-				main::clearTimeout($checkResendQueueItemsTimeout);
-				$checkResendQueueItemsTimeout = undef;
-				
-				# Check queue item
-				$self->deleteCurrentItemFromQueue();
-				$self->sendQueueCheckItems();
+			my $responseData = substr($RD{data}, 0, -2);
+			if ($responseData ne '') {
+				$self->sendResponse(
+					$self->{sendQueue}{$currentQueueId}{MSG_ID}, 
+					$RD{cb},
+					$responseData
+				);
+		
+				# Messages acknowleded, we can delet the resend timer
+				if ($checkResendQueueItemsTimeout) {
+					main::clearTimeout($checkResendQueueItemsTimeout);
+					$checkResendQueueItemsTimeout = undef;
+					
+					# Check queue item
+					$self->deleteCurrentItemFromQueue();
+					$self->sendQueueCheckItems();
+				}
 			}
 		} else {
 	
 			# If I-Frame, Message should dispatch
-	#		if ( HM485::Util::ctrlIsIframe($RD{cb}) ) {
+			if ( HM485::Util::ctrlIsIframe($RD{cb}) ) {
 	
 				# Dont dispatch frames from other CCU
 				if (!$frameFromOtherCentralUnit) {
@@ -577,7 +600,7 @@ sub parseFrame() {
 					);
 				}
 			
-	#		}
+			}
 	
 		}
 	}
