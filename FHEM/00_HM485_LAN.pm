@@ -146,7 +146,6 @@ sub HM485_LAN_Define($$) {
 
 	return $ret;
 }
-
 =head2
 	Implements ReadyFn function.
 
@@ -1126,7 +1125,7 @@ sub HM485_LAN_HM485dStart($) {
 			InternalTimer(gettimeofday() + $HM485dStartTimeout, 'HM485_LAN_openDev', $hash, 0);
 			
 		} else {
-			$msg.= "\n" . 'HM485d Could nor start';
+			$msg.= "\n" . 'HM485d Could not start';
 		}
 	} else {
 		$msg = 'HM485d with PID ' . $pid . ' already running.';		

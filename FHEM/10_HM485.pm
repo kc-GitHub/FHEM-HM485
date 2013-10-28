@@ -687,7 +687,6 @@ sub HM485_SetConfig($@) {
 	my $configHash = {};
 	if (scalar (keys %{$setConfigHash})) {
 		$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
-#		print Dumper($configHash);
 		foreach my $setConfig (keys %{$setConfigHash}) {
 			my $configTypeHash = $configHash->{$setConfig};
 			$msg = HM485_ValidateSettings(
@@ -708,6 +707,7 @@ sub HM485_SetConfig($@) {
 		my $convertetSettings = HM485::ConfigurationManager::convertSettingsToEepromData(
 			$hash, $validatedConfig
 		);
+		
 		if (scalar (keys %{$convertetSettings})) {
 			foreach my $adr (keys %{$convertetSettings}) {
 				HM485::Util::logger(
@@ -721,8 +721,8 @@ sub HM485_SetConfig($@) {
 
 				my $value = $convertetSettings->{$adr}{value};
 				$value    = sprintf('%0' . ($size * 2) . 'X', $value);
-
 				$adr      = sprintf ('%04X' , $adr);
+#print Dumper(\{'adr', $adr, 'size', $size, 'value', $value});
 
 				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);     # (W) write eeprom data
 			}
@@ -1074,7 +1074,7 @@ sub HM485_DoSendCommand($) {
 	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
 
 	# frame types which must return values
-	my @validRequestTypes = ('4B', '52', '53', '52', '68', '6E', '70', '72', '76', '78', 'CB');
+	my @validRequestTypes = ('4B', '52', '53', '68', '6E', '70', '72', '76', '78', 'CB');
 
 	# frame types which must be acked only
 	my @waitForAckTypes   = ('21', '43', '57', '67', '6C', '73');

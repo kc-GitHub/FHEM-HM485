@@ -102,8 +102,9 @@ sub getDeviceKeyFromHash($) {
 	my $retVal = '';
 	if ($hash->{MODEL}) {
 		my $model    = $hash->{MODEL};
-		my $fw1 = int($hash->{FW_VERSION});
-		my $fw2 = ($hash->{FW_VERSION} * 100) - int($hash->{FW_VERSION}) * 100;
+		my $fw  = $hash->{FW_VERSION} ? $hash->{FW_VERSION} : 0;
+		my $fw1 = $fw ? int($fw) : 0;
+		my $fw2 = ($fw * 100) - int($fw) * 100;
 
 		my $fwVersion = hex(sprintf (
 			'%02X%02X',
@@ -307,23 +308,27 @@ sub getFrameInfos($$;$$) {
 	return \%retVal;
 }
 
-sub getValueFromEepromData($$$) {
-	my ($hash, $dataConfig, $adressStart) = @_;
-#print Dumper($dataConfig);
-#print Dumper($adressStart);
+sub getValueFromEepromData($$$;$) {
+	my ($hash, $configHash, $adressStart, $wholeByte) = @_;
+	$wholeByte = $wholeByte ? 1 : 0;
+
+	my $adressStep = $configHash->{address_step} ? $configHash->{address_step}  : 0;
+	my ($adrId, $size) = getPhysical($hash, $configHash, $adressStart, $adressStep);
+
 	my $retVal = '';
-	if (defined($dataConfig->{physical}{address_id})) {
-		my $size       = $dataConfig->{physical}{size} ? $dataConfig->{physical}{size} : 1;
-		my $address_id = $dataConfig->{physical}{address_id} + $adressStart;
-		my $data = HM485::Device::getRawEEpromData($hash, int($address_id), ceil($size));
+	if (defined($adrId)) {
+		my $data = HM485::Device::getRawEEpromData($hash, int($adrId), ceil($size));
 		my $eepromValue = 0;
 
-		$address_id = $address_id - int($address_id);
-		$eepromValue = getValueFromHexData($data, $address_id, $size);
+		my $adrStart = (($adrId * 10) - (int($adrId) * 10)) / 10;
+		$adrStart    = ($adrStart < 1 && !$wholeByte) ? $adrStart: 0;
+		$size        = ($size < 1 && $wholeByte) ? 1 : $size;
 
-		$retVal = dataConversion($eepromValue, $dataConfig->{conversion}, 'from_device');
-		my $default = $dataConfig->{logical}{'default'};
-		if ($default) {
+		$eepromValue = getValueFromHexData($data, $adrStart, $size);
+		$retVal = dataConversion($eepromValue, $configHash->{conversion}, 'from_device');
+
+		my $default = $configHash->{logical}{'default'};
+		if (defined($default)) {
 			if ($size == 1) {
 				$retVal = ($eepromValue != 0xFF) ? $retVal : $default;
 
@@ -334,10 +339,40 @@ sub getValueFromEepromData($$$) {
 				$retVal = ($eepromValue != 0xFFFFFFFF) ? $retVal : $default;
 			}
 		}
-
 	}
 
 	return $retVal;
+}
+
+sub getPhysical($$$$) {
+	my ($hash, $configHash, $adressStart, $adressStep) = @_;
+	
+	my $adrId      = 0;
+	my $size       = 0;
+
+	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+
+	# we must check if spechial params exists.
+	# Then adress_id and step retreve from spechial params 
+	my $valId = $configHash->{physical}{value_id};
+	if ($valId) {
+		my $deviceKey      = HM485::Device::getDeviceKeyFromHash($hash);
+		my $subtype        = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
+		my $spConfig       = HM485::Device::getValueFromDefinitions(
+			$deviceKey . '/channels/' . $subtype .'/special_params/' . $valId . '/'
+		);
+
+		$adressStep  = $spConfig->{physical}{step} ? $spConfig->{physical}{step}  : 0;
+		$size        = $spConfig->{physical}{size} ? $spConfig->{physical}{size} : 1;
+		$adrId       = $spConfig->{physical}{address_id} ? $spConfig->{physical}{address_id} : 0;
+		$adrId       = $adrId + (($chNr-1) * $adressStep);
+#print Dumper(\{'chNr', $chNr, 'adrId', $adrId, 'size', $size, 'adressStart', $adressStart, 'adressStep', $adressStep, 'valId', $valId});
+	} else {
+		$size       = $configHash->{physical}{size} ? $configHash->{physical}{size} : 1;
+		$adrId      = $configHash->{physical}{address_id} ? $configHash->{physical}{address_id} : 0;
+		$adrId      = $adrId + $adressStart + (($chNr-1) * $adressStep);
+	}
+	return ($adrId, $size);
 }
 
 sub translateFrameDataToValue($$) {
@@ -584,7 +619,7 @@ sub getEmptyEEpromMap ($) {
 
 				my $blockId = sprintf ('%04X' , $blockStart);
 				if (!$eepromMap->{$blockId}) {
-					$eepromMap->{$blockId} = 'FF' x $blockLen;
+					$eepromMap->{$blockId} = '##' x $blockLen;
 				}
 				if ($len <= ($blockStart + $blockLen)) {
 					delete ($eepromAddrs->{$adrStart});				
@@ -821,14 +856,6 @@ sub subBit ($$$) {
 	return (($byte << (8 - $start - $len)) & 0xFF) >> (8 - $len);
 }
 
-sub getChannelNrFromDevice($) {
-	my ($hash) = @_;
-
- 	my $hmwId = $hash->{DEF};
-	my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : 0;
-
-	return $chNr;
-}
 
 
 
