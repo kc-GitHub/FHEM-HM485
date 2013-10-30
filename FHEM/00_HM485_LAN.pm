@@ -774,7 +774,6 @@ sub HM485_LAN_parseIncommingCommand($$) {
 			datalen => $msgLen,
 			data    => pack('H*', substr($msgData, 18)),
 		);
-		print Dumper(substr($msgData, 18));
 		HM485::Util::logger($name, 3, 'Event:', \%RD);
 	}		
 

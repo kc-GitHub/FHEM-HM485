@@ -721,7 +721,7 @@ sub HM485_SetConfig($@) {
 				$adr      = sprintf ('%04X' , $adr);
 #print Dumper(\{'adr', $adr, 'size', $size, 'value', $value});
 
-#				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);     # (W) write eeprom data
+				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);     # (W) write eeprom data
 			}
 		}
 	}
