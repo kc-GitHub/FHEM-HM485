@@ -53,6 +53,7 @@ sub HM485_GetInfos($$$);
 sub HM485_GetConfig($$);
 sub HM485_CreateChannels($$);
 sub HM485_SetConfig($@);
+sub HM485_SetChannelOnOff($$);
 sub HM485_ValidateSettings($$$);
 sub HM485_SetWebCmd($$);
 sub HM485_GetHashByHmwid ($);
@@ -390,11 +391,7 @@ sub HM485_Set($@) {
 				$msg = HM485_SetConfig($hash, @params);
 
 			} elsif ($cmd eq 'on' || $cmd eq 'off') {
-				#Todo: Make ready
-				my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
-				my $state = ($cmd eq 'on') ? '01' : '00';
-				my $data  = sprintf('78%02X%02X', ($chNr-1), $state);
-				HM485_SendCommand($hash, $hmwId, $data);
+				$msg = HM485_SetChannelOnOff($hash, $cmd);
 
 			} elsif ($cmd eq 'level') {
 				#Todo: Make ready
@@ -724,12 +721,50 @@ sub HM485_SetConfig($@) {
 				$adr      = sprintf ('%04X' , $adr);
 #print Dumper(\{'adr', $adr, 'size', $size, 'value', $value});
 
-				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);     # (W) write eeprom data
+#				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);     # (W) write eeprom data
 			}
 		}
 	}
 
 	return $msg;
+}
+
+sub HM485_SetChannelOnOff($$) {
+	my ($hash, $cmd) = @_;
+	my $retVal = '';
+	
+	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
+	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
+	my $subtype        = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
+
+	my $stateHash = HM485::Device::getValueFromDefinitions(
+		$deviceKey . '/channels/' . $subtype .'/params/values/state/'
+	);
+
+	if ($stateHash->{control} eq 'switch.state') {
+		my $state = HM485::Device::onOffToState($stateHash, $cmd);
+		my $frameType = $stateHash->{physical}{set}{request};
+		if ($frameType) {
+			HM485_SetChannelState($hash, $state, $frameType);
+		}
+	} else {
+		$retVal = 'no on / off for this channel';
+	}
+
+	return $retVal;
+}
+
+sub HM485_SetChannelState($$) {
+	my ($hash, $state, $frameType) = @_;
+
+	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
+	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
+
+	my %frameData = ('state' => $state);
+	my $data = HM485::Device::buildFrame($hash, $frameType, \%frameData);
+	HM485_SendCommand($hash, $hmwId, $data);
 }
 
 sub HM485_ValidateSettings($$$) {
@@ -1074,7 +1109,7 @@ sub HM485_DoSendCommand($) {
 	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
 
 	# frame types which must return values
-	my @validRequestTypes = ('4B', '52', '53', '68', '6E', '70', '72', '76', '78', 'CB');
+	my @validRequestTypes = ('4B', '52', '53', '68', '6E', '70', '72', '73', '76', '78', 'CB');
 
 	# frame types which must be acked only
 	my @waitForAckTypes   = ('21', '43', '57', '67', '6C', '73');

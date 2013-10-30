@@ -63,11 +63,13 @@ sub makeConfigTable($$) {
 		$rowCount++;
 	}
 
-	my $rowClass = ($rowCount & 1) ? 'odd' : 'even';
-	$content.= wrapTr(
-		wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.config" d_isabled="disabled" value="Save Config" class="attr">'),
-		$rowClass
-	);
+	if (keys %{$configHash}) {
+		my $rowClass = ($rowCount & 1) ? 'odd' : 'even';
+		$content.= wrapTr(
+			wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.config" d_isabled="disabled" value="Save Config" class="attr">'),
+			$rowClass
+		);
+	}
 	
 	my $title = 'Configuration';
 	my $className = lc($title);

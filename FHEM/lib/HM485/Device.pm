@@ -238,7 +238,7 @@ sub getSubtypeFromChannelNo($$) {
 		my $chStart = int($channels->{$channel}{id});
 		my $chCount = int($channels->{$channel}{count});
 		if (($chNo == 0 && $chStart == 0) ||
-		    ($chNo >= $chStart && $chNo <= ($chStart + $chCount) && $chStart > 0)) {
+		    ($chNo >= $chStart && $chNo < ($chStart + $chCount) && $chStart > 0)) {
 
 			$retVal = $channel;
 			last;
@@ -312,7 +312,7 @@ sub getValueFromEepromData($$$;$) {
 	my ($hash, $configHash, $adressStart, $wholeByte) = @_;
 	$wholeByte = $wholeByte ? 1 : 0;
 
-	my $adressStep = $configHash->{address_step} ? $configHash->{address_step}  : 0;
+	my $adressStep = $configHash->{address_step} ? $configHash->{address_step}  : 1;
 	my ($adrId, $size) = getPhysical($hash, $configHash, $adressStart, $adressStep);
 
 	my $retVal = '';
@@ -323,10 +323,9 @@ sub getValueFromEepromData($$$;$) {
 		my $adrStart = (($adrId * 10) - (int($adrId) * 10)) / 10;
 		$adrStart    = ($adrStart < 1 && !$wholeByte) ? $adrStart: 0;
 		$size        = ($size < 1 && $wholeByte) ? 1 : $size;
-
+		
 		$eepromValue = getValueFromHexData($data, $adrStart, $size);
 		$retVal = dataConversion($eepromValue, $configHash->{conversion}, 'from_device');
-
 		my $default = $configHash->{logical}{'default'};
 		if (defined($default)) {
 			if ($size == 1) {
@@ -352,26 +351,31 @@ sub getPhysical($$$$) {
 
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
+	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($hash);
+	my $subtype        = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
+	my $chConfig       = HM485::Device::getValueFromDefinitions(
+		$deviceKey . '/channels/' . $subtype .'/'
+	);
+	my $chId = $chNr - $chConfig->{id};
+
 	# we must check if spechial params exists.
 	# Then adress_id and step retreve from spechial params 
 	my $valId = $configHash->{physical}{value_id};
 	if ($valId) {
-		my $deviceKey      = HM485::Device::getDeviceKeyFromHash($hash);
-		my $subtype        = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
-		my $spConfig       = HM485::Device::getValueFromDefinitions(
-			$deviceKey . '/channels/' . $subtype .'/special_params/' . $valId . '/'
-		);
+		my $spConfig       = $chConfig->{special_param}{$valId};
 
-		$adressStep  = $spConfig->{physical}{step} ? $spConfig->{physical}{step}  : 0;
-		$size        = $spConfig->{physical}{size} ? $spConfig->{physical}{size} : 1;
-		$adrId       = $spConfig->{physical}{address_id} ? $spConfig->{physical}{address_id} : 0;
-		$adrId       = $adrId + (($chNr-1) * $adressStep);
+#print Dumper("$deviceKey . '/channels/' . $subtype .'/special_param/' . $valId . '/'");
+		$adressStep  = $spConfig->{physical}{address_step} ? $spConfig->{physical}{address_step}  : 0;
+		$size        = $spConfig->{physical}{size}         ? $spConfig->{physical}{size} : 1;
+		$adrId       = $spConfig->{physical}{address_id}   ? $spConfig->{physical}{address_id} : 0;
+		$adrId       = $adrId + ($chId * $adressStep * ceil($size));
 #print Dumper(\{'chNr', $chNr, 'adrId', $adrId, 'size', $size, 'adressStart', $adressStart, 'adressStep', $adressStep, 'valId', $valId});
 	} else {
 		$size       = $configHash->{physical}{size} ? $configHash->{physical}{size} : 1;
 		$adrId      = $configHash->{physical}{address_id} ? $configHash->{physical}{address_id} : 0;
-		$adrId      = $adrId + $adressStart + (($chNr-1) * $adressStep);
+		$adrId      = $adrId + $adressStart + ($chId * $adressStep * ceil($size));
 	}
+#	print Dumper($adressStep, $chId, $size, $adrId, "\n ------");
 	return ($adrId, $size);
 }
 
@@ -406,6 +410,7 @@ sub translateFrameDataToValue($$) {
 
 sub getValueFromHexData($;$$) {
 	my ($data, $start, $size) = @_;
+#print Dumper(unpack ('H*',$data), $start, $size);
 
 	$start = $start ? $start : 0;
 	$size  = $size ? $size : 1;
@@ -488,6 +493,47 @@ sub valueToControl($$$) {
 	return $retVal;
 }
 
+sub onOffToState($$) {
+	my ($stateHash, $cmd) = @_;
+
+	my $state = 0;
+	my $conversionHash = $stateHash->{conversion};
+
+	if ($cmd eq 'on' && defined($conversionHash->{true})) {
+		$state = $conversionHash->{true};
+	} elsif ($cmd eq 'off' && defined($conversionHash->{false})) {
+		$state = $conversionHash->{false};
+	}
+
+	return $state;
+}
+
+sub buildFrame($$$) {
+	my ($hash, $frameType, $frameData) = @_;
+	my $retVal = '';
+	
+	if (ref($frameData) eq 'HASH') {
+		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+		my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
+		my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
+	
+		my $frameHash = HM485::Device::getValueFromDefinitions(
+			$deviceKey . '/frames/' . $frameType .'/'
+		);
+
+		$retVal = sprintf('%02X%02X', $frameHash->{type}, $chNr-1);
+		
+		foreach my $key (keys %{$frameData}) {
+			if (ref($frameHash->{params}{$key}) eq 'HASH') {
+				my $paramLen = $frameHash->{params}{$key}{size};
+				$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key});
+			}
+		}
+	}
+
+	return $retVal;
+}
+
 =head2
 	Convert values specifyed in config files
 
@@ -507,6 +553,25 @@ sub dataConversion($$;$) {
 
 		my $type = $convertConfig->{type};
 
+		if (ref($convertConfig->{value_map}) eq 'HASH' && $convertConfig->{value_map}{type}) {
+			foreach my $key (keys %{$convertConfig->{value_map}}) {
+				my $valueMap = $convertConfig->{value_map}{$key};
+				if (ref($valueMap) eq 'HASH') {
+
+					if ($convertConfig->{value_map}{type} eq 'integer_integer_map') {
+						my $valParam  = $valueMap->{parameter_value} ? $valueMap->{parameter_value} : 0;
+						my $valDevice = $valueMap->{device_value} ? $valueMap->{device_value} : 0;
+	
+						if ($dir eq 'to_device' && $valueMap->{to_device}) {
+							$retVal = ($value == $valParam) ? $valDevice : $retVal;
+						} elsif ($dir eq 'from_device' && $valueMap->{from_device}) {
+							$retVal = ($value == $valDevice) ? $valParam : $retVal;
+						}
+					}
+				}
+			}
+		}
+
 		if ($type eq 'float_integer_scale' || $type eq 'integer_integer_scale') {
 			my $factor = $convertConfig->{factor} ? $convertConfig->{factor} : 1;
 			my $offset = $convertConfig->{offset} ? $convertConfig->{offset} : 0;
@@ -516,7 +581,8 @@ sub dataConversion($$;$) {
 				$retVal = $retVal + $offset;
 				$retVal = int($retVal * $factor); 
 			} else {
-				$retVal = $retVal / $factor;
+#				$retVal = $retVal / $factor;
+				$retVal = sprintf("%.0f", $retVal / $factor);
 				$retVal = $retVal - $offset;
 			}
 
@@ -541,28 +607,6 @@ sub dataConversion($$;$) {
 		#} elsif ($config eq 'option_integer') {
 		#	$valueMap = 'value';
 
-		}
-
-		if (ref($convertConfig->{value_map}) eq 'HASH' && $convertConfig->{value_map}{type}) {
-			$type = $convertConfig->{value_map}{type};
-
-			foreach my $key (keys %{$convertConfig->{value_map}}) {
-				my $valueMap = $convertConfig->{value_map}{$key};
-				if (ref($valueMap) eq 'HASH') {
-
-					if ($type eq 'integer_integer_map') {
-						my $valParam  = $valueMap->{parameter_value} ? $valueMap->{parameter_value} : 0;
-						my $valDevice = $valueMap->{device_value} ? $valueMap->{device_value} : 0;
-	
-						if ($dir eq 'to_device' && $valueMap->{to_device}) {
-							$retVal = ($value == $valParam) ? $valDevice : $retVal;
-						} elsif ($dir eq 'from_device' && $valueMap->{from_device}) {
-							$retVal = ($value == $valDevice) ? $valParam : $retVal;
-						}
-					}					
-
-				}
-			}
 		}
 	}
 	
@@ -679,9 +723,9 @@ sub getRawEEpromData($;$$$) {
 	my $start2 = ( ( ($start/$blockLen) - $blockStart ) * $blockLen );
 	$retVal = substr($retVal, ($start2 * 2), ($len * 2) );
 	
-	if (!$hex) {
-		$retVal = pack('H*', $retVal);
-	}
+	$retVal = $hex ? $retVal : pack('H*', $retVal);
+
+#print Dumper("+++++++ \n", unpack ('H*',$retVal), $start, $len, "\n -------");		
 	
 	return $retVal;
 }
@@ -922,7 +966,7 @@ sub getAllowedSets($) {
 			if ($subType eq 'key') {
 #				$retVal = 'press_short:press_long';
 	
-			} elsif ($subType eq 'switch' || $subType eq 'digitaloutput') {
+			} elsif ($subType eq 'switch' || $subType eq 'digital_output') {
 				$retVal = 'on off';
 
 			} elsif ($subType eq 'dimmer') {
@@ -933,6 +977,5 @@ sub getAllowedSets($) {
 
 	return $retVal;
 }
-
 
 1;

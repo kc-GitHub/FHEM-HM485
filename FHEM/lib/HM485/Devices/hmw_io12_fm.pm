@@ -250,7 +250,7 @@ our %definition = (
 				'link_roles'	=> {
 					'source'	=> 'switch',
 				},
-				'special_params'	=> {
+				'special_param'	=> {
 					'behaviour'	=> {
 						'logical'	=> {
 							'type'	=> 'option',
@@ -260,7 +260,7 @@ our %definition = (
 							'size'			=> 0.1,
 							'interface'		=> 'eeprom',
 							'address_id'	=> 0.1,
-							'step'			=> 7.0
+							'address_step'	=> 7.0
 						}
 					}
 				},

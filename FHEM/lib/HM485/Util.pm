@@ -74,7 +74,7 @@ sub logger ($$$;$$) {
 	
 	if (defined($dataHash) && exists($dataHash->{data})) {
 		my $data = printByte($dataHash->{data}, $formatHex);
-
+print Dumper($data);
 		if ($logCCU) {
 			# TODO: Loglevel, settings relevant!
 			if (defined($dataHash->{cb}) && ctrlIsDiscovery($dataHash->{cb}) ) {

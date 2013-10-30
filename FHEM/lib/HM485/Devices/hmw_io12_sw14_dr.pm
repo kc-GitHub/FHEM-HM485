@@ -117,7 +117,7 @@ our %definition = (
 					}
 				}
 			},
-			'digitaloutput'	=> {
+			'digital_output'	=> {
 				'id'	=> 1,
 				'count'	=> 6,
 				'physical_id_offset'	=> -1, 
@@ -160,17 +160,17 @@ our %definition = (
 				'id'	=> 7,
 				'count'	=> 8,
 				'physical_id_offset'	=> -1,
-				'spechial_param'	=> {
+				'special_param'	=> {
 					'behaviour'	=> {
-						'logical'		=> {
-							'type'		=> 'int',
+						'logical'	=> {
+							'type'	=> 'option',
 						},
-						'physical'			=> {
+						'physical'	=> {
 							'type'			=> 'int',
 							'size'			=> 0.1,
 							'interface'		=> 'eeprom',
 							'address_id'	=> 7.0,
-							'address_step'	=> 0.1 
+							'address_step'	=> 0.1
 						}
 					}
 				}, 
@@ -197,11 +197,10 @@ our %definition = (
 								'unit'	=> 's'
 							},
 							'physical'		=> {
-								'type'		=> 'int',
-								'size'		=> 2,
-								'interface'	=> 'eeprom',
+								'type'			=> 'int',
+								'size'			=> 2,
+								'interface'		=> 'eeprom',
 								'address_id'	=> 16,
-								'address_step'	=> 2 
 							},
 							'conversion'	=> {
 								'type'		=> 'float_integer_scale',
@@ -303,7 +302,7 @@ our %definition = (
 				'id'	=> 15,
 				'count'	=> 6,
 				'physical_id_offset'	=> -1,
-				'spechial_param'	=> {
+				'special_param'	=> {
 					'behaviour'	=> {
 						'logical'	=> {
 							'type'	=> 'int',
@@ -410,7 +409,7 @@ our %definition = (
 				'id'	=> 21,
 				'count'	=> 6,
 				'physical_id_offset'	=> -1,
-				'spechial_param'	=> {
+				'special_param'	=> {
 					'behaviour'	=> {
 						'logical'	=> {
 							'type'	=> 'int',

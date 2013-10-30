@@ -53,7 +53,7 @@ use constant {
 	LOGTAG                  => 'HM485d'
 };
 
-my @validRequestTypes = ('K', 'R', 'S', 'h', 'n', 'p', 'r', 'v', 'x', 'Ë');
+my @validRequestTypes = ('K', 'R', 'S', 'h', 'n', 'p', 'r', 's', 'v', 'x', 'Ë');
 
 my %sendQueue;
 my %discoveryData;

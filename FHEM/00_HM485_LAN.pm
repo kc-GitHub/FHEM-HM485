@@ -768,13 +768,14 @@ sub HM485_LAN_parseIncommingCommand($$) {
 
 		# Debug
 		my %RD = (
-			target  => pack('H*',substr($msgData, 0,8)),
+			target  => pack('H*', substr($msgData, 0,8)),
 			cb      => hex(substr($msgData, 8,2)),
-			sender  => pack('H*',substr($msgData, 10,8)),
+			sender  => pack('H*', substr($msgData, 10,8)),
 			datalen => $msgLen,
-			data    => pack('H*',substr($msgData, 18)),
+			data    => pack('H*', substr($msgData, 18)),
 		);
-		HM485::Util::logger($name, 3, 'RX:', \%RD);
+		print Dumper(substr($msgData, 18));
+		HM485::Util::logger($name, 3, 'Event:', \%RD);
 	}		
 
 	if ($canDispatch && length($message) > 3) {
