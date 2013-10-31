@@ -435,7 +435,6 @@ sub convertFrameDataToValue($$) {
 	if ($frameData->{ch}) {
 		foreach my $valId (keys %{$frameData->{params}}) {
 			my $valueMap = getChannelValueMap($deviceKey, $frameData, $valId);
-
 			if ($valueMap) {
 				$frameData->{params}{$valId}{val} = dataConversion(
 					$frameData->{params}{$valId}{val},
@@ -444,9 +443,9 @@ sub convertFrameDataToValue($$) {
 				);
 
 				$frameData->{value}{$valueMap->{name}} = valueToControl(
-					$valueMap->{control},
+					$valueMap,
 					$frameData->{params}{$valId}{val},
-					$valueMap->{name}
+					
 				);
 			}
 		}
@@ -458,23 +457,23 @@ sub convertFrameDataToValue($$) {
 =head2
 	Map values to control specific values
 
-	@param	string    control name
+	@param	hash    hash of parameter config
 	@param	number    the data value
-	@param	string    the value name
 	
 	@return string    converted value
 =cut
 sub valueToControl($$$) {
-	my ($control, $value, $valName) = @_;
+	my ($paramHash, $value) = @_;
 	my $retVal = $value;
-	
+
+	my $control = $paramHash->{control};
+	my $valName = $paramHash->{name};
+
 	if ($control) {
 		if ($control eq 'switch.state') {
-			if ($value == 0xC8) {	# 200 (dez)
-				$retVal = 'on';
-			} else {
-				$retVal = 'off';
-			}
+			my $threshold = $paramHash->{conversion}{threshold};
+			$threshold = $threshold ? int($threshold) : 1;
+			$retVal = ($value > $threshold) ? 'on' : 'off';
 
 		} elsif ($control eq 'dimmer.level') {
 			$retVal = $value * 100;
