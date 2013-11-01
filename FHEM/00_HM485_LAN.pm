@@ -650,7 +650,7 @@ sub HM485_LAN_cancelDiscovery($) {
 	RemoveInternalTimer('discoveryCheckRunning:' . $name);
 	HM485::Util::logger(
 		$name,
-		3,
+		2,
 		'Discovery - canceled. No results found within ' . DISCOVERY_TIMEOUT . ' seconds!'
 	);
 	
