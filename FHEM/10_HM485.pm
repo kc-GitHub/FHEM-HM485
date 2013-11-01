@@ -738,18 +738,25 @@ sub HM485_SetChannelOnOff($$) {
 	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
 	my $subtype        = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
 
-	my $stateHash = HM485::Device::getValueFromDefinitions(
-		$deviceKey . '/channels/' . $subtype .'/params/values/state/'
+	my $values = HM485::Device::getValueFromDefinitions(
+		$deviceKey . '/channels/' . $subtype .'/params/values/'
 	);
 
-	if ($stateHash->{control} eq 'switch.state') {
-		my $state = HM485::Device::onOffToState($stateHash, $cmd);
-		my $frameType = $stateHash->{physical}{set}{request};
-		if ($frameType) {
-			HM485_SetChannelState($hash, $state, $frameType);
+	foreach my $valueKey (keys %{$values}) {
+		if ($valueKey eq 'state' || $valueKey eq 'level') {
+			my $valueHash = $values->{$valueKey} ? $values->{$valueKey} : '';
+			my $control = $valueHash->{control} ? $valueHash->{control} : '';
+
+			if ($control eq 'switch.state' || $control eq 'dimmer.level') {
+				my $state = HM485::Device::onOffToState($valueHash, $cmd);
+				my $frameType = $valueHash->{physical}{set}{request};
+				if ($frameType) {
+					HM485_SetChannelState($hash, $state, $frameType);
+				}
+			} else {
+				$retVal = 'no on / off for this channel';
+			}
 		}
-	} else {
-		$retVal = 'no on / off for this channel';
 	}
 
 	return $retVal;

@@ -59,6 +59,7 @@ use constant {
 	KEEPALIVECK_TIMER  => 'keepAliveCk:',
 	KEEPALIVE_TIMEOUT  => 20, # CCU2 send keepalive each 20 seconds, Todo: check if we need to modify the timeout via attribute
 	KEEPALIVE_MAXRETRY => 3,
+	DISCOVERY_TIMEOUT  => 10,
 };
 
 =head2
@@ -619,8 +620,42 @@ sub HM485_LAN_discoveryStart($) {
 	my ($hash) =  @_;
 
 	$hash->{discoveryRunning} = 1;
+
+	# Start timer for cancel discovery if discovery fails
+	HM485_LAN_setDiscoveryCancelTimer($hash);
+
 	HM485_LAN_setBroadcastSleepMode($hash, 1);
-	InternalTimer(gettimeofday() + 1, 'HM485_LAN_doDiscovery', $hash, 0);
+	InternalTimer(gettimeofday(), 'HM485_LAN_doDiscovery', $hash, 0);
+}
+
+sub HM485_LAN_setDiscoveryCancelTimer($) {
+	my ($hash) =  @_;
+	my $name = $hash->{NAME};
+
+	RemoveInternalTimer('discoveryCheckRunning:' . $name);
+	InternalTimer(
+		gettimeofday() + DISCOVERY_TIMEOUT ,
+		'HM485_LAN_cancelDiscovery',
+		'discoveryCheckRunning:' . $name,
+		1
+	);
+}
+
+sub HM485_LAN_cancelDiscovery($) {
+	my($param) = @_;
+
+	my(undef,$name) = split(':', $param);
+	my $hash = $defs{$name};
+
+	RemoveInternalTimer('discoveryCheckRunning:' . $name);
+	HM485::Util::logger(
+		$name,
+		3,
+		'Discovery - canceled. No results found within ' . DISCOVERY_TIMEOUT . ' seconds!'
+	);
+	
+	HM485_LAN_setBroadcastSleepMode($hash, 0);
+	$hash->{discoveryRunning} = 0;	
 }
 
 =head2
@@ -640,10 +675,11 @@ sub HM485_LAN_doDiscovery($) {
 	@param	hash    hash of device addressed
 =cut
 sub HM485_LAN_discoveryEnd($) {
-	# Todo: We should set timer for discovery must have finish
-
 	my ($hash) =  @_;
 	my $name = $hash->{NAME};
+
+	RemoveInternalTimer('discoveryCheckRunning:' . $name);
+	HM485_LAN_setBroadcastSleepMode($hash, 0);
 
 	if (exists($hash->{discoveryFound})) {
 		foreach my $discoverdAddress (keys %{$hash->{discoveryFound}}) {
@@ -737,10 +773,11 @@ sub HM485_LAN_parseIncommingCommand($$) {
 		my $foundDevices = hex($msgData);
 		HM485::Util::logger($name, 4, 'Do action after discovery Found Devices: ' . $foundDevices);
 		
-		HM485_LAN_setBroadcastSleepMode($hash, 0);
-		InternalTimer(gettimeofday() + 1, 'HM485_LAN_discoveryEnd', $hash, 0);
+		InternalTimer(gettimeofday() + 0, 'HM485_LAN_discoveryEnd', $hash, 0);
 
 	} elsif ($msgCmd == HM485::CMD_DISCOVERY_RESULT) {
+		HM485_LAN_setDiscoveryCancelTimer($hash);
+		
 		HM485::Util::logger($name, 3, 'Discovery - found device: ' . $msgData);
 		$hash->{discoveryFound}{$msgData} = 1;
 
