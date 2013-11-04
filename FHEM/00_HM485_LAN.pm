@@ -1073,7 +1073,7 @@ sub HM485_LAN_HM485dGetPid($$) {
 	my ($hash, $HM485dCommandLine) = @_;
 	my $retVal = 0;
 	
-	my $ps = 'ps ao pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
+	my $ps = 'ps axo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
 	my @result = `$ps`;
 	foreach my $psResult (@result) {
 		$psResult =~ s/[\n\r]//g;
