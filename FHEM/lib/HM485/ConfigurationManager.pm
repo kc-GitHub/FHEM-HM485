@@ -97,7 +97,7 @@ sub getConfigSettings($) {
 #		print Dumper($deviceKey, $chNr);
 		if ($deviceKey) {
 			if ($chNr) {
-				my $subtype = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
+				my $subtype = HM485::Device::getChannelType($deviceKey, $chNr);
 				$configSettings = HM485::Device::getValueFromDefinitions(
 					$deviceKey . '/channels/' . $subtype .'/params/master/'
 				);
@@ -144,7 +144,7 @@ sub convertSettingsToEepromData($$) {
 	my $adressOffset = 0;
 	if ($chNr > 0) {
 		my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
-		my $subType = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
+		my $subType = HM485::Device::getChannelType($deviceKey, $chNr);
 		my $masterConfig = HM485::Device::getValueFromDefinitions(
 			$deviceKey . '/channels/' . $subType . '/params/master'
 		);

@@ -121,8 +121,7 @@ sub HM485_Initialize($) {
 	$hash->{AttrList}       = 'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
 	                          'model:' . HM485::Device::getModelList() . ' ' .
-	                          'subType stateFormat ' .
-	                          ' firmwareVersion';
+	                          'subType stateFormat firmwareVersion';
 
 	#@attrListRO = ('serialNr', 'firmware', 'hardwareType', 'model' , 'modelName');
 	@attrListRO = ('serialNr', 'firmware');
@@ -158,11 +157,13 @@ sub HM485_Define($$) {
 			# We defined a channel of a device
 			my $devHash = $modules{HM485}{defptr}{$addr};
 
-			if (defined($devHash) && $devHash) {
+			if ($devHash) {
 				my $devName = $devHash->{NAME};
 				$devHash->{'channel_' .  $chNr} = $name;                        # reference this channel to the device entity
-				$hash->{device} = $devName;                                     # reference the device to this channel
-				$hash->{chanNo} = $chNr;
+				$hash->{device}    = $devName;                                  # reference the device to this channel
+				$hash->{chanNo}    = $chNr;
+				
+#				$hash->{behaviour} = '???';
 
 				# copy definded attributes to channel
 				foreach my $attrBindCh (@attrListBindCh) {
@@ -176,7 +177,7 @@ sub HM485_Define($$) {
 				#$attr{$name}{peerIDs} = AttrVal($devName, 'peerIDs', '');
 				#$hash->{READINGS}{peerList}{VAL} = ReadingsVal($devName, 'peerList', '');
 				#$hash->{peerList} = $devHash->{peerList} ? $devHash->{peerList} : undef;
-				
+
 			} else {
 				$msg = 'Please define the main device ' . $addr . ' before define the device channel';
 			} 
@@ -732,15 +733,23 @@ sub HM485_SetConfig($@) {
 sub HM485_SetChannelOnOff($$) {
 	my ($hash, $cmd) = @_;
 	my $retVal = '';
-	
+
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
 	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
-	my $subtype        = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
+	my $chType         = HM485::Device::getChannelType($deviceKey, $chNr);
 
-	my $values = HM485::Device::getValueFromDefinitions(
-		$deviceKey . '/channels/' . $subtype .'/params/values/'
-	);
+	my $values;
+	my $channelBehaviour = HM485::Device::getChannelBehaviour($hash);
+	if ($channelBehaviour) {
+		$values = HM485::Device::getValueFromDefinitions(
+			$deviceKey . '/channels/' . $chType .'/subconfig/values/'
+		);
+	} else {
+		$values = HM485::Device::getValueFromDefinitions(
+			$deviceKey . '/channels/' . $chType .'/params/values/'
+		);
+	}
 
 	foreach my $valueKey (keys %{$values}) {
 		if ($valueKey eq 'state' || $valueKey eq 'level') {
@@ -1150,7 +1159,6 @@ sub HM485_ProcessChannelState($$$$) {
 
 		if ($hash->{MODEL}) {
 			my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);
-			
 			if ($valueHash->{ch}) {
 				my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
 				HM485_ChannelUpdate($chHash, $valueHash->{value});
@@ -1273,6 +1281,7 @@ sub HM485_SetTest ($) {
 	my ($hash) = @_;
 	
 #				$modules{$defs{$name}{TYPE}}{AttrList} =~ s/$item//;
+
 				# debug
 #				my $valueHash = HM485::Device::parseFrameData(
 #					'HMW_IO_12_Sw7_DR',
