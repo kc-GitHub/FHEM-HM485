@@ -187,6 +187,42 @@ sub getModelList() {
 	return join(',', @modelList);
 }
 
+sub getChannelBehaviour($) {
+	my ($hash) = @_;
+
+	my $retVal = undef;
+	
+	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+
+	if ($chNr) {
+		my $deviceKey     = getDeviceKeyFromHash($hash);
+		my $chType        = getChannelType($deviceKey, $chNr);
+		if ($deviceKey && $chType) {
+
+			my $channelConfig  = getValueFromDefinitions(
+				$deviceKey . '/channels/' . $chType .'/'
+			);
+
+			if ($channelConfig->{special_param}{behaviour}{physical}{address_id}) {
+				my $chConfig = HM485::ConfigurationManager::getConfigFromDevice(
+					$hash, $chNr
+				);
+
+				my @posibleValuesArray = split(',', $chConfig->{behaviour}{posibleValues});
+			
+				# Trim all items in the array
+				@posibleValuesArray = grep(s/^\s*(.*)\s*$/$1/, @posibleValuesArray);
+
+				my $value = $chConfig->{behaviour}{value};
+				
+				$retVal = $posibleValuesArray[$value];
+			}
+		}
+	}
+	return $retVal;
+}
+
+
 =head2 getHwTypeList
 	Title		: getHwTypeList
 	Usage		: my $modelHwList = getHwTypeList();
@@ -226,7 +262,7 @@ sub getValueFromDefinitions ($) {
 	return $retVal
 }
 
-sub getSubtypeFromChannelNo($$) {
+sub getChannelType($$) {
 	my ($deviceKey, $chNo) = @_;
 	$chNo = int($chNo);
 	
@@ -259,7 +295,7 @@ sub parseFrameData($$$) {
 
 	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
 	my $frameData = getFrameInfos($deviceKey, $data, 1, 'from_device');
-	my $retVal    = convertFrameDataToValue($deviceKey, $frameData);
+	my $retVal    = convertFrameDataToValue($hash, $deviceKey, $frameData);
 
 	return $retVal;
 }
@@ -352,9 +388,9 @@ sub getPhysical($$$$) {
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
 	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($hash);
-	my $subtype        = HM485::Device::getSubtypeFromChannelNo($deviceKey, $chNr);
+	my $chType        = HM485::Device::getChannelType($deviceKey, $chNr);
 	my $chConfig       = HM485::Device::getValueFromDefinitions(
-		$deviceKey . '/channels/' . $subtype .'/'
+		$deviceKey . '/channels/' . $chType .'/'
 	);
 	my $chId = $chNr - $chConfig->{id};
 
@@ -364,7 +400,7 @@ sub getPhysical($$$$) {
 	if ($valId) {
 		my $spConfig       = $chConfig->{special_param}{$valId};
 
-#print Dumper("$deviceKey . '/channels/' . $subtype .'/special_param/' . $valId . '/'");
+#print Dumper("$deviceKey . '/channels/' . $chType .'/special_param/' . $valId . '/'");
 		$adressStep  = $spConfig->{physical}{address_step} ? $spConfig->{physical}{address_step}  : 0;
 		$size        = $spConfig->{physical}{size}         ? $spConfig->{physical}{size} : 1;
 		$adrId       = $spConfig->{physical}{address_id}   ? $spConfig->{physical}{address_id} : 0;
@@ -429,12 +465,12 @@ sub getValueFromHexData($;$$) {
 	return $retVal;
 }
 
-sub convertFrameDataToValue($$) {
-	my ($deviceKey, $frameData) = @_;
+sub convertFrameDataToValue($$$) {
+	my ($hash, $deviceKey, $frameData) = @_;
 
 	if ($frameData->{ch}) {
 		foreach my $valId (keys %{$frameData->{params}}) {
-			my $valueMap = getChannelValueMap($deviceKey, $frameData, $valId);
+			my $valueMap = getChannelValueMap($hash, $deviceKey, $frameData, $valId);
 			if ($valueMap) {
 				$frameData->{params}{$valId}{val} = dataConversion(
 					$frameData->{params}{$valId}{val},
@@ -612,15 +648,28 @@ sub dataConversion($$;$) {
 	return $retVal;
 }
 
-sub getChannelValueMap($$$) {
-	my ($deviceKey, $frameData, $valId) = @_;
+sub getChannelValueMap($$$$) {
+	my ($hash, $deviceKey, $frameData, $valId) = @_;
 	
 	my $channel = $frameData->{ch};
-	my $subType = getSubtypeFromChannelNo($deviceKey, $channel);
-	my $values  = getValueFromDefinitions(
-		$deviceKey . '/channels/' . $subType . '/params/values/'
-	);
-#print Dumper($values);
+	my $chType = getChannelType($deviceKey, $channel);
+
+	my $hmwId = $hash->{DEF}; 
+	my $chHash = $main::modules{HM485}{defptr}{$hmwId . '_' . $channel};
+
+	my $values;
+	my $channelBehaviour = HM485::Device::getChannelBehaviour($chHash);
+
+	if ($channelBehaviour) {
+		$values = HM485::Device::getValueFromDefinitions(
+			$deviceKey . '/channels/' . $chType .'/subconfig/values/'
+		);
+	} else {
+		$values  = getValueFromDefinitions(
+			$deviceKey . '/channels/' . $chType . '/params/values/'
+		);
+	}
+	
 	my $retVal;
 	if (defined($values)) {
 		foreach my $value (keys %{$values}) {
@@ -704,7 +753,7 @@ sub getRawEEpromData($;$$$) {
 	if ($start > 0) {
 		$blockStart = int($start/$blockLen);
 	}
-	
+
 	my $retVal = '';
 	for ($blockCount = $blockStart; $blockCount < (ceil($addrMax / $blockLen)); $blockCount++) {
 		my $blockId = sprintf ('.eeprom_%04X' , ($blockCount * $blockLen));
@@ -959,17 +1008,30 @@ sub getAllowedSets($) {
 		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
 		if (defined($chNr)) {
-			my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
-			my $subType    = getSubtypeFromChannelNo($deviceKey, $chNr);
+			my $channelBehaviour = getChannelBehaviour($hash);
+			if ($channelBehaviour) {
+				$hash->{behaviour} = $channelBehaviour;
+				if ($channelBehaviour eq 'output' || $channelBehaviour eq 'digital_output') {
+					$retVal = 'on off';
 
-			if ($subType eq 'key') {
-#				$retVal = 'press_short:press_long';
+				} elsif ($channelBehaviour eq 'analog_output') {
+				} elsif ($channelBehaviour eq 'input' || $channelBehaviour eq 'digital_input') {
+				} elsif ($channelBehaviour eq 'frequency_input') {
+				}
+				
+			} else {
+				my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
+				my $chType    = getChannelType($deviceKey, $chNr);
+
+				if ($chType eq 'key') {
+#					$retVal = 'press_short:press_long';
+		
+				} elsif ($chType eq 'switch' || $chType eq 'digital_output') {
+					$retVal = 'on off';
 	
-			} elsif ($subType eq 'switch' || $subType eq 'digital_output') {
-				$retVal = 'on off';
-
-			} elsif ($subType eq 'dimmer') {
-				$retVal = 'on off level:slider,0,1,100 ';
+				} elsif ($chType eq 'dimmer') {
+					$retVal = 'on off level:slider,0,1,100 ';
+				}
 			}
 		}
 	}
