@@ -161,7 +161,7 @@ sub convertSettingsToEepromData($$) {
 		my ($adrId, $size) = HM485::Device::getPhysical(
 			$hash, $configHash, $adressStart, $adressStep
 		);
-		
+
 		my $value = $configData->{$config}{value};
 		if ($configData->{$config}{config}{logical}{type} eq 'option') {
 			$value = HM485::ConfigurationManager::convertOptionToValue(
@@ -174,9 +174,11 @@ sub convertSettingsToEepromData($$) {
 		}
 		
 		my $adrKey = int($adrId);
+
 		if (HM485::Device::isInt($size)) {
 			$addressData->{$adrKey}{value} = $value;
-			$addressData->{$adrKey}{text} = $config . '=' . $configData->{$config}{value}
+			$addressData->{$adrKey}{text} = $config . '=' . $configData->{$config}{value};
+			$addressData->{$adrKey}{size} = $size;
 		} else {
 			if (!defined($addressData->{$adrKey}{value})) {
 				my $eepromValue = HM485::Device::getValueFromEepromData (
@@ -184,6 +186,7 @@ sub convertSettingsToEepromData($$) {
 				);
 				$addressData->{$adrKey}{value} = $eepromValue;
 				$addressData->{$adrKey}{text} = '';
+				$addressData->{$adrKey}{size} = ceil($size);
 			}
 
 			my $bit = ($adrId * 10) - ($adrKey * 10);
@@ -205,8 +208,6 @@ sub convertSettingsToEepromData($$) {
 		}
 	}
 	
-#	print Dumper($addressData);
-
 	return $addressData;
 }
 

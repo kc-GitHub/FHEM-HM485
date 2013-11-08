@@ -218,7 +218,7 @@ our %definition = (
 							}
 						}
 					},
-					'values'	=> {
+					'values.analog_output'	=> {
 						'frequency' => {
 							'operations'	=> 'read,write,event', 
 							'control'		=> 'digital_analog_output.frequency',
@@ -247,25 +247,8 @@ our %definition = (
 								'type'		=> 'float_integer_scale',
 							}
 						}
-					}
-				},
-				'subconfig'	=> {
-					'master'	=> {
-						'behaviour'	=> {
-							'ui_flags'	=> 'transform',
-							'logical'		=> {
-								'type'		=> 'option',
-								'options'	=> 'analog_output, digital_output',
-								'default'	=> 'digital_output',
-							},
-							'physical'		=> {
-								'type'		=> 'int',
-								'interface'	=> 'internal',
-								'value_id'	=> 'behaviour',
-							}
-						}
 					},
-					'values'	=> {
+					'values.digital_output'	=> {
 						'state'	=> {
 							'operations'	=> 'read,write,event',
 							'control'		=> 'switch.state',
@@ -296,7 +279,7 @@ our %definition = (
 							}
 						}
 					}
-				}
+				},
 			},
 			'digital_input'	=> {
 				'id'	=> 15,

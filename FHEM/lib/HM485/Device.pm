@@ -543,6 +543,16 @@ sub onOffToState($$) {
 	return $state;
 }
 
+sub valueToState($$$) {
+	my ($stateHash, $valueKey, $value) = @_;
+	
+	my $state = $value;
+#print Dumper($stateHash, $valueKey, $value);
+#return 0;
+
+	return $state;
+}
+
 sub buildFrame($$$) {
 	my ($hash, $frameType, $frameData) = @_;
 	my $retVal = '';
@@ -551,7 +561,7 @@ sub buildFrame($$$) {
 		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 		my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
 		my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
-	
+
 		my $frameHash = HM485::Device::getValueFromDefinitions(
 			$deviceKey . '/frames/' . $frameType .'/'
 		);
@@ -611,15 +621,16 @@ sub dataConversion($$;$) {
 			my $factor = $convertConfig->{factor} ? $convertConfig->{factor} : 1;
 			my $offset = $convertConfig->{offset} ? $convertConfig->{offset} : 0;
 			$factor = ($type eq 'float_integer_scale') ? $factor : 1;
-
+#my $t = $retVal;
 			if ($dir eq 'to_device') {
 				$retVal = $retVal + $offset;
 				$retVal = int($retVal * $factor); 
 			} else {
 #				$retVal = $retVal / $factor;
-				$retVal = sprintf("%.0f", $retVal / $factor);
+				$retVal = sprintf("%.2f", $retVal / $factor);
 				$retVal = $retVal - $offset;
 			}
+#print Dumper($retVal, $factor, $t);
 
 		} elsif ($type eq 'boolean_integer') {
 			my $threshold = $convertConfig->{threshold} ? $convertConfig->{threshold} : 1;
@@ -659,17 +670,12 @@ sub getChannelValueMap($$$$) {
 
 	my $values;
 	my $channelBehaviour = HM485::Device::getChannelBehaviour($chHash);
+	my $valuePrafix = $channelBehaviour ? '.' . $channelBehaviour : '';
 
-	if ($channelBehaviour) {
-		$values = HM485::Device::getValueFromDefinitions(
-			$deviceKey . '/channels/' . $chType .'/subconfig/values/'
-		);
-	} else {
-		$values  = getValueFromDefinitions(
-			$deviceKey . '/channels/' . $chType . '/params/values/'
-		);
-	}
-	
+	$values  = getValueFromDefinitions(
+		$deviceKey . '/channels/' . $chType .'/params/values' . $valuePrafix . '/'
+	);
+
 	my $retVal;
 	if (defined($values)) {
 		foreach my $value (keys %{$values}) {
@@ -789,9 +795,9 @@ sub setRawEEpromData($$$$) {
 	my $blockCount = 0;
 	
 	if ($start > 0) {
-		$blockStart = int(($start*2) / ($blockLen*2));
+		$blockStart = int((hex($start) * 2) / ($blockLen*2));
 	}
-	
+	print Dumper($start, $blockStart, $blockLen);
 	for ($blockCount = $blockStart; $blockCount < (ceil($addrMax / $blockLen)); $blockCount++) {
 
 		my $blockId = sprintf ('.eeprom_%04X' , ($blockCount * $blockLen));
@@ -801,7 +807,7 @@ sub setRawEEpromData($$$$) {
 			$blockData = 'FF' x $blockLen;
 		}
 
-		my $dataStart = ($start*2) - ($blockCount * ($blockLen * 2));
+		my $dataStart = (hex($start) * 2) - ($blockCount * ($blockLen * 2));
 		my $dataLen = $len;
 
 		if ($dataLen > (($blockLen * 2) - $dataStart)) {
@@ -962,7 +968,7 @@ sub internalUpdateEEpromData($$) {
 	my $start = substr($requestData, 0,4);
 	my $len   = substr($requestData, 4,2);
 	my $data  = substr($requestData, 6);
-	
+
 	setRawEEpromData($devHash, $start, $len, $data);
 }
 
@@ -999,8 +1005,10 @@ sub parseFirmwareVersion($) {
 sub getAllowedSets($) {
 	my ($hash) = @_;
 
-	my $name  = $hash->{NAME};
-	my $model = $hash->{MODEL};
+	my $name   = $hash->{NAME};
+	my $model  = $hash->{MODEL};
+	my $onOff  = 'on:noArg off:noArg ';
+	my $keys   = 'press_short:noArg press_long:noArg';
 
 	my $retVal = undef;
 	if (defined($model) && $model) {
@@ -1012,11 +1020,16 @@ sub getAllowedSets($) {
 			if ($channelBehaviour) {
 				$hash->{behaviour} = $channelBehaviour;
 				if ($channelBehaviour eq 'output' || $channelBehaviour eq 'digital_output') {
-					$retVal = 'on off';
+					$retVal = $onOff;
 
 				} elsif ($channelBehaviour eq 'analog_output') {
+					$retVal = 'frequency:textField';
+
 				} elsif ($channelBehaviour eq 'input' || $channelBehaviour eq 'digital_input') {
+					$retVal = $keys;
+
 				} elsif ($channelBehaviour eq 'frequency_input') {
+					$retVal = 'frequency:slider,0,1,100 frequency2:textField';
 				}
 				
 			} else {
@@ -1024,13 +1037,13 @@ sub getAllowedSets($) {
 				my $chType    = getChannelType($deviceKey, $chNr);
 
 				if ($chType eq 'key') {
-#					$retVal = 'press_short:press_long';
+					$retVal = $keys;
 		
 				} elsif ($chType eq 'switch' || $chType eq 'digital_output') {
-					$retVal = 'on off';
+					$retVal = $onOff;
 	
 				} elsif ($chType eq 'dimmer') {
-					$retVal = 'on off level:slider,0,1,100 ';
+					$retVal = $onOff . 'level:slider,0,1,100 ';
 				}
 			}
 		}

@@ -522,7 +522,7 @@ sub parseFrame() {
 			if (exists($self->{sendQueue}{$currentQueueId}{STATE}) &&
 				$self->{sendQueue}{$currentQueueId}{TARGET} eq $RD{sender} &&
 				HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
-			
+
 				if ($self->{sendQueue}{$currentQueueId}{STATE} == STATE_WAIT_ACK) {
 					# This ist a ACK - Frame of last sent frame
 					$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
@@ -567,27 +567,26 @@ sub parseFrame() {
 			$self->sendAck($RD{target}, $RD{sender}, HM485::Util::ctrlTxNum($RD{cb}));
 		}
 	
-		if ($responseId != -1) {
+		if ($responseId > -1 || ($self->{sendQueue}{$currentQueueId}{STATE} &&
+		                         $self->{sendQueue}{$currentQueueId}{STATE} == STATE_ACKNOWLEDGED)) {
 			my $responseData = substr($RD{data}, 0, -2);
-			if ($responseData ne '') {
-				$self->sendResponse(
-					$self->{sendQueue}{$currentQueueId}{MSG_ID}, 
-					$RD{cb},
-					$responseData
-				);
-		
-				# Messages acknowleded, we can delet the resend timer
-				if ($checkResendQueueItemsTimeout) {
-					main::clearTimeout($checkResendQueueItemsTimeout);
-					$checkResendQueueItemsTimeout = undef;
-					
-					# Check queue item
-					$self->deleteCurrentItemFromQueue();
-					$self->sendQueueCheckItems();
-				}
+			$self->sendResponse(
+				$self->{sendQueue}{$currentQueueId}{MSG_ID}, 
+				$RD{cb},
+				$responseData
+			);
+	
+			# Messages acknowleded, we can delet the resend timer
+			if ($checkResendQueueItemsTimeout) {
+				main::clearTimeout($checkResendQueueItemsTimeout);
+				$checkResendQueueItemsTimeout = undef;
+				
+				# Check queue item
+				$self->deleteCurrentItemFromQueue();
+				$self->sendQueueCheckItems();
 			}
 		} else {
-	
+
 			# If I-Frame, Message should dispatch
 			if ( HM485::Util::ctrlIsIframe($RD{cb}) ) {
 	
