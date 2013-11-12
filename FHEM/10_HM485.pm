@@ -306,31 +306,6 @@ sub HM485_Parse($$) {
 	return $ioHash->{NAME};
 }
 
-sub HM485_Parse_old($$$) {
-	my ($ioHash, $message) = @_;
-
-	my @messages = split(chr(HM485::FRAME_START_LONG), $message);
-	foreach my $message (@messages) {
-
-		if ($message && length($message) > 3) {
-			my $msgId   = ord(substr($message, 1, 1));
-			my $msgCmd  = ord(substr($message, 2, 1));
-			my $msgData = uc( unpack ('H*', substr($message, 3)));
-
-			if ($msgCmd == HM485::CMD_RESPONSE || $msgCmd == HM485::CMD_ALIVE) {
-				my $ack = ($msgCmd == HM485::CMD_RESPONSE) ? 1 : 0;
-#				HM485_ProcessResponse($ioHash, $msgId, $ack, substr($msgData,2));
-		
-			} elsif ($msgCmd == HM485::CMD_EVENT) {
-				# Todo: check if events triggered on ack only?
-				HM485_ProcessEvent($ioHash, $msgData);
-			}
-		}
-	}
-	
-	return $ioHash->{NAME};
-}
-
 =head2
 	Implements the SetFn
 	
@@ -406,11 +381,6 @@ sub HM485_Set($@) {
 #			}
 		}
 	}
-
-#  my $list = "off:noArg on:noArg toggle:noArg statusRequest:noArg";
-#  $list .= " pct:slider,0,1,100 bri:slider,0,1,254 alert:none,select,lselect";
-#  #$list .= " dim06% dim12% dim18% dim25% dim31% dim37% dim43% dim50% dim56% dim62% dim68% dim75% dim81% dim87% dim93% dim100%" if( AttrVal($hash->{NAME}, "subType", "colordimmer") =~ m/dimmer/ );
-#  $list .= " rgb:colorpicker,RGB color:slider,2000,1,6500 ct:slider,154,1,500 hue:slider,0,1,65535 sat:slider,0,1,254 xy effect:none,colorloop" if( AttrVal($hash->{NAME}, "subType", "colordimmer") =~ m/color/ );
 
 	return $msg;
 }
@@ -714,7 +684,7 @@ sub HM485_SetConfig($@) {
 			my $convertetSettings = HM485::ConfigurationManager::convertSettingsToEepromData(
 				$hash, $validatedConfig
 			);
-			
+
 			if (scalar (keys %{$convertetSettings})) {
 			 	my $hmwId = $hash->{DEF};
 
@@ -728,9 +698,10 @@ sub HM485_SetConfig($@) {
 					$size     = sprintf ('%02X' , $size);
 	
 					my $value = $convertetSettings->{$adr}{value};
-					$value    = sprintf('%0' . ($size * 2) . 'X', $value);
+					$value    = sprintf ('%0' . ($size * 2) . 'X', $value);
 					$adr      = sprintf ('%04X' , $adr);
-#	print Dumper(\{'adr', $adr, 'size', $size, 'value', $value});
+
+#	print Dumper("$adr: $value");
 	
 					HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);   # (W) write eeprom data
 				}
@@ -760,31 +731,44 @@ sub HM485_SetChannelState($$$) {
 		$deviceKey . '/channels/' . $chType .'/params/values' . $valuePrafix . '/'
 	);
 
+	my $frameData;
+#	my $frameType = $valueHash->{physical}{set}{request};
+
 	foreach my $valueKey (keys %{$values}) {
-#		print Dumper($valueKey);
 		if ($valueKey eq 'state' || $valueKey eq 'level' || $valueKey eq 'frequency') {
 			my $valueHash = $values->{$valueKey} ? $values->{$valueKey} : '';
-			my $frameType = $valueHash->{physical}{set}{request};
 
-			my $state     = undef;
+			my $frameValue     = undef;
 
 			if ($cmd eq 'on' || $cmd eq 'off') {
 				my $control = $valueHash->{control} ? $valueHash->{control} : '';
 				if ($control eq 'switch.state' || $control eq 'dimmer.level') {
-					$state = HM485::Device::onOffToState($valueHash, $cmd);
+					$frameValue = HM485::Device::onOffToState($valueHash, $cmd);
 				} else {
 					$retVal = 'no on / off for this channel';
 				}
 			} else {
-				$state = HM485::Device::valueToState($valueHash, $valueKey, $value);
+				$frameValue = HM485::Device::valueToState($chType, $valueHash, $valueKey, $value);
 			}
 
-			if ($frameType) {
-				my %frameData = ('state' => $state);
-				my $data = HM485::Device::buildFrame($hash, $frameType, \%frameData);
-				HM485_SendCommand($hash, $hmwId, $data);
-			}
+			$frameData->{$valueKey} = {
+				value    => $frameValue,
+				physical => $valueHash->{physical}
+			};
+
+			# Todo: rework
+			# update state before response
+			my $statValue = HM485::Device::dataConversion(
+				$value, $valueHash->{conversion}, 'from_device'
+			);
+			readingsSingleUpdate($hash, $valueKey, $statValue, 0);
+			$hash->{STATE} = ($valueKey eq 'state') ? $value : $valueKey . '_' . $statValue;
+			#############
 		}
+
+		my $frameType = 'level_set';
+		my $data = HM485::Device::buildFrame($hash, $frameType, $frameData);
+		HM485_SendCommand($hash, $hmwId, $data);
 	}
 
 	return $retVal;
@@ -888,7 +872,7 @@ sub HM485_ProcessResponse($$$) {
 			if (grep $_ eq $requestType, ('53', '78')) {                    # S (level_get), x (level_set) reports State
 #				HM485_processStateData($msgData);
 
-#			} elsif (grep $_ eq $requestType, ('4B', 'CB')) {                # K (Key), Ë (Key-sim) report State
+#			} elsif (grep $_ eq $requestType, ('4B', 'CB')) {               # K (Key), Ë (Key-sim) report State
 				#HM485_processStateData($msgData);
 
 			} elsif ($requestType eq '52') {                                # R (report Eeprom Data)
@@ -1160,10 +1144,9 @@ sub HM485_DoSendCommand($) {
 sub HM485_ProcessChannelState($$$$) {
 	my ($hash, $hmwId, $msgData, $actionType) = @_;
 
+			print Dumper($msgData);
 	my $name = $hash->{NAME};
 	if ($msgData) {
-		my $data  = substr($msgData, 2);
-
 		if ($hash->{MODEL}) {
 			my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);
 			if ($valueHash->{ch}) {
@@ -1286,14 +1269,18 @@ sub HM485_DevStateIcon($) {
 sub HM485_FrequencyFormField($$$) {
 	my ($FW_wname, $d, $FW_room, $cmd, $values) = @_;
 
-	my $value = ReadingsVal($d, 'frequency', 0);
-	my $retVal = '<td><form method="post" action="/fhem">' .
+	my $retVal = undef;
+	
+	if ($cmd eq 'frequency') {
+		my $value = ReadingsVal($d, $cmd, 0);
+		$retVal = '<td><form method="post" action="/fhem">' .
 			'<input type="hidden" name="arg.set' . $d . '" value="' . $cmd . '">' .
 			'<input type="hidden" name="room" value="' . $FW_room . '">' .
 			'<input type="hidden" name="dev.set' . $d . '" value="' . $d . '">' .
 			'<input type="text" size="5" class="set" name="val.set' . $d . '" value="' . $value . '">' .
 			'<input type="submit" name="cmd.set' . $d . '" value="set" class="set">' . 
 			'</form></td>';
+	}
 
 	return $retVal;
 }

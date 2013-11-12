@@ -69,7 +69,7 @@ our %definition = (
 				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
-					'state'		=> {
+					'level'		=> {
 						'type'	=> 'int',
 						'id'	=> 11.0,
 						'size'	=> 1 
@@ -451,7 +451,7 @@ our %definition = (
 						'logging'	=> {
 							'logical'	=> {
 								'type'	=> 'option',
-								'options' 	=> 'on,off',
+								'options' 	=> 'off,on',
 								'default'	=> 'on',
 							},
 							'physical'	=> {
@@ -499,7 +499,7 @@ our %definition = (
 							'logical'	=> {
 								'type'		=> 'float',
 								'min' 		=> 0.1,
-								'max'	 	=> 60000,
+								'max'	 	=> 6000,
 								'default'	=> 50,
 								'unit'		=> 's',
 							},
@@ -520,7 +520,7 @@ our %definition = (
 							'logical'	=> {
 								'type'		=> 'float',
 								'min' 		=> 0.1,
-								'max'	 	=> 60000,
+								'max'	 	=> 6000,
 								'default'	=> 50,
 								'unit'		=> 's',
 							},
@@ -1349,10 +1349,10 @@ our %definition = (
 							'operations'=> 'read,write,event',
 							'control'	=> 'blind.level',
 							'logical'	=> {
-								'type'		=> 'float',
+								'type'		=> 'int',
 								'default'	=> 0,
 								'min'		=> 0,
-								'max'		=> 1,
+								'max'		=> 100,
 								'unit'		=> '100%',
 							},
 							'physical'	=> {
@@ -1371,8 +1371,10 @@ our %definition = (
 								},
 							},
 							'conversion'	=> {
-								'type'		=> 'boolean_integer',
-								'factor'	=> 200,
+								'type'		=> 'float_integer_scale',
+								'factor'	=> 2,
+								'false'		=> 0,
+								'true'		=> 200
 							},
 							'value_map'	=> {
 								'type'	=> 'integer_integer_map',

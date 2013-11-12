@@ -158,7 +158,7 @@ sub convertSettingsToEepromData($$) {
 	my $addressData = {};
 	foreach my $config (keys %{$configData}) {
 		my $configHash     = $configData->{$config}{config};
-		my ($adrId, $size) = HM485::Device::getPhysical(
+		my ($adrId, $size, $littleEndian) = HM485::Device::getPhysical(
 			$hash, $configHash, $adressStart, $adressStep
 		);
 
@@ -172,7 +172,7 @@ sub convertSettingsToEepromData($$) {
 				$value, $configData->{$config}{config}{conversion}, 'to_device'
 			);
 		}
-		
+
 		my $adrKey = int($adrId);
 
 		if (HM485::Device::isInt($size)) {
@@ -190,24 +190,32 @@ sub convertSettingsToEepromData($$) {
 			}
 
 			my $bit = ($adrId * 10) - ($adrKey * 10);
-#			print Dumper($bit, $bitVal, $addressData->{$adrKey}{value}, '___');
-#			$addressData->{$adrKey}{_bitVal} = $bitVal;
 			$addressData->{$adrKey}{_adrId} = $adrId;
 			$addressData->{$adrKey}{_value_old} = $addressData->{$adrKey}{value};
 			$addressData->{$adrKey}{_value} = $value;
 
 			if ($value) {
 				my $bitMask = 1 << $bit;
-				$addressData->{$adrKey}{value} = $addressData->{$adrKey}{value} | $bitMask;
+				$value = $value | $bitMask;
 			} else {
 				my $bitMask = unpack ('C', pack 'c', ~(1 << $bit));
-				$addressData->{$adrKey}{value} = $addressData->{$adrKey}{value} & $bitMask;
+				$value = $value & $bitMask;
 			}
 
 			$addressData->{$adrKey}{text} .= ' ' . $config . '=' . $configData->{$config}{value}
 		}
+		
+		if ($littleEndian) {
+			$value = sprintf ('%0' . ($size*2) . 'X' , $value);
+			$value = reverse( pack('H*', $value) );
+			$value = hex(unpack('H*', $value));
+		}
+
+		$addressData->{$adrKey}{value} = $value;
+#		$addressData->{$adrKey}{value} = $littleEndian ? reverse($addressData->{$adrKey}{value}) : $addressData->{$adrKey}{value};
 	}
 	
+#	print Dumper($addressData);
 	return $addressData;
 }
 

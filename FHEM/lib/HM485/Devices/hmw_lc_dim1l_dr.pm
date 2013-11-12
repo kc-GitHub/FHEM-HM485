@@ -454,10 +454,10 @@ our %definition = (
 							'operations'=> 'read,write,event',
 							'control'	=> 'dimmer.level',
 							'logical'	=> {
-								'type'	=> 'float',
-								'default'	=> 0.0,
-								'min'		=> 0.0,
-								'max'		=> 1,
+								'type'	=> 'int',
+								'default'	=> 0,
+								'min'		=> 0,
+								'max'		=> 100,
 								'unit'		=> '%',
 							},
 							'physical'	=> {
@@ -477,7 +477,9 @@ our %definition = (
 							},
 							'conversion'	=> {
 								'type'		=> 'float_integer_scale',
-								'factor'	=> 200
+								'factor'	=> 2,
+								'false'		=> 0,
+								'true'		=> 200
 							}
 						},
 						'working' => {

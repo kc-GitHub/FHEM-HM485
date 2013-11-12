@@ -295,6 +295,7 @@ sub parseFrameData($$$) {
 
 	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
 	my $frameData = getFrameInfos($deviceKey, $data, 1, 'from_device');
+#	print Dumper($frameData);
 	my $retVal    = convertFrameDataToValue($hash, $deviceKey, $frameData);
 
 	return $retVal;
@@ -349,11 +350,13 @@ sub getValueFromEepromData($$$;$) {
 	$wholeByte = $wholeByte ? 1 : 0;
 
 	my $adressStep = $configHash->{address_step} ? $configHash->{address_step}  : 1;
-	my ($adrId, $size) = getPhysical($hash, $configHash, $adressStart, $adressStep);
+	my ($adrId, $size, $littleEndian) = getPhysical($hash, $configHash, $adressStart, $adressStep);
 
 	my $retVal = '';
 	if (defined($adrId)) {
-		my $data = HM485::Device::getRawEEpromData($hash, int($adrId), ceil($size));
+		my $data = HM485::Device::getRawEEpromData(
+			$hash, int($adrId), ceil($size), 0, $littleEndian
+		);
 		my $eepromValue = 0;
 
 		my $adrStart = (($adrId * 10) - (int($adrId) * 10)) / 10;
@@ -400,19 +403,20 @@ sub getPhysical($$$$) {
 	if ($valId) {
 		my $spConfig       = $chConfig->{special_param}{$valId};
 
-#print Dumper("$deviceKey . '/channels/' . $chType .'/special_param/' . $valId . '/'");
 		$adressStep  = $spConfig->{physical}{address_step} ? $spConfig->{physical}{address_step}  : 0;
 		$size        = $spConfig->{physical}{size}         ? $spConfig->{physical}{size} : 1;
 		$adrId       = $spConfig->{physical}{address_id}   ? $spConfig->{physical}{address_id} : 0;
 		$adrId       = $adrId + ($chId * $adressStep * ceil($size));
-#print Dumper(\{'chNr', $chNr, 'adrId', $adrId, 'size', $size, 'adressStart', $adressStart, 'adressStep', $adressStep, 'valId', $valId});
+
 	} else {
 		$size       = $configHash->{physical}{size} ? $configHash->{physical}{size} : 1;
 		$adrId      = $configHash->{physical}{address_id} ? $configHash->{physical}{address_id} : 0;
 		$adrId      = $adrId + $adressStart + ($chId * $adressStep * ceil($size));
 	}
-#	print Dumper($adressStep, $chId, $size, $adrId, "\n ------");
-	return ($adrId, $size);
+	
+	my $littleEndian = ($configHash->{physical}{endian} && $configHash->{physical}{endian} eq 'little') ? 1 : 0;
+
+	return ($adrId, $size, $littleEndian);
 }
 
 sub translateFrameDataToValue($$) {
@@ -498,7 +502,7 @@ sub convertFrameDataToValue($$$) {
 	
 	@return string    converted value
 =cut
-sub valueToControl($$$) {
+sub valueToControl($$) {
 	my ($paramHash, $value) = @_;
 	my $retVal = $value;
 
@@ -512,7 +516,7 @@ sub valueToControl($$$) {
 			$retVal = ($value > $threshold) ? 'on' : 'off';
 
 		} elsif ($control eq 'dimmer.level') {
-			$retVal = $value * 100;
+			$retVal = $value;
 
 		} elsif (index($control, 'button.') > -1) {
 			$retVal = $valName . ' ' . $value;
@@ -543,11 +547,13 @@ sub onOffToState($$) {
 	return $state;
 }
 
-sub valueToState($$$) {
-	my ($stateHash, $valueKey, $value) = @_;
+sub valueToState($$$$) {
+	my ($chType, $valueHash, $valueKey, $value) = @_;
 	
-	my $state = $value;
-#print Dumper($stateHash, $valueKey, $value);
+	my $factor = $valueHash->{conversion}{factor} ? int($valueHash->{conversion}{factor}) : 1;
+	
+	my $state = int($value * $factor);
+#print Dumper($chType, $valueHash, $valueKey, $value);
 #return 0;
 
 	return $state;
@@ -556,7 +562,7 @@ sub valueToState($$$) {
 sub buildFrame($$$) {
 	my ($hash, $frameType, $frameData) = @_;
 	my $retVal = '';
-	
+
 	if (ref($frameData) eq 'HASH') {
 		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 		my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
@@ -567,11 +573,15 @@ sub buildFrame($$$) {
 		);
 
 		$retVal = sprintf('%02X%02X', $frameHash->{type}, $chNr-1);
-		
+
+#print Dumper($frameHash);
+#print Dumper($frameData);		
 		foreach my $key (keys %{$frameData}) {
-			if (ref($frameHash->{params}{$key}) eq 'HASH') {
-				my $paramLen = $frameHash->{params}{$key}{size};
-				$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key});
+			my $valueId = $frameData->{$key}{physical}{value_id};
+
+			if ($valueId && ref($frameHash->{params}{$valueId}) eq 'HASH') {
+				my $paramLen = $frameHash->{params}{$valueId}{size} ? int($frameHash->{params}{$valueId}{size}) : 1;
+				$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key}{value});
 			}
 		}
 	}
@@ -741,8 +751,8 @@ sub getEmptyEEpromMap ($) {
 	
 	@return string     value string
 =cut
-sub getRawEEpromData($;$$$) {
-	my ($hash, $start, $len, $hex) = @_;
+sub getRawEEpromData($;$$$$) {
+	my ($hash, $start, $len, $hex, $littleEndian) = @_;
 
 	my $hmwId   = $hash->{DEF};
 	my $devHash = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
@@ -752,9 +762,10 @@ sub getRawEEpromData($;$$$) {
 	my $blockStart = 0;
 	my $blockCount = 0;
 	
-	$start = defined($start) ? $start : 0;
-	$len   = defined($len) ? $len : $addrMax;
-	$hex   = defined($hex) ? $hex : 0;
+	$start        = defined($start) ? $start : 0;
+	$len          = defined($len) ? $len : $addrMax;
+	$hex          = defined($hex) ? $hex : 0;
+	$littleEndian = defined($littleEndian) ? $littleEndian : 0;
 
 	if ($start > 0) {
 		$blockStart = int($start/$blockLen);
@@ -775,9 +786,10 @@ sub getRawEEpromData($;$$$) {
 	}
 
 	my $start2 = ( ( ($start/$blockLen) - $blockStart ) * $blockLen );
-	$retVal = substr($retVal, ($start2 * 2), ($len * 2) );
+	$retVal = pack('H*', substr($retVal, ($start2 * 2), ($len * 2) ) );
 	
-	$retVal = $hex ? $retVal : pack('H*', $retVal);
+	$retVal = $littleEndian ? reverse($retVal) : $retVal;
+	$retVal = $hex ? unpack('H*', $retVal) : $retVal;
 
 #print Dumper("+++++++ \n", unpack ('H*',$retVal), $start, $len, "\n -------");		
 	
@@ -794,10 +806,10 @@ sub setRawEEpromData($$$$) {
 	my $blockStart = 0;
 	my $blockCount = 0;
 	
-	if ($start > 0) {
+	if (hex($start) > 0) {
 		$blockStart = int((hex($start) * 2) / ($blockLen*2));
 	}
-	print Dumper($start, $blockStart, $blockLen);
+
 	for ($blockCount = $blockStart; $blockCount < (ceil($addrMax / $blockLen)); $blockCount++) {
 
 		my $blockId = sprintf ('.eeprom_%04X' , ($blockCount * $blockLen));
@@ -1042,8 +1054,8 @@ sub getAllowedSets($) {
 				} elsif ($chType eq 'switch' || $chType eq 'digital_output') {
 					$retVal = $onOff;
 	
-				} elsif ($chType eq 'dimmer') {
-					$retVal = $onOff . 'level:slider,0,1,100 ';
+				} elsif ($chType eq 'dimmer' || $chType eq 'blind') {
+					$retVal = $onOff . 'level:slider,0,1,100';
 				}
 			}
 		}
