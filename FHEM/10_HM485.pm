@@ -1144,7 +1144,7 @@ sub HM485_DoSendCommand($) {
 sub HM485_ProcessChannelState($$$$) {
 	my ($hash, $hmwId, $msgData, $actionType) = @_;
 
-			print Dumper($msgData);
+#print Dumper($msgData);
 	my $name = $hash->{NAME};
 	if ($msgData) {
 		if ($hash->{MODEL}) {
