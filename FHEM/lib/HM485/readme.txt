@@ -21,13 +21,13 @@ Derzeit benutzte und getestete RS485 Adapter:
 
 - Wiznet - WIZ108SR Compact RS422/RS485-to-Ethernet module
   http://tigal.at/product/2276
-  http://forum.fhem.de/index.php?t=msg&th=14096&start=0&rid=0
+  http://forum.fhem.de/index.php/topic,14096.msg88557.html#msg88557
 
-- HMW-LAN-GW (der Test ist noch nicht bestätigt)
+- HMW-LAN-GW
   http://www.elv.de/homematic-rs485-gateway-1.html
 
 - RS485 Tranceiver z.B. direkt am UART des Raspberry Pi angeschlossen
-  http://forum.fhem.de/index.php?t=msg&th=12854&start=0&rid=42
+  http://forum.fhem.de/index.php/topic,12854.msg77861.html#msg77861
 
 Installation:
 - Der Inhalt vom Branch kommt in das Verzeichniss /FHEM/

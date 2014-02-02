@@ -352,7 +352,7 @@ sub HM485_LAN_Write($$;$) {
 
 		} elsif ($cmd == HM485::CMD_KEEPALIVE) {
 			$sendData = pack('H*',sprintf('%02X%02X', $msgId, $cmd));
-			HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgId);
+			HM485::Util::logger($name, 4, 'keepalive msgNo: ' . $msgId);
 
 		} elsif ($cmd == HM485::CMD_INITIALIZE) {
 			my $txtMsgId = unpack('H4', sprintf('%02X', $msgId));
