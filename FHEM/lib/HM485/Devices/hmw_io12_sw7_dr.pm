@@ -66,7 +66,6 @@ our %definition = (
 			'level_set'	=> {													# parameter id, must match to chanel/parameter/physical/value_id
 				'type'		=> 0x78,											# x - frame
 				'dir'		=> 'to_device',										# the frame is received by the device
-				'event'		=> 1,												# frame maps only if received by event???, should triger event???
 				'ch_field'	=> 10,												# the position of the command byte in whole frame. Count starts at index 0 behind the start char
 				'params'	=> {
 					'state'		=> {											# aditional frame parameter (state)

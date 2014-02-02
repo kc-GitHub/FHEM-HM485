@@ -66,7 +66,6 @@ our %definition = (
 			'level_set'	=> {
 				'type'		=> 0x78,
 				'dir'		=> 'to_device',
-				'event'		=> 1,
 				'ch_field'	=> 10,
 				'params'	=> {
 					'state'		=> {
