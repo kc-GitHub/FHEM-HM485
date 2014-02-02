@@ -244,7 +244,7 @@ our %definition = (
 					}
 				}
 			},
-			'inpup_output' => {
+			'input_output' => {
 				'id'	=> 1,
 				'count'	=> 4,
 				'physical_id_offset'	=> -1,

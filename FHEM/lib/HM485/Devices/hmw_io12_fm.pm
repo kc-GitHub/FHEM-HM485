@@ -243,7 +243,7 @@ our %definition = (
 					}
 				}
 			},
-			'inpup_output' => {
+			'input_output' => {
 				'id'	=> 1,
 				'count'	=> 12,
 				'physical_id_offset'	=> -1,
@@ -259,8 +259,8 @@ our %definition = (
 							'type'			=> 'int',
 							'size'			=> 0.1,
 							'interface'		=> 'eeprom',
-							'address_id'	=> 0.1,
-							'address_step'	=> 7.0
+							'address_id'	=> 7.0,
+							'address_step'	=> 0.1
 						}
 					}
 				},
