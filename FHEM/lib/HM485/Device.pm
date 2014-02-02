@@ -295,6 +295,8 @@ sub parseFrameData($$$) {
 
 	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
 	my $frameData = getFrameInfos($deviceKey, $data, 1, 'from_device');
+
+
 #	print Dumper($frameData);
 	my $retVal    = convertFrameDataToValue($hash, $deviceKey, $frameData);
 
@@ -680,7 +682,10 @@ sub getChannelValueMap($$$$) {
 
 	my $values;
 	my $channelBehaviour = HM485::Device::getChannelBehaviour($chHash);
-	my $valuePrafix = $channelBehaviour ? '.' . $channelBehaviour : '';
+
+# Todo: Check $channelBehaviour and $valuePrafix
+#	my $valuePrafix = $channelBehaviour ? '.' . $channelBehaviour : '';
+	my $valuePrafix = '';
 
 	$values  = getValueFromDefinitions(
 		$deviceKey . '/channels/' . $chType .'/params/values' . $valuePrafix . '/'
