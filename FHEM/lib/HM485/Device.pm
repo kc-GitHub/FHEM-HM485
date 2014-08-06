@@ -916,8 +916,6 @@ sub parseForEepromData($;$$) {
 	$adrHash = $adrHash ? $adrHash : {};
 	$params  = $params ? $params : {};
 	
-	print Dumper($configHash->{'frames'}->{'INFO_LEVEL'}->{'event'});die;
-	
 	# first we must collect all values only, hahes was pushed to hash array
 	my @hashArray = ();
 	foreach my $param (keys %{$configHash}) {
@@ -941,7 +939,6 @@ sub parseForEepromData($;$$) {
 			@{$adrHash}{keys %$result} = values %$result;
 
 		} else {
-			print Dumper('++++');
 			$adrHash = parseForEepromData($p, $adrHash, {%$params});
 		}
 	}
