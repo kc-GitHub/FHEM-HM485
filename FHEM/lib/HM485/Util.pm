@@ -23,7 +23,7 @@ use Data::Dumper;
 # Define prototypes
 ###############################################################################
 
-
+sub getHashKeyBySubkey($$$);
 
 
 ###############################################################################
@@ -264,6 +264,20 @@ sub getHmwIdAndChNrFromHash($) {
 	my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : 0;
 	
 	return ($hmwId, $chNr); 
+}
+
+sub getHashKeyBySubkey($$$) {
+	my ($hash, $type, $value) = @_;
+	my $retVal = undef;
+
+	foreach my $key (keys %{$hash}) {
+		if (defined($hash->{$key}{$type} && $hash->{$key}{$type} eq $value)) {
+			$retVal = $key;
+			last;
+		}
+	}
+
+	return $retVal;
 }
 
 1;

@@ -1,28 +1,27 @@
 package HM485::Devicefile;
 our %definition = (
-  'HMW_LC_DIM1L_DR' => {
-    'version' =>     11,
+  'HMW_IO12_SW7_DR_V3_02' => {
+    'version' =>     7,
     'eep_size' =>     1024,
     'supported_types' =>     {
-      "HMW_LC_Dim1L_DR" => {
-                             "name" => "RS485 dimming actuator 1-channel leading edge (DIN rails)",
-                             "parameter" => {
-                                              0 => {
-                                                     "const_value" => 20,
-                                                     "size" => 1
-                                                   },
-                                              1 => {
-                                                     "const_value" => 0,
-                                                     "size" => 1
-                                                   },
-                                              2 => {
-                                                     "cond_op" => "GE",
-                                                     "const_value" => 0x0302,
-                                                     "size" => 2
-                                                   }
-                                            },
-                             "priority" => 2
-                           }
+      "HMW_IO_12_Sw7_DR" => {
+                              "name" => "RS485 I/O module 12-channel in and switch actuator 7-channel (DIN rails)",
+                              "parameter" => {
+                                               0 => {
+                                                      "const_value" => 18,
+                                                      "size" => 1
+                                                    },
+                                               1 => {
+                                                      "const_value" => 0,
+                                                      "size" => 1
+                                                    },
+                                               2 => {
+                                                      "const_value" => 0x0302,
+                                                      "size" => 2
+                                                    }
+                                             },
+                              "priority" => 2
+                            }
     },
     'paramset' =>     {
       "enforce" => {
@@ -33,7 +32,7 @@ our %definition = (
                                                    "value" => true
                                                  }
                    },
-      "id" => "HMW-LC-Dim1L-DR_dev_master",
+      "id" => "HMW-IO-12-Sw7-DR_dev_master",
       "parameter" => {
                        "CENTRAL_ADDRESS" => {
                                               "hidden" => true,
@@ -73,7 +72,7 @@ our %definition = (
                                            "logical" => {
                                                           "default" => 2.0,
                                                           "max" => 25.5,
-                                                          "min" => 0.1,
+                                                          "min" => 0.0,
                                                           "type" => "float",
                                                           "unit" => "s"
                                                         },
@@ -96,7 +95,7 @@ our %definition = (
                         "event" => true,
                         "parameter" => {
                                          "11.0" => {
-                                                     "param" => "LEVEL",
+                                                     "param" => "STATE",
                                                      "size" => 1.0,
                                                      "type" => "integer"
                                                    },
@@ -190,7 +189,7 @@ our %definition = (
                        "direction" => "to_device",
                        "parameter" => {
                                         "index" => 11.0,
-                                        "param" => "LEVEL",
+                                        "param" => "STATE",
                                         "size" => 1.0,
                                         "type" => "integer"
                                       },
@@ -206,253 +205,11 @@ our %definition = (
                                        "type" => "integer"
                                      },
                       "type" => 0x6C
-                    },
-      "TOGGLE_INSTALL_TEST" => {
-                                 "channel_field" => 10,
-                                 "direction" => "to_device",
-                                 "parameter" => {
-                                                  "index" => 11.0,
-                                                  "param" => "TOGGLE_FLAG",
-                                                  "size" => 1.0,
-                                                  "type" => "integer"
-                                                },
-                                 "type" => 0x78
-                               }
+                    }
     },
     'channels' =>     {
-      "DIMMER" => {
-                    "count" => 1,
-                    "index" => 3,
-                    "link_roles" => {
-                                      "target" => {
-                                                    "name" => "SWITCH"
-                                                  }
-                                    },
-                    "paramset" => {
-                                    "link" => {
-                                                "address_start" => 0x0C,
-                                                "address_step" => 54,
-                                                "channel_offset" => 5,
-                                                "count" => 16,
-                                                "peer_address_offset" => 0,
-                                                "peer_address_size" => 4.0,
-                                                "peer_channel_offset" => 4,
-                                                "peer_channel_size" => 1.0,
-                                                "type" => "LINK"
-                                              },
-                                    "master" => {
-                                                  "address_start" => 0x0B,
-                                                  "address_step" => 1,
-                                                  "parameter" => {
-                                                                   "id" => "LOGGING",
-                                                                   "logical" => {
-                                                                                  "option" => {
-                                                                                                "OFF" => {},
-                                                                                                "ON" => {
-                                                                                                          "default" => true
-                                                                                                        }
-                                                                                              },
-                                                                                  "type" => "option"
-                                                                                },
-                                                                   "physical" => {
-                                                                                   "address" => {
-                                                                                                  "index" => 0
-                                                                                                },
-                                                                                   "interface" => "eeprom",
-                                                                                   "size" => 0.1,
-                                                                                   "type" => "integer"
-                                                                                 }
-                                                                 },
-                                                  "type" => "MASTER"
-                                                },
-                                    "values" => {
-                                                  "parameter" => {
-                                                                   "DIRECTION" => {
-                                                                                    "conversion" => {
-                                                                                                      "type" => "option_integer",
-                                                                                                      "value_map" => {
-                                                                                                                       1 => {
-                                                                                                                              "device_value" => 0x00,
-                                                                                                                              "parameter_value" => 0
-                                                                                                                            },
-                                                                                                                       2 => {
-                                                                                                                              "device_value" => 0x01,
-                                                                                                                              "parameter_value" => 1
-                                                                                                                            },
-                                                                                                                       3 => {
-                                                                                                                              "device_value" => 0x02,
-                                                                                                                              "parameter_value" => 2
-                                                                                                                            },
-                                                                                                                       4 => {
-                                                                                                                              "device_value" => 0x03,
-                                                                                                                              "parameter_value" => 3
-                                                                                                                            }
-                                                                                                                     }
-                                                                                                    },
-                                                                                    "logical" => {
-                                                                                                   "option" => {
-                                                                                                                 "DOWN" => {},
-                                                                                                                 "NONE" => {
-                                                                                                                             "default" => true
-                                                                                                                           },
-                                                                                                                 "UNDEFINED" => {},
-                                                                                                                 "UP" => {}
-                                                                                                               },
-                                                                                                   "type" => "option"
-                                                                                                 },
-                                                                                    "operations" => "read,event",
-                                                                                    "physical" => {
-                                                                                                    "event" => {
-                                                                                                                 1 => {
-                                                                                                                        "frame" => "INFO_LEVEL"
-                                                                                                                      },
-                                                                                                                 2 => {
-                                                                                                                        "frame" => "ACK_STATUS"
-                                                                                                                      }
-                                                                                                               },
-                                                                                                    "get" => {
-                                                                                                               "request" => "LEVEL_GET",
-                                                                                                               "response" => "INFO_LEVEL"
-                                                                                                             },
-                                                                                                    "interface" => "command",
-                                                                                                    "type" => "integer",
-                                                                                                    "value_id" => "STATE_FLAGS"
-                                                                                                  },
-                                                                                    "ui_flags" => "internal"
-                                                                                  },
-                                                                   "INHIBIT" => {
-                                                                                  "control" => "NONE",
-                                                                                  "logical" => {
-                                                                                                 "default" => false,
-                                                                                                 "type" => "boolean"
-                                                                                               },
-                                                                                  "loopback" => true,
-                                                                                  "operations" => "read,write,event",
-                                                                                  "physical" => {
-                                                                                                  "interface" => "command",
-                                                                                                  "set" => {
-                                                                                                             "request" => "SET_LOCK"
-                                                                                                           },
-                                                                                                  "type" => "integer",
-                                                                                                  "value_id" => "INHIBIT"
-                                                                                                }
-                                                                                },
-                                                                   "INSTALL_TEST" => {
-                                                                                       "conversion" => {
-                                                                                                         "off" => 0,
-                                                                                                         "on" => 200,
-                                                                                                         "type" => "toggle",
-                                                                                                         "value" => "LEVEL"
-                                                                                                       },
-                                                                                       "logical" => {
-                                                                                                      "type" => "action"
-                                                                                                    },
-                                                                                       "operations" => "write",
-                                                                                       "physical" => {
-                                                                                                       "interface" => "command",
-                                                                                                       "no_init" => true,
-                                                                                                       "set" => {
-                                                                                                                  "request" => "TOGGLE_INSTALL_TEST"
-                                                                                                                },
-                                                                                                       "type" => "integer",
-                                                                                                       "value_id" => "TOGGLE_FLAG"
-                                                                                                     },
-                                                                                       "ui_flags" => "internal"
-                                                                                     },
-                                                                   "LEVEL" => {
-                                                                                "control" => "DIMMER.LEVEL",
-                                                                                "conversion" => {
-                                                                                                  "factor" => 200,
-                                                                                                  "type" => "float_integer_scale"
-                                                                                                },
-                                                                                "logical" => {
-                                                                                               "default" => 0.0,
-                                                                                               "max" => 1.0,
-                                                                                               "min" => 0.0,
-                                                                                               "type" => "float",
-                                                                                               "unit" => "100%"
-                                                                                             },
-                                                                                "operations" => "read,write,event",
-                                                                                "physical" => {
-                                                                                                "event" => {
-                                                                                                             "frame" => "INFO_LEVEL"
-                                                                                                           },
-                                                                                                "get" => {
-                                                                                                           "request" => "LEVEL_GET",
-                                                                                                           "response" => "INFO_LEVEL"
-                                                                                                         },
-                                                                                                "interface" => "command",
-                                                                                                "set" => {
-                                                                                                           "request" => "LEVEL_SET"
-                                                                                                         },
-                                                                                                "type" => "integer",
-                                                                                                "value_id" => "LEVEL"
-                                                                                              }
-                                                                              },
-                                                                   "WORKING" => {
-                                                                                  "conversion" => {
-                                                                                                    1 => {
-                                                                                                           "type" => "boolean_integer"
-                                                                                                         },
-                                                                                                    2 => {
-                                                                                                           "type" => "integer_integer_map",
-                                                                                                           "value_map" => {
-                                                                                                                            1 => {
-                                                                                                                                   "device_value" => 0x04,
-                                                                                                                                   "mask" => 0x04,
-                                                                                                                                   "parameter_value" => 1
-                                                                                                                                 },
-                                                                                                                            2 => {
-                                                                                                                                   "device_value" => 0x00,
-                                                                                                                                   "parameter_value" => 0
-                                                                                                                                 },
-                                                                                                                            3 => {
-                                                                                                                                   "device_value" => 0x01,
-                                                                                                                                   "parameter_value" => 1
-                                                                                                                                 },
-                                                                                                                            4 => {
-                                                                                                                                   "device_value" => 0x02,
-                                                                                                                                   "parameter_value" => 1
-                                                                                                                                 },
-                                                                                                                            5 => {
-                                                                                                                                   "device_value" => 0x03,
-                                                                                                                                   "parameter_value" => 0
-                                                                                                                                 }
-                                                                                                                          }
-                                                                                                         }
-                                                                                                  },
-                                                                                  "logical" => {
-                                                                                                 "default" => false,
-                                                                                                 "type" => "boolean"
-                                                                                               },
-                                                                                  "operations" => "read,event",
-                                                                                  "physical" => {
-                                                                                                  "event" => {
-                                                                                                               1 => {
-                                                                                                                      "frame" => "INFO_LEVEL"
-                                                                                                                    },
-                                                                                                               2 => {
-                                                                                                                      "frame" => "ACK_STATUS"
-                                                                                                                    }
-                                                                                                             },
-                                                                                                  "get" => {
-                                                                                                             "request" => "LEVEL_GET",
-                                                                                                             "response" => "INFO_LEVEL"
-                                                                                                           },
-                                                                                                  "interface" => "command",
-                                                                                                  "type" => "integer",
-                                                                                                  "value_id" => "STATE_FLAGS"
-                                                                                                },
-                                                                                  "ui_flags" => "internal"
-                                                                                }
-                                                                 },
-                                                  "type" => "VALUES"
-                                                }
-                                  },
-                    "physical_index_offset" => -1
-                  },
       "KEY" => {
-                 "count" => 2,
+                 "count" => 12,
                  "index" => 1,
                  "link_roles" => {
                                    "source" => {
@@ -461,10 +218,10 @@ our %definition = (
                                  },
                  "paramset" => {
                                  "link" => {
-                                             "address_start" => 0x36C,
+                                             "address_start" => 0x359,
                                              "address_step" => 6,
                                              "channel_offset" => 0,
-                                             "count" => 24,
+                                             "count" => 27,
                                              "peer_address_offset" => 1,
                                              "peer_address_size" => 4.0,
                                              "peer_channel_offset" => 5,
@@ -549,26 +306,6 @@ our %definition = (
                                              },
                                  "values" => {
                                                "parameter" => {
-                                                                "INSTALL_TEST" => {
-                                                                                    "logical" => {
-                                                                                                   "type" => "action"
-                                                                                                 },
-                                                                                    "operations" => "event",
-                                                                                    "physical" => {
-                                                                                                    "event" => {
-                                                                                                                 1 => {
-                                                                                                                        "frame" => "KEY_EVENT_SHORT"
-                                                                                                                      },
-                                                                                                                 2 => {
-                                                                                                                        "frame" => "KEY_EVENT_LONG"
-                                                                                                                      }
-                                                                                                               },
-                                                                                                    "interface" => "command",
-                                                                                                    "type" => "integer",
-                                                                                                    "value_id" => "TEST_COUNTER"
-                                                                                                  },
-                                                                                    "ui_flags" => "internal"
-                                                                                  },
                                                                 "PRESS_LONG" => {
                                                                                   "control" => "BUTTON.LONG",
                                                                                   "conversion" => {
@@ -580,7 +317,7 @@ our %definition = (
                                                                                                  "type" => "action"
                                                                                                },
                                                                                   "loopback" => true,
-                                                                                  "operations" => "event,write",
+                                                                                  "operations" => "event,read,write",
                                                                                   "physical" => {
                                                                                                   "event" => {
                                                                                                                "frame" => "KEY_EVENT_LONG"
@@ -604,7 +341,7 @@ our %definition = (
                                                                                                   "type" => "action"
                                                                                                 },
                                                                                    "loopback" => true,
-                                                                                   "operations" => "event,write",
+                                                                                   "operations" => "event,read,write",
                                                                                    "physical" => {
                                                                                                    "event" => {
                                                                                                                 "frame" => "KEY_EVENT_SHORT"
@@ -674,7 +411,134 @@ our %definition = (
                                                               }
                                        },
                          "ui_flags" => "internal"
-                       }
+                       },
+      "SWITCH" => {
+                    "count" => 7,
+                    "index" => 13,
+                    "link_roles" => {
+                                      "target" => {
+                                                    "name" => "SWITCH"
+                                                  }
+                                    },
+                    "paramset" => {
+                                    "link" => {
+                                                "address_start" => 0x2D,
+                                                "address_step" => 28,
+                                                "channel_offset" => 5,
+                                                "count" => 29,
+                                                "peer_address_offset" => 0,
+                                                "peer_address_size" => 4.0,
+                                                "peer_channel_offset" => 4,
+                                                "peer_channel_size" => 1.0,
+                                                "type" => "LINK"
+                                              },
+                                    "master" => {
+                                                  "address_start" => 0x1F,
+                                                  "address_step" => 2,
+                                                  "parameter" => {
+                                                                   "id" => "LOGGING",
+                                                                   "logical" => {
+                                                                                  "option" => {
+                                                                                                "OFF" => {},
+                                                                                                "ON" => {
+                                                                                                          "default" => true
+                                                                                                        }
+                                                                                              },
+                                                                                  "type" => "option"
+                                                                                },
+                                                                   "physical" => {
+                                                                                   "address" => {
+                                                                                                  "index" => 0
+                                                                                                },
+                                                                                   "interface" => "eeprom",
+                                                                                   "size" => 0.1,
+                                                                                   "type" => "integer"
+                                                                                 }
+                                                                 },
+                                                  "type" => "MASTER"
+                                                },
+                                    "values" => {
+                                                  "parameter" => {
+                                                                   "INHIBIT" => {
+                                                                                  "control" => "NONE",
+                                                                                  "logical" => {
+                                                                                                 "default" => false,
+                                                                                                 "type" => "boolean"
+                                                                                               },
+                                                                                  "loopback" => true,
+                                                                                  "operations" => "read,write,event",
+                                                                                  "physical" => {
+                                                                                                  "interface" => "command",
+                                                                                                  "set" => {
+                                                                                                             "request" => "SET_LOCK"
+                                                                                                           },
+                                                                                                  "type" => "integer",
+                                                                                                  "value_id" => "INHIBIT"
+                                                                                                }
+                                                                                },
+                                                                   "STATE" => {
+                                                                                "control" => "SWITCH.STATE",
+                                                                                "conversion" => {
+                                                                                                  "false" => 0,
+                                                                                                  "threshold" => 1,
+                                                                                                  "true" => 200,
+                                                                                                  "type" => "boolean_integer"
+                                                                                                },
+                                                                                "logical" => {
+                                                                                               "default" => false,
+                                                                                               "type" => "boolean"
+                                                                                             },
+                                                                                "operations" => "read,write,event",
+                                                                                "physical" => {
+                                                                                                "event" => {
+                                                                                                             "frame" => "INFO_LEVEL"
+                                                                                                           },
+                                                                                                "get" => {
+                                                                                                           "request" => "LEVEL_GET",
+                                                                                                           "response" => "INFO_LEVEL"
+                                                                                                         },
+                                                                                                "interface" => "command",
+                                                                                                "set" => {
+                                                                                                           "request" => "LEVEL_SET"
+                                                                                                         },
+                                                                                                "type" => "integer",
+                                                                                                "value_id" => "STATE"
+                                                                                              }
+                                                                              },
+                                                                   "WORKING" => {
+                                                                                  "conversion" => {
+                                                                                                    "type" => "boolean_integer"
+                                                                                                  },
+                                                                                  "logical" => {
+                                                                                                 "default" => false,
+                                                                                                 "type" => "boolean"
+                                                                                               },
+                                                                                  "operations" => "read,event",
+                                                                                  "physical" => {
+                                                                                                  "event" => {
+                                                                                                               1 => {
+                                                                                                                      "frame" => "INFO_LEVEL"
+                                                                                                                    },
+                                                                                                               2 => {
+                                                                                                                      "frame" => "ACK_STATUS"
+                                                                                                                    }
+                                                                                                             },
+                                                                                                  "get" => {
+                                                                                                             "request" => "LEVEL_GET",
+                                                                                                             "response" => "INFO_LEVEL"
+                                                                                                           },
+                                                                                                  "interface" => "command",
+                                                                                                  "type" => "integer",
+                                                                                                  "value_id" => "STATE_FLAGS"
+                                                                                                },
+                                                                                  "ui_flags" => "internal"
+                                                                                }
+                                                                 },
+                                                  "type" => "VALUES"
+                                                }
+                                  },
+                    "physical_index_offset" => -1
+                  }
     },
   }
 );	

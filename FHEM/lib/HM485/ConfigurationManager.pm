@@ -6,6 +6,15 @@ use POSIX qw(ceil);
 
 use Data::Dumper;
 
+=head2 getConfigFromDevice
+	Get config from Device
+	
+	@param	hash
+	@param	int   the channel number
+	
+
+	@return	hash
+=cut
 sub getConfigFromDevice($$) {
 	my ($hash, $chNr) = @_;
 
@@ -13,35 +22,34 @@ sub getConfigFromDevice($$) {
 	my $configHash = getConfigSettings($hash);
 
 	if (ref($configHash) eq 'HASH') {
-
-		my $adressStart = $configHash->{address_start} ? $configHash->{address_start} : 0;
+		my $adressStart = $configHash->{'address_start'} ? $configHash->{'address_start'} : 0;
 
 		foreach my $config (keys %{$configHash}) {
 			my $dataConfig = $configHash->{$config};
 			if (ref($dataConfig) eq 'HASH') {
-				my $type  = $dataConfig->{logical}{type} ? $dataConfig->{logical}{type} : undef;
-				my $unit  = $dataConfig->{logical}{unit} ? $dataConfig->{logical}{unit} : '';
-				my $min   = defined($dataConfig->{logical}{min})  ? $dataConfig->{logical}{min}  : undef;
-				my $max   = defined($dataConfig->{logical}{max})  ? $dataConfig->{logical}{max}  : undef;
+				my $type  = $dataConfig->{'parameter'}{'logical'}{'type'} ? $dataConfig->{'parameter'}{'logical'}{'type'} : undef;
+				my $unit  = $dataConfig->{'parameter'}{'logical'}{'unit'} ? $dataConfig->{'parameter'}{'logical'}{'unit'} : '';
+				my $min   = defined($dataConfig->{'parameter'}{'logical'}{'min'})  ? $dataConfig->{'parameter'}{'logical'}{'min'}  : undef;
+				my $max   = defined($dataConfig->{'parameter'}{'logical'}{'max'})  ? $dataConfig->{'parameter'}{'logical'}{'max'}  : undef;
 
-				$retVal->{$config}{type}  = $type;
-				$retVal->{$config}{unit}  = $unit;
+				$retVal->{$config}{'type'}  = $type;
+				$retVal->{$config}{'unit'}  = $unit;
 
-				$retVal->{$config}{value} = HM485::Device::getValueFromEepromData (
+				$retVal->{$config}{'value'} = HM485::Device::getValueFromEepromData (
 					$hash, $dataConfig, $adressStart
 				);
 
 				### debug	
-				my $adressStep = $configHash->{address_step} ? $configHash->{address_step} : 1;
-				my ($adrId, $size) = HM485::Device::getPhysical(
+				my $adressStep = $configHash->{'address_step'} ? $configHash->{'address_step'} : 1;
+				my ($adrId, $size) = HM485::Device::getPhysicalAdress(
 					$hash, $dataConfig, $adressStart, $adressStep
 				);
 
-				$retVal->{$config}{physical} = $dataConfig->{physical};
-				$retVal->{$config}{physical}{'.adrId'} = $adrId;
-				$retVal->{$config}{physical}{'.size'} = $size;
-				$retVal->{$config}{physical}{'.address_start'} = $adressStart;
-				$retVal->{$config}{physical}{'.address_step'} = $adressStep;
+				$retVal->{$config}{'physical'} = $dataConfig->{'parameter'}{'physical'};
+				$retVal->{$config}{'physical'}{'adrId'} = $adrId;
+				$retVal->{$config}{'physical'}{'size'} = $size;
+				$retVal->{$config}{'physical'}{'address_start'} = $adressStart;
+				$retVal->{$config}{'physical'}{'address_step'} = $adressStep;
 				###
 				
 				if ($type ne 'option') {
@@ -57,12 +65,14 @@ sub getConfigFromDevice($$) {
 	return $retVal;
 }
 
+# Todo: Check if used anymore
 sub optionsToArray($) {
 	my ($optionList) = @_;
 
 	return map {s/ //g; $_; } split(',', $optionList);
 }
 
+# Todo: Check if used anymore
 sub convertOptionToValue($$) {
 	my ($optionList, $option) = @_;
 
@@ -81,6 +91,14 @@ sub convertOptionToValue($$) {
 	return $retVal;
 }
 
+=head2 getConfigSettings
+	Get channel specific config from device config file 
+	
+	@param	hash
+	@param	int   the channel number
+	
+	@return	hash
+=cut
 sub getConfigSettings($) {
 	my ($hash) = @_;
 
@@ -88,49 +106,36 @@ sub getConfigSettings($) {
 	my $devHash = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
 	my $configSettings = {};
 
+	# Todo: Caching for Config
 #	my $configSettings = $devHash->{cache}{configSettings};
 #	print Dumper($configSettings);
 #	if (!$configSettings) {
 		my $name   = $devHash->{NAME};
 		
 		my $deviceKey = HM485::Device::getDeviceKeyFromHash($devHash);
-#		print Dumper($deviceKey, $chNr);
-		if ($deviceKey) {
-			if ($chNr) {
-				my $subtype = HM485::Device::getChannelType($deviceKey, $chNr);
-				$configSettings = HM485::Device::getValueFromDefinitions(
-					$deviceKey . '/channels/' . $subtype .'/params/master/'
-				);
-#				print Dumper("$deviceKey . '/channels/' . $subtype .'/params/master/'");
-			} else {
-				$configSettings = HM485::Device::getValueFromDefinitions(
-					$deviceKey . '/params/master/'
-				);
-			}
+		if ($deviceKey && defined $chNr) {
+			my $chType         = HM485::Device::getChannelType($deviceKey, $chNr);
+			my $configSettings = HM485::Device::getValueFromDefinitions(
+				$deviceKey . '/channels/' . $chType . '/paramset/type:MASTER'
+			);
 
-			$configSettings = getConfigSetting($configSettings);
+			if (ref($configSettings) eq 'HASH') {
+				# delete hidden configs
+				foreach my $config (keys %{$configSettings}) {
+					if (ref($configSettings->{$config}) eq 'HASH' && $configSettings->{$config}{'hidden'}) {
+						delete($configSettings->{$config});
+					}
+				}	
+			}
 		}
+
 #		$devHash->{cache}{configSettings} = $configSettings;
 #	}
 
 	return $configSettings;
 }
 
-sub getConfigSetting($) {
-	my ($configHash) = @_;
-
-	if (ref($configHash) eq 'HASH') {
-		foreach my $config (keys %{$configHash}) {
-
-			if (ref($configHash->{$config}) eq 'HASH' && $configHash->{$config}{hidden}) {
-				delete($configHash->{$config});
-			}
-		}	
-	}
-
-	return $configHash;
-}
-
+# Todo: Check if used anymore
 sub convertSettingsToEepromData($$) {
 	my ($hash, $configData) = @_;
 #	print Dumper($configData);
@@ -143,14 +148,14 @@ sub convertSettingsToEepromData($$) {
 	
 	my $adressOffset = 0;
 	if ($chNr > 0) {
-		my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
-		my $subType = HM485::Device::getChannelType($deviceKey, $chNr);
+		my $deviceKey    = HM485::Device::getDeviceKeyFromHash($hash);
+		my $chType       = HM485::Device::getChannelType($deviceKey, $chNr);
 		my $masterConfig = HM485::Device::getValueFromDefinitions(
-			$deviceKey . '/channels/' . $subType . '/params/master'
+			$deviceKey . '/channels/' . $chType . '/paramset/type:MASTER'
 		);
 
-		$adressStart = $masterConfig->{address_start} ? $masterConfig->{address_start} : 0;
-		$adressStep  = $masterConfig->{address_step}  ? $masterConfig->{address_step}  : 1;
+		$adressStart = $masterConfig->{'address_start'} ? $masterConfig->{'address_start'} : 0;
+		$adressStep  = $masterConfig->{'address_step'}  ? $masterConfig->{'address_step'} : 1;
 		
 		$adressOffset = $adressStart + ($chNr - 1) * $adressStep;
 	}
@@ -158,13 +163,13 @@ sub convertSettingsToEepromData($$) {
 	my $addressData = {};
 	foreach my $config (keys %{$configData}) {
 		my $configHash     = $configData->{$config}{config};
-		my ($adrId, $size, $littleEndian) = HM485::Device::getPhysical(
+		my ($adrId, $size, $littleEndian) = HM485::Device::getPhysicalAdress(
 			$hash, $configHash, $adressStart, $adressStep
 		);
 
 		my $value = $configData->{$config}{value};
 		if ($configData->{$config}{config}{logical}{type} eq 'option') {
-			$value = HM485::ConfigurationManager::convertOptionToValue(
+			$value = convertOptionToValue(
 				$configData->{$config}{config}{logical}{options}, $value
 			);
 		} else {

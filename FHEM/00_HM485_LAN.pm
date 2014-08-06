@@ -140,7 +140,7 @@ sub HM485_LAN_Define($$) {
 	}
 
 	$hash->{msgCounter} = 0;
-	$hash->{STATE} = '';
+	$hash->{STATE} = 'none';
 
 	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday()
 		. '"><script type="text/javascript" charset="UTF-8';

@@ -1,3 +1,7 @@
+package HM485::Devicefile;
+use constant false => 0;
+use constant true => 1;
+
 package HM485::Device;
 
 use strict;
@@ -75,22 +79,23 @@ sub init () {
 	Initialize all loaded models
 =cut
 sub initModels () {
-	foreach my $deviceKey (keys %deviceDefinitions) {
 
-		if ($deviceDefinitions{$deviceKey}{models}) {
-			foreach my $modelKey (keys (%{$deviceDefinitions{$deviceKey}{models}})) {
-				if ($deviceDefinitions{$deviceKey}{models}{$modelKey}{type}) {
-					$models{$modelKey}{model} = $modelKey;
-					$models{$modelKey}{name} = $deviceDefinitions{$deviceKey}{models}{$modelKey}{name};
-					$models{$modelKey}{type} = $deviceDefinitions{$deviceKey}{models}{$modelKey}{type};
+	foreach my $deviceKey (keys %deviceDefinitions) {
+		if ($deviceDefinitions{$deviceKey}{'supported_types'}) {
+			foreach my $modelKey (keys (%{$deviceDefinitions{$deviceKey}{'supported_types'}})) {
+				if ($deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'0'}{'const_value'}) {
+					$models{$modelKey}{'model'} = $modelKey;
+					$models{$modelKey}{'name'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'name'};
+					$models{$modelKey}{'type'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'0'}{'const_value'};
 					
-					my $minFW = $deviceDefinitions{$deviceKey}{models}{$modelKey}{minFW_version};
+					my $minFW = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'2'}{'const_value'};
 					$minFW = $minFW ? $minFW : 0;
-					$models{$modelKey}{versionDeviceKey}{$minFW} = $deviceKey; 
+					$models{$modelKey}{'versionDeviceKey'}{$minFW} = $deviceKey; 
 				}
 			}
 		}
 	}
+#	my $t = getModelName(getModelFromType(91));
 }
 
 =head2
@@ -100,21 +105,19 @@ sub getDeviceKeyFromHash($) {
 	my ($hash) = @_;
 
 	my $retVal = '';
-	if ($hash->{MODEL}) {
-		my $model    = $hash->{MODEL};
-		my $fw  = $hash->{FW_VERSION} ? $hash->{FW_VERSION} : 0;
+	if ($hash->{'MODEL'}) {
+		my $model    = $hash->{'MODEL'};
+		my $fw  = $hash->{'FW_VERSION'} ? $hash->{'FW_VERSION'} : 0;
 		my $fw1 = $fw ? int($fw) : 0;
 		my $fw2 = ($fw * 100) - int($fw) * 100;
 
-		my $fwVersion = hex(sprintf (
-			'%02X%02X',
-			($fw1 ? $fw1 : 0),
-			($fw2 ? $fw2 : 0)
-		));
-		
-		foreach my $version (keys (%{$models{$model}{versionDeviceKey}})) {
+		my $fwVersion = hex(
+			sprintf ('%02X%02X', ($fw1 ? $fw1 : 0), ($fw2 ? $fw2 : 0))
+		);
+
+		foreach my $version (keys (%{$models{$model}{'versionDeviceKey'}})) {
 			if ($version <= $fwVersion) {
-				$retVal = $models{$model}{versionDeviceKey}{$version};
+				$retVal = $models{$model}{'versionDeviceKey'}{$version};
 			} else {
 				last;
 			}
@@ -124,12 +127,6 @@ sub getDeviceKeyFromHash($) {
 	return $retVal;
 }
 
-
-
-
-
-### we should rework below this ###
-
 =head2
 	Get the model from numeric hardware type
 	
@@ -138,10 +135,10 @@ sub getDeviceKeyFromHash($) {
 =cut
 sub getModelFromType($) {
 	my ($hwType) = @_;
-
 	my $retVal = undef;
+
 	foreach my $model (keys (%models)) {
-		if (exists($models{$model}{type}) && $models{$model}{type} == $hwType) {
+		if (exists($models{$model}{'type'}) && $models{$model}{'type'} == $hwType) {
 			$retVal = $model;
 			last;
 		}
@@ -151,16 +148,15 @@ sub getModelFromType($) {
 }
 
 =head2 getModelName
-	Title		: getModelName
-	Usage		: my $modelName = getModelName();
-	Function	: Get the model name from $models hash
-	Returns 	: string
-	Args 		: nothing
+	Get the model name from model type
+	
+	@param	string   the model type e.g. HMW_IO_12_Sw7_DR
+	@return	string   the model name
 =cut
 sub getModelName($) {
 	my ($hwType) = @_;
-	
-	my $retVal = $hwType;
+	my $retVal = 'unknown';
+
 	if (defined($models{$hwType}{'name'})) {
 		$retVal = $models{$hwType}{'name'};
 	}
@@ -169,15 +165,12 @@ sub getModelName($) {
 }
 
 =head2 getModelList
-	Title		: getModelList
-	Usage		: my $modelList = getModelList();
-	Function	: Get a list of models from $models hash
-	Returns 	: string
-	Args 		: nothing
+	Get a list of models from $models hash
+
+	@return	string   list of models
 =cut
 sub getModelList() {
 	my @modelList;
-	
 	foreach my $type (keys %models) {
 		if ($models{$type}{'model'}) {
 			push (@modelList, $models{$type}{'model'});
@@ -187,23 +180,32 @@ sub getModelList() {
 	return join(',', @modelList);
 }
 
+=head2 getChannelBehaviour
+	Get the behavior of a chanel from eeprom, if the channel support this
+
+	@param	hash
+
+	@return	array   array of behavior values
+=cut
 sub getChannelBehaviour($) {
 	my ($hash) = @_;
-
 	my $retVal = undef;
 	
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
-	if ($chNr) {
-		my $deviceKey     = getDeviceKeyFromHash($hash);
-		my $chType        = getChannelType($deviceKey, $chNr);
-		if ($deviceKey && $chType) {
+	if (defined($chNr)) {
+		my $deviceKey = getDeviceKeyFromHash($hash);
 
+		if ($deviceKey) {
+			my $chType         = HM485::Device::getChannelType($deviceKey, $chNr);
 			my $channelConfig  = getValueFromDefinitions(
-				$deviceKey . '/channels/' . $chType .'/'
+				$deviceKey . '/channels/' . $chType
 			);
+			
+			if ($channelConfig->{'special_parameter'}{'id'} &&
+			   ($channelConfig->{'special_parameter'}{'id'} eq 'BEHAVIOUR') &&
+			   $channelConfig->{'special_parameter'}{'physical'}{'address'}{'index'}) {
 
-			if ($channelConfig->{special_param}{behaviour}{physical}{address_id}) {
 				my $chConfig = HM485::ConfigurationManager::getConfigFromDevice(
 					$hash, $chNr
 				);
@@ -219,8 +221,13 @@ sub getChannelBehaviour($) {
 			}
 		}
 	}
+	
 	return $retVal;
 }
+
+
+
+### we should rework below this ###
 
 
 =head2 getHwTypeList
@@ -234,23 +241,46 @@ sub getHwTypeList() {
 	return join(',', sort keys %models);
 }
 
+=head2 getValueFromDefinitions
+	Get values from definition hash by given path.
+	The path is seperated by "/". E.g.: 'HMW_IO12_SW7_DR/channels/KEY'
+	
+	Spechial path segment can be "key:value". So we can select a hash contains a
+	key and match the value. E.g. 'HMW_IO12_SW7_DR/channels/KEY/paramset/type:MASTER'
+	
+	@param	string	$path
+	
+	@return	mixed
+=cut
 sub getValueFromDefinitions ($) {
 	my ($path) = @_;
 	my $retVal = undef;
 	my @pathParts = split('/', $path);
-	
 	my %definitionPart = %deviceDefinitions;
+
 	my $found = 1;
 	foreach my $part (@pathParts) {
-		if (ref($definitionPart{$part}) eq 'HASH') {
-			%definitionPart = %{$definitionPart{$part}};
-		} else {
-			if ($definitionPart{$part}) {
-				$retVal = $definitionPart{$part};
+
+		my ($subkey, $compare) = split(':', $part);
+		if (defined($subkey) && defined($compare)) {
+			$part = HM485::Util::getHashKeyBySubkey({%definitionPart}, $subkey, $compare);
+		}
+
+		if (defined($part)) {
+			if (ref($definitionPart{$part}) eq 'HASH') {
+				%definitionPart = %{$definitionPart{$part}};
+				
 			} else {
-				$retVal = undef;
-				$found = 0;			
+				if ($definitionPart{$part}) {
+					$retVal = $definitionPart{$part};
+				} else {
+					$retVal = undef;
+					$found = 0;			
+				}
+				last;
 			}
+		} else {
+			$found = 0;
 			last;
 		}
 	}
@@ -262,6 +292,14 @@ sub getValueFromDefinitions ($) {
 	return $retVal
 }
 
+=head2 getChannelType
+	Get a type of a given channel number
+	
+	@param	string   the device key
+	@param	int      the channel number
+	
+	@return	string   the channel type
+=cut
 sub getChannelType($$) {
 	my ($deviceKey, $chNo) = @_;
 	$chNo = int($chNo);
@@ -270,11 +308,11 @@ sub getChannelType($$) {
 
 	my $channels = getValueFromDefinitions($deviceKey . '/channels/');
 	my @chArray  = getChannelsByModelgroup($deviceKey);
+
 	foreach my $channel (@chArray) {
-		my $chStart = int($channels->{$channel}{id});
-		my $chCount = int($channels->{$channel}{count});
-		if (($chNo == 0 && $chStart == 0) ||
-		    ($chNo >= $chStart && $chNo < ($chStart + $chCount) && $chStart > 0)) {
+		my $chStart = int($channels->{$channel}{'index'});
+		my $chCount = int($channels->{$channel}{'count'});
+		if (($chNo == 0 && $chStart == 0) || ($chNo >= $chStart && $chNo < ($chStart + $chCount) && $chStart > 0)) {
 
 			$retVal = $channel;
 			last;
@@ -352,7 +390,7 @@ sub getValueFromEepromData($$$;$) {
 	$wholeByte = $wholeByte ? 1 : 0;
 
 	my $adressStep = $configHash->{address_step} ? $configHash->{address_step}  : 1;
-	my ($adrId, $size, $littleEndian) = getPhysical($hash, $configHash, $adressStart, $adressStep);
+	my ($adrId, $size, $littleEndian) = getPhysicalAdress($hash, $configHash, $adressStart, $adressStep);
 
 	my $retVal = '';
 	if (defined($adrId)) {
@@ -384,18 +422,18 @@ sub getValueFromEepromData($$$;$) {
 	return $retVal;
 }
 
-sub getPhysical($$$$) {
+sub getPhysicalAdress($$$$) {
 	my ($hash, $configHash, $adressStart, $adressStep) = @_;
 	
-	my $adrId      = 0;
-	my $size       = 0;
+	my $adrId = 0;
+	my $size  = 0;
 
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
-	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($hash);
-	my $chType        = HM485::Device::getChannelType($deviceKey, $chNr);
-	my $chConfig       = HM485::Device::getValueFromDefinitions(
-		$deviceKey . '/channels/' . $chType .'/'
+	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
+	my $chType         = HM485::Device::getChannelType($deviceKey, $chNr);
+	my $chConfig  = getValueFromDefinitions(
+		$deviceKey . '/channels/:type' . $chType
 	);
 	my $chId = $chNr - $chConfig->{id};
 
@@ -864,6 +902,8 @@ sub setRawEEpromData($$$$) {
 =head2
 	Walk thru device definition and found all eeprom related values
 	
+	Todo: Maybe we don't need the function. We should ask the device for used eeprom space
+	
 	@param	hash    the whole config for thie device
 	@param	hash    holds the the eeprom adresses with length
 	@param	hash    spechial params passed while recursion for getEEpromData
@@ -875,6 +915,8 @@ sub parseForEepromData($;$$) {
 
 	$adrHash = $adrHash ? $adrHash : {};
 	$params  = $params ? $params : {};
+	
+	print Dumper($configHash->{'frames'}->{'INFO_LEVEL'}->{'event'});die;
 	
 	# first we must collect all values only, hahes was pushed to hash array
 	my @hashArray = ();
@@ -891,14 +933,19 @@ sub parseForEepromData($;$$) {
 	# now we parse the hashes
 	foreach my $param (@hashArray) {
 		my $p = $configHash->{$param};
-		if ($p->{physical} && $p->{physical}{interface} && $p->{physical}{interface} eq 'eeprom') {
+
+		# Todo: Processing Array of hashes (type array) 
+
+		if ((ref ($p->{physical}) eq 'HASH') && $p->{physical} && $p->{physical}{interface} && ($p->{physical}{interface} eq 'eeprom') ) {
 			my $result = getEEpromData($p, $params);
 			@{$adrHash}{keys %$result} = values %$result;
+
 		} else {
+			print Dumper('++++');
 			$adrHash = parseForEepromData($p, $adrHash, {%$params});
 		}
 	}
-	
+
 	return $adrHash;
 }
 
@@ -918,7 +965,8 @@ sub getEEpromData($$) {
 	
 	if ($params->{address_start} && $params->{address_step}) {
 		my $adrStart  = $params->{address_start} ? $params->{address_start} : 0; 
-		my $adrStep   = $params->{address_step} ? $params->{address_step} : 1; 
+		my $adrStep   = $params->{address_step} ? $params->{address_step} : 1;
+		
 		$adrStart = sprintf ('%04d' , $adrStart);
 		$retVal->{$adrStart} = $adrStep * $count;
 
@@ -959,9 +1007,10 @@ sub isNumber($) {
 
 sub isInt($) {
 	my ($value) = @_;
-	$value = (looks_like_number($value)) ? $value : 0;
 	
+	$value = (looks_like_number($value)) ? $value : 0;
 	my $retVal = ($value == int($value)) ? 1 : 0;
+	
 	return $retVal;
 }
 

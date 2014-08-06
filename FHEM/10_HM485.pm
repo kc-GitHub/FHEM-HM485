@@ -727,12 +727,15 @@ sub HM485_SetChannelState($$$) {
 	my $values;
 	my $channelBehaviour = HM485::Device::getChannelBehaviour($hash);
 	my $valuePrafix = $channelBehaviour ? '.' . $channelBehaviour : '';
+print Dumper($valuePrafix);
 	$values = HM485::Device::getValueFromDefinitions(
 		$deviceKey . '/channels/' . $chType .'/params/values' . $valuePrafix . '/'
 	);
 
 	my $frameData;
 #	my $frameType = $valueHash->{physical}{set}{request};
+
+#		print Dumper($deviceKey . '/channels/' . $chType .'/params/values' . $valuePrafix . '/');
 
 	foreach my $valueKey (keys %{$values}) {
 		if ($valueKey eq 'state' || $valueKey eq 'level' || $valueKey eq 'frequency') {

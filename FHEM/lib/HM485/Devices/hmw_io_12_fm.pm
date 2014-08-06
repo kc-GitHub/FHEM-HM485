@@ -1,28 +1,23 @@
 package HM485::Devicefile;
 our %definition = (
-  'HMW_IO_4_FM' => {
-    'version' =>     11,
+  'HMW_IO_12_FM' => {
+    'version' =>     7,
     'eep_size' =>     1024,
     'supported_types' =>     {
-      "HMW_IO_4_FM" => {
-                         "name" => "RS485 I/O module 4-channel (flush-mount)",
-                         "parameter" => {
-                                          0 => {
-                                                 "const_value" => 16,
-                                                 "size" => 1
-                                               },
-                                          1 => {
-                                                 "const_value" => 0,
-                                                 "size" => 1
-                                               },
-                                          2 => {
-                                                 "cond_op" => "GE",
-                                                 "const_value" => 0x0303,
-                                                 "size" => 2
-                                               }
-                                        },
-                         "priority" => 2
-                       }
+      "HMW_IO_12_FM" => {
+                          "name" => "RS485 I/O module 12-channel (flush-mount)",
+                          "parameter" => {
+                                           0 => {
+                                                  "const_value" => 27,
+                                                  "size" => 1
+                                                },
+                                           1 => {
+                                                  "const_value" => 0,
+                                                  "size" => 1
+                                                }
+                                         },
+                          "priority" => 2
+                        }
     },
     'paramset' =>     {
       "enforce" => {
@@ -33,7 +28,7 @@ our %definition = (
                                                    "value" => true
                                                  }
                    },
-      "id" => "HMW-IO-4-FM_dev_master",
+      "id" => "HMW-IO-12-FM_dev_master",
       "parameter" => {
                        "CENTRAL_ADDRESS" => {
                                               "hidden" => true,
@@ -221,7 +216,7 @@ our %definition = (
     },
     'channels' =>     {
       "INPUT_OUTPUT" => {
-                          "count" => 4,
+                          "count" => 12,
                           "index" => 1,
                           "link_roles" => {
                                             "source" => {
@@ -230,10 +225,10 @@ our %definition = (
                                           },
                           "paramset" => {
                                           "link" => {
-                                                      "address_start" => 0x360,
+                                                      "address_start" => 0x349,
                                                       "address_step" => 6,
                                                       "channel_offset" => 0,
-                                                      "count" => 26,
+                                                      "count" => 30,
                                                       "peer_address_offset" => 1,
                                                       "peer_address_size" => 4.0,
                                                       "peer_channel_offset" => 5,
@@ -241,7 +236,7 @@ our %definition = (
                                                       "type" => "LINK"
                                                     },
                                           "master" => {
-                                                        "address_start" => 0x08,
+                                                        "address_start" => 9,
                                                         "address_step" => 2,
                                                         "parameter" => {
                                                                          "BEHAVIOUR" => {
@@ -431,7 +426,7 @@ our %definition = (
                                                            },
                                            "paramset" => {
                                                            "hmw_io_ch_master" => {
-                                                                                   "address_start" => 0x10,
+                                                                                   "address_start" => 33,
                                                                                    "address_step" => 2,
                                                                                    "parameter" => {
                                                                                                     "BEHAVIOUR" => {
@@ -474,10 +469,10 @@ our %definition = (
                                                                                    "type" => "MASTER"
                                                                                  },
                                                            "hmw_switch_ch_link" => {
-                                                                                     "address_start" => 0x18,
+                                                                                     "address_start" => 0x39,
                                                                                      "address_step" => 28,
                                                                                      "channel_param" => "CHANNEL",
-                                                                                     "count" => 30,
+                                                                                     "count" => 28,
                                                                                      "parameter" => {
                                                                                                       "CHANNEL" => {
                                                                                                                      "hidden" => true,

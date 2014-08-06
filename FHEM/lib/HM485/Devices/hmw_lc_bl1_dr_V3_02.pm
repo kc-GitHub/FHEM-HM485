@@ -1,7 +1,7 @@
 package HM485::Devicefile;
 our %definition = (
-  'HMW_LC_BL1_DR' => {
-    'version' =>     14,
+  'HMW_LC_BL1_DR_V3_02' => {
+    'version' =>     8,
     'eep_size' =>     1024,
     'supported_types' =>     {
       "HMW_LC_Bl1_DR" => {
@@ -16,8 +16,7 @@ our %definition = (
                                                    "size" => 1
                                                  },
                                             2 => {
-                                                   "cond_op" => "GE",
-                                                   "const_value" => 0x0303,
+                                                   "const_value" => 0x0302,
                                                    "size" => 2
                                                  }
                                           },
@@ -73,7 +72,7 @@ our %definition = (
                                            "logical" => {
                                                           "default" => 2.0,
                                                           "max" => 25.5,
-                                                          "min" => 0.1,
+                                                          "min" => 0.0,
                                                           "type" => "float",
                                                           "unit" => "s"
                                                         },
@@ -217,18 +216,7 @@ our %definition = (
                                    "type" => "integer"
                                  },
                   "type" => 0x78
-                },
-      "TOGGLE_INSTALL_TEST" => {
-                                 "channel_field" => 10,
-                                 "direction" => "to_device",
-                                 "parameter" => {
-                                                  "index" => 11.0,
-                                                  "param" => "TOGGLE_FLAG",
-                                                  "size" => 1.0,
-                                                  "type" => "integer"
-                                                },
-                                 "type" => 0x78
-                               }
+                }
     },
     'channels' =>     {
       "BLIND" => {
@@ -433,26 +421,6 @@ our %definition = (
                                                                                                  "value_id" => "INHIBIT"
                                                                                                }
                                                                                },
-                                                                  "INSTALL_TEST" => {
-                                                                                      "conversion" => {
-                                                                                                        "type" => "blind_test",
-                                                                                                        "value" => 201
-                                                                                                      },
-                                                                                      "logical" => {
-                                                                                                     "type" => "action"
-                                                                                                   },
-                                                                                      "operations" => "write",
-                                                                                      "physical" => {
-                                                                                                      "interface" => "command",
-                                                                                                      "no_init" => true,
-                                                                                                      "set" => {
-                                                                                                                 "request" => "TOGGLE_INSTALL_TEST"
-                                                                                                               },
-                                                                                                      "type" => "integer",
-                                                                                                      "value_id" => "TOGGLE_FLAG"
-                                                                                                    },
-                                                                                      "ui_flags" => "internal"
-                                                                                    },
                                                                   "LEVEL" => {
                                                                                "control" => "BLIND.LEVEL",
                                                                                "conversion" => {
@@ -621,63 +589,43 @@ our %definition = (
                                                                                                   "type" => "integer"
                                                                                                 }
                                                                                 },
-                                                                "LONGPRESS_TIME" => {
-                                                                                      "conversion" => {
-                                                                                                        1 => {
-                                                                                                               "factor" => 10,
-                                                                                                               "type" => "float_integer_scale"
-                                                                                                             },
-                                                                                                        2 => {
-                                                                                                               "type" => "integer_integer_map",
-                                                                                                               "value_map" => {
-                                                                                                                                "device_value" => 0xff,
-                                                                                                                                "from_device" => true,
-                                                                                                                                "parameter_value" => 10,
-                                                                                                                                "to_device" => false
-                                                                                                                              }
-                                                                                                             }
-                                                                                                      },
-                                                                                      "logical" => {
-                                                                                                     "default" => 1.0,
-                                                                                                     "max" => 5.0,
-                                                                                                     "min" => 0.4,
-                                                                                                     "type" => "float",
-                                                                                                     "unit" => "s"
-                                                                                                   },
-                                                                                      "physical" => {
-                                                                                                      "address" => {
-                                                                                                                     "index" => 1.0
-                                                                                                                   },
-                                                                                                      "interface" => "eeprom",
-                                                                                                      "size" => 1.0,
-                                                                                                      "type" => "integer"
-                                                                                                    }
-                                                                                    }
+                                                                "LONG_PRESS_TIME" => {
+                                                                                       "conversion" => {
+                                                                                                         1 => {
+                                                                                                                "factor" => 10,
+                                                                                                                "type" => "float_integer_scale"
+                                                                                                              },
+                                                                                                         2 => {
+                                                                                                                "type" => "integer_integer_map",
+                                                                                                                "value_map" => {
+                                                                                                                                 "device_value" => 0xff,
+                                                                                                                                 "from_device" => true,
+                                                                                                                                 "parameter_value" => 10,
+                                                                                                                                 "to_device" => false
+                                                                                                                               }
+                                                                                                              }
+                                                                                                       },
+                                                                                       "logical" => {
+                                                                                                      "default" => 1.0,
+                                                                                                      "max" => 5.0,
+                                                                                                      "min" => 0.4,
+                                                                                                      "type" => "float",
+                                                                                                      "unit" => "s"
+                                                                                                    },
+                                                                                       "physical" => {
+                                                                                                       "address" => {
+                                                                                                                      "index" => 1.0
+                                                                                                                    },
+                                                                                                       "interface" => "eeprom",
+                                                                                                       "size" => 1.0,
+                                                                                                       "type" => "integer"
+                                                                                                     }
+                                                                                     }
                                                               },
                                                "type" => "MASTER"
                                              },
                                  "values" => {
                                                "parameter" => {
-                                                                "INSTALL_TEST" => {
-                                                                                    "logical" => {
-                                                                                                   "type" => "action"
-                                                                                                 },
-                                                                                    "operations" => "event",
-                                                                                    "physical" => {
-                                                                                                    "event" => {
-                                                                                                                 1 => {
-                                                                                                                        "frame" => "KEY_EVENT_SHORT"
-                                                                                                                      },
-                                                                                                                 2 => {
-                                                                                                                        "frame" => "KEY_EVENT_LONG"
-                                                                                                                      }
-                                                                                                               },
-                                                                                                    "interface" => "command",
-                                                                                                    "type" => "integer",
-                                                                                                    "value_id" => "TEST_COUNTER"
-                                                                                                  },
-                                                                                    "ui_flags" => "internal"
-                                                                                  },
                                                                 "PRESS_LONG" => {
                                                                                   "control" => "BUTTON.LONG",
                                                                                   "conversion" => {
@@ -689,7 +637,7 @@ our %definition = (
                                                                                                  "type" => "action"
                                                                                                },
                                                                                   "loopback" => true,
-                                                                                  "operations" => "event,write",
+                                                                                  "operations" => "event,read,write",
                                                                                   "physical" => {
                                                                                                   "event" => {
                                                                                                                "frame" => "KEY_EVENT_LONG"
@@ -713,7 +661,7 @@ our %definition = (
                                                                                                   "type" => "action"
                                                                                                 },
                                                                                    "loopback" => true,
-                                                                                   "operations" => "event,write",
+                                                                                   "operations" => "event,read,write",
                                                                                    "physical" => {
                                                                                                    "event" => {
                                                                                                                 "frame" => "KEY_EVENT_SHORT"
