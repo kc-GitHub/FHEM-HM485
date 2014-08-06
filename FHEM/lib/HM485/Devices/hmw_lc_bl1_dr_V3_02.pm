@@ -231,12 +231,1141 @@ our %definition = (
                                    "link" => {
                                                "address_start" => 0x12,
                                                "address_step" => 38,
-                                               "channel_offset" => 5,
+                                               "channel_param" => "CHANNEL",
                                                "count" => 22,
-                                               "peer_address_offset" => 0,
-                                               "peer_address_size" => 4.0,
-                                               "peer_channel_offset" => 4,
-                                               "peer_channel_size" => 1.0,
+                                               "parameter" => {
+                                                                "CHANNEL" => {
+                                                                               "hidden" => true,
+                                                                               "logical" => {
+                                                                                              "default" => 255,
+                                                                                              "max" => 255,
+                                                                                              "min" => 0,
+                                                                                              "type" => "integer"
+                                                                                            },
+                                                                               "operations" => "none",
+                                                                               "physical" => {
+                                                                                               "address" => {
+                                                                                                              "index" => 5
+                                                                                                            },
+                                                                                               "interface" => "eeprom",
+                                                                                               "size" => 1.0,
+                                                                                               "type" => "integer"
+                                                                                             }
+                                                                             },
+                                                                "LONG_ACTION_TYPE" => {
+                                                                                        "logical" => {
+                                                                                                       "option" => {
+                                                                                                                     "ACTIVE" => {
+                                                                                                                                   "default" => true
+                                                                                                                                 },
+                                                                                                                     "INACTIVE" => {}
+                                                                                                                   },
+                                                                                                       "type" => "option"
+                                                                                                     },
+                                                                                        "physical" => {
+                                                                                                        "address" => {
+                                                                                                                       "index" => 7.0
+                                                                                                                     },
+                                                                                                        "interface" => "eeprom",
+                                                                                                        "size" => 0.1,
+                                                                                                        "type" => "integer"
+                                                                                                      }
+                                                                                      },
+                                                                "LONG_DRIVING_MODE" => {
+                                                                                         "logical" => {
+                                                                                                        "option" => {
+                                                                                                                      "DRIVE_DIRECTLY" => {
+                                                                                                                                            "default" => true
+                                                                                                                                          },
+                                                                                                                      "DRIVE_VIA_LOWER_END_POSITION" => {},
+                                                                                                                      "DRIVE_VIA_NEXT_END_POSITION" => {},
+                                                                                                                      "DRIVE_VIA_UPPER_END_POSITION" => {}
+                                                                                                                    },
+                                                                                                        "type" => "option"
+                                                                                                      },
+                                                                                         "physical" => {
+                                                                                                         "address" => {
+                                                                                                                        "index" => 7.4
+                                                                                                                      },
+                                                                                                         "interface" => "eeprom",
+                                                                                                         "size" => 0.2,
+                                                                                                         "type" => "integer"
+                                                                                                       }
+                                                                                       },
+                                                                "LONG_JT_OFF" => {
+                                                                                   "logical" => {
+                                                                                                  "option" => {
+                                                                                                                "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                "OFF" => {},
+                                                                                                                "OFFDELAY" => {},
+                                                                                                                "ON" => {},
+                                                                                                                "ONDELAY" => {
+                                                                                                                               "default" => true
+                                                                                                                             },
+                                                                                                                "RAMPOFF" => {},
+                                                                                                                "RAMPON" => {},
+                                                                                                                "REFOFF" => {},
+                                                                                                                "REFON" => {}
+                                                                                                              },
+                                                                                                  "type" => "option"
+                                                                                                },
+                                                                                   "physical" => {
+                                                                                                   "address" => {
+                                                                                                                  "index" => 37.4
+                                                                                                                },
+                                                                                                   "endian" => "little",
+                                                                                                   "interface" => "eeprom",
+                                                                                                   "read_size" => 1,
+                                                                                                   "size" => 0.4,
+                                                                                                   "type" => "integer"
+                                                                                                 }
+                                                                                 },
+                                                                "LONG_JT_OFFDELAY" => {
+                                                                                        "logical" => {
+                                                                                                       "option" => {
+                                                                                                                     "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                     "OFF" => {},
+                                                                                                                     "OFFDELAY" => {},
+                                                                                                                     "ON" => {},
+                                                                                                                     "ONDELAY" => {},
+                                                                                                                     "RAMPOFF" => {},
+                                                                                                                     "RAMPON" => {},
+                                                                                                                     "REFOFF" => {
+                                                                                                                                   "default" => true
+                                                                                                                                 },
+                                                                                                                     "REFON" => {}
+                                                                                                                   },
+                                                                                                       "type" => "option"
+                                                                                                     },
+                                                                                        "physical" => {
+                                                                                                        "address" => {
+                                                                                                                       "index" => 36.0
+                                                                                                                     },
+                                                                                                        "endian" => "little",
+                                                                                                        "interface" => "eeprom",
+                                                                                                        "read_size" => 1,
+                                                                                                        "size" => 0.4,
+                                                                                                        "type" => "integer"
+                                                                                                      }
+                                                                                      },
+                                                                "LONG_JT_ON" => {
+                                                                                  "logical" => {
+                                                                                                 "option" => {
+                                                                                                               "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                               "OFF" => {},
+                                                                                                               "OFFDELAY" => {
+                                                                                                                               "default" => true
+                                                                                                                             },
+                                                                                                               "ON" => {},
+                                                                                                               "ONDELAY" => {},
+                                                                                                               "RAMPOFF" => {},
+                                                                                                               "RAMPON" => {},
+                                                                                                               "REFOFF" => {},
+                                                                                                               "REFON" => {}
+                                                                                                             },
+                                                                                                 "type" => "option"
+                                                                                               },
+                                                                                  "physical" => {
+                                                                                                  "address" => {
+                                                                                                                 "index" => 35.4
+                                                                                                               },
+                                                                                                  "endian" => "little",
+                                                                                                  "interface" => "eeprom",
+                                                                                                  "read_size" => 1,
+                                                                                                  "size" => 0.4,
+                                                                                                  "type" => "integer"
+                                                                                                }
+                                                                                },
+                                                                "LONG_JT_ONDELAY" => {
+                                                                                       "logical" => {
+                                                                                                      "option" => {
+                                                                                                                    "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                    "OFF" => {},
+                                                                                                                    "OFFDELAY" => {},
+                                                                                                                    "ON" => {},
+                                                                                                                    "ONDELAY" => {},
+                                                                                                                    "RAMPOFF" => {},
+                                                                                                                    "RAMPON" => {},
+                                                                                                                    "REFOFF" => {},
+                                                                                                                    "REFON" => {
+                                                                                                                                 "default" => true
+                                                                                                                               }
+                                                                                                                  },
+                                                                                                      "type" => "option"
+                                                                                                    },
+                                                                                       "physical" => {
+                                                                                                       "address" => {
+                                                                                                                      "index" => 34.0
+                                                                                                                    },
+                                                                                                       "endian" => "little",
+                                                                                                       "interface" => "eeprom",
+                                                                                                       "read_size" => 1,
+                                                                                                       "size" => 0.4,
+                                                                                                       "type" => "integer"
+                                                                                                     }
+                                                                                     },
+                                                                "LONG_JT_RAMPOFF" => {
+                                                                                       "logical" => {
+                                                                                                      "option" => {
+                                                                                                                    "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                    "OFF" => {
+                                                                                                                               "default" => true
+                                                                                                                             },
+                                                                                                                    "OFFDELAY" => {},
+                                                                                                                    "ON" => {},
+                                                                                                                    "ONDELAY" => {},
+                                                                                                                    "RAMPOFF" => {},
+                                                                                                                    "RAMPON" => {},
+                                                                                                                    "REFOFF" => {},
+                                                                                                                    "REFON" => {}
+                                                                                                                  },
+                                                                                                      "type" => "option"
+                                                                                                    },
+                                                                                       "physical" => {
+                                                                                                       "address" => {
+                                                                                                                      "index" => 37.0
+                                                                                                                    },
+                                                                                                       "endian" => "little",
+                                                                                                       "interface" => "eeprom",
+                                                                                                       "read_size" => 1,
+                                                                                                       "size" => 0.4,
+                                                                                                       "type" => "integer"
+                                                                                                     }
+                                                                                     },
+                                                                "LONG_JT_RAMPON" => {
+                                                                                      "logical" => {
+                                                                                                     "option" => {
+                                                                                                                   "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                   "OFF" => {},
+                                                                                                                   "OFFDELAY" => {},
+                                                                                                                   "ON" => {
+                                                                                                                             "default" => true
+                                                                                                                           },
+                                                                                                                   "ONDELAY" => {},
+                                                                                                                   "RAMPOFF" => {},
+                                                                                                                   "RAMPON" => {},
+                                                                                                                   "REFOFF" => {},
+                                                                                                                   "REFON" => {}
+                                                                                                                 },
+                                                                                                     "type" => "option"
+                                                                                                   },
+                                                                                      "physical" => {
+                                                                                                      "address" => {
+                                                                                                                     "index" => 35.0
+                                                                                                                   },
+                                                                                                      "endian" => "little",
+                                                                                                      "interface" => "eeprom",
+                                                                                                      "read_size" => 1,
+                                                                                                      "size" => 0.4,
+                                                                                                      "type" => "integer"
+                                                                                                    }
+                                                                                    },
+                                                                "LONG_JT_REFOFF" => {
+                                                                                      "logical" => {
+                                                                                                     "option" => {
+                                                                                                                   "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                   "OFF" => {
+                                                                                                                              "default" => true
+                                                                                                                            },
+                                                                                                                   "OFFDELAY" => {},
+                                                                                                                   "ON" => {},
+                                                                                                                   "ONDELAY" => {},
+                                                                                                                   "RAMPOFF" => {},
+                                                                                                                   "RAMPON" => {},
+                                                                                                                   "REFOFF" => {},
+                                                                                                                   "REFON" => {}
+                                                                                                                 },
+                                                                                                     "type" => "option"
+                                                                                                   },
+                                                                                      "physical" => {
+                                                                                                      "address" => {
+                                                                                                                     "index" => 36.4
+                                                                                                                   },
+                                                                                                      "endian" => "little",
+                                                                                                      "interface" => "eeprom",
+                                                                                                      "read_size" => 1,
+                                                                                                      "size" => 0.4,
+                                                                                                      "type" => "integer"
+                                                                                                    }
+                                                                                    },
+                                                                "LONG_JT_REFON" => {
+                                                                                     "logical" => {
+                                                                                                    "option" => {
+                                                                                                                  "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                  "OFF" => {},
+                                                                                                                  "OFFDELAY" => {},
+                                                                                                                  "ON" => {
+                                                                                                                            "default" => true
+                                                                                                                          },
+                                                                                                                  "ONDELAY" => {},
+                                                                                                                  "RAMPOFF" => {},
+                                                                                                                  "RAMPON" => {},
+                                                                                                                  "REFOFF" => {},
+                                                                                                                  "REFON" => {}
+                                                                                                                },
+                                                                                                    "type" => "option"
+                                                                                                  },
+                                                                                     "physical" => {
+                                                                                                     "address" => {
+                                                                                                                    "index" => 34.4
+                                                                                                                  },
+                                                                                                     "endian" => "little",
+                                                                                                     "interface" => "eeprom",
+                                                                                                     "read_size" => 1,
+                                                                                                     "size" => 0.4,
+                                                                                                     "type" => "integer"
+                                                                                                   }
+                                                                                   },
+                                                                "LONG_MAX_TIME_FIRST_DIR" => {
+                                                                                               "conversion" => {
+                                                                                                                 "factor" => 10,
+                                                                                                                 "offset" => 0.0,
+                                                                                                                 "type" => "float_integer_scale"
+                                                                                                               },
+                                                                                               "logical" => {
+                                                                                                              "default" => 0.5,
+                                                                                                              "max" => 25.4,
+                                                                                                              "min" => 0.0,
+                                                                                                              "special_value" => {
+                                                                                                                                   "id" => "NOT_USED",
+                                                                                                                                   "value" => 25.5
+                                                                                                                                 },
+                                                                                                              "type" => "float",
+                                                                                                              "unit" => "s"
+                                                                                                            },
+                                                                                               "physical" => {
+                                                                                                               "address" => {
+                                                                                                                              "index" => 33
+                                                                                                                            },
+                                                                                                               "endian" => "little",
+                                                                                                               "interface" => "eeprom",
+                                                                                                               "size" => 1.0,
+                                                                                                               "type" => "integer"
+                                                                                                             }
+                                                                                             },
+                                                                "LONG_MULTIEXECUTE" => {
+                                                                                         "logical" => {
+                                                                                                        "default" => true,
+                                                                                                        "type" => "boolean"
+                                                                                                      },
+                                                                                         "physical" => {
+                                                                                                         "address" => {
+                                                                                                                        "index" => 7.2
+                                                                                                                      },
+                                                                                                         "interface" => "eeprom",
+                                                                                                         "size" => 0.1,
+                                                                                                         "type" => "integer"
+                                                                                                       }
+                                                                                       },
+                                                                "LONG_OFFDELAY_TIME" => {
+                                                                                          "conversion" => {
+                                                                                                            1 => {
+                                                                                                                   "factors" => "0.1,1,60,1000",
+                                                                                                                   "type" => "float_configtime",
+                                                                                                                   "value_size" => 1.6
+                                                                                                                 },
+                                                                                                            2 => {
+                                                                                                                   "type" => "integer_integer_map",
+                                                                                                                   "value_map" => {
+                                                                                                                                    "device_value" => 0xc000,
+                                                                                                                                    "mask" => 0xc000,
+                                                                                                                                    "parameter_value" => 0xffff
+                                                                                                                                  }
+                                                                                                                 }
+                                                                                                          },
+                                                                                          "logical" => {
+                                                                                                         "default" => 0.0,
+                                                                                                         "max" => 982980.0,
+                                                                                                         "min" => 0.0,
+                                                                                                         "type" => "float",
+                                                                                                         "unit" => "s"
+                                                                                                       },
+                                                                                          "physical" => {
+                                                                                                          "address" => {
+                                                                                                                         "index" => 27
+                                                                                                                       },
+                                                                                                          "endian" => "little",
+                                                                                                          "interface" => "eeprom",
+                                                                                                          "size" => 2.0,
+                                                                                                          "type" => "integer"
+                                                                                                        }
+                                                                                        },
+                                                                "LONG_OFF_LEVEL" => {
+                                                                                      "conversion" => {
+                                                                                                        "factor" => 200,
+                                                                                                        "type" => "float_integer_scale"
+                                                                                                      },
+                                                                                      "logical" => {
+                                                                                                     "default" => 0.0,
+                                                                                                     "max" => 1.0,
+                                                                                                     "min" => 0.0,
+                                                                                                     "type" => "float",
+                                                                                                     "unit" => "100%"
+                                                                                                   },
+                                                                                      "physical" => {
+                                                                                                      "address" => {
+                                                                                                                     "index" => 23
+                                                                                                                   },
+                                                                                                      "interface" => "eeprom",
+                                                                                                      "size" => 1.0,
+                                                                                                      "type" => "integer"
+                                                                                                    }
+                                                                                    },
+                                                                "LONG_OFF_TIME" => {
+                                                                                     "conversion" => {
+                                                                                                       1 => {
+                                                                                                              "factors" => "0.1,1,60,1000",
+                                                                                                              "type" => "float_configtime",
+                                                                                                              "value_size" => 1.6
+                                                                                                            },
+                                                                                                       2 => {
+                                                                                                              "type" => "integer_integer_map",
+                                                                                                              "value_map" => {
+                                                                                                                               "device_value" => 0xc000,
+                                                                                                                               "mask" => 0xc000,
+                                                                                                                               "parameter_value" => 0xffff
+                                                                                                                             }
+                                                                                                            }
+                                                                                                     },
+                                                                                     "logical" => {
+                                                                                                    "default" => 16383000,
+                                                                                                    "max" => 982980.0,
+                                                                                                    "min" => 0.0,
+                                                                                                    "special_value" => {
+                                                                                                                         "id" => "NOT_USED",
+                                                                                                                         "value" => 16383000
+                                                                                                                       },
+                                                                                                    "type" => "float",
+                                                                                                    "unit" => "s"
+                                                                                                  },
+                                                                                     "physical" => {
+                                                                                                     "address" => {
+                                                                                                                    "index" => 31
+                                                                                                                  },
+                                                                                                     "endian" => "little",
+                                                                                                     "interface" => "eeprom",
+                                                                                                     "size" => 2.0,
+                                                                                                     "type" => "integer"
+                                                                                                   }
+                                                                                   },
+                                                                "LONG_OFF_TIME_MODE" => {
+                                                                                          "logical" => {
+                                                                                                         "option" => {
+                                                                                                                       "ABSOLUTE" => {
+                                                                                                                                       "default" => true
+                                                                                                                                     },
+                                                                                                                       "MINIMAL" => {}
+                                                                                                                     },
+                                                                                                         "type" => "option"
+                                                                                                       },
+                                                                                          "physical" => {
+                                                                                                          "address" => {
+                                                                                                                         "index" => 7.6
+                                                                                                                       },
+                                                                                                          "interface" => "eeprom",
+                                                                                                          "size" => 0.1,
+                                                                                                          "type" => "integer"
+                                                                                                        }
+                                                                                        },
+                                                                "LONG_ONDELAY_TIME" => {
+                                                                                         "conversion" => {
+                                                                                                           1 => {
+                                                                                                                  "factors" => "0.1,1,60,1000",
+                                                                                                                  "type" => "float_configtime",
+                                                                                                                  "value_size" => 1.6
+                                                                                                                },
+                                                                                                           2 => {
+                                                                                                                  "type" => "integer_integer_map",
+                                                                                                                  "value_map" => {
+                                                                                                                                   "device_value" => 0xc000,
+                                                                                                                                   "mask" => 0xc000,
+                                                                                                                                   "parameter_value" => 0xffff
+                                                                                                                                 }
+                                                                                                                }
+                                                                                                         },
+                                                                                         "logical" => {
+                                                                                                        "default" => 0.0,
+                                                                                                        "max" => 982980.0,
+                                                                                                        "min" => 0.0,
+                                                                                                        "type" => "float",
+                                                                                                        "unit" => "s"
+                                                                                                      },
+                                                                                         "physical" => {
+                                                                                                         "address" => {
+                                                                                                                        "index" => 25
+                                                                                                                      },
+                                                                                                         "endian" => "little",
+                                                                                                         "interface" => "eeprom",
+                                                                                                         "size" => 2.0,
+                                                                                                         "type" => "integer"
+                                                                                                       }
+                                                                                       },
+                                                                "LONG_ON_LEVEL" => {
+                                                                                     "conversion" => {
+                                                                                                       "factor" => 200,
+                                                                                                       "type" => "float_integer_scale"
+                                                                                                     },
+                                                                                     "logical" => {
+                                                                                                    "default" => 1.0,
+                                                                                                    "max" => 1.0,
+                                                                                                    "min" => 0.0,
+                                                                                                    "type" => "float",
+                                                                                                    "unit" => "100%"
+                                                                                                  },
+                                                                                     "physical" => {
+                                                                                                     "address" => {
+                                                                                                                    "index" => 24
+                                                                                                                  },
+                                                                                                     "interface" => "eeprom",
+                                                                                                     "size" => 1.0,
+                                                                                                     "type" => "integer"
+                                                                                                   }
+                                                                                   },
+                                                                "LONG_ON_TIME" => {
+                                                                                    "conversion" => {
+                                                                                                      1 => {
+                                                                                                             "factors" => "0.1,1,60,1000",
+                                                                                                             "type" => "float_configtime",
+                                                                                                             "value_size" => 1.6
+                                                                                                           },
+                                                                                                      2 => {
+                                                                                                             "type" => "integer_integer_map",
+                                                                                                             "value_map" => {
+                                                                                                                              "device_value" => 0xc000,
+                                                                                                                              "mask" => 0xc000,
+                                                                                                                              "parameter_value" => 0xffff
+                                                                                                                            }
+                                                                                                           }
+                                                                                                    },
+                                                                                    "logical" => {
+                                                                                                   "default" => 16383000,
+                                                                                                   "max" => 982980.0,
+                                                                                                   "min" => 0.0,
+                                                                                                   "special_value" => {
+                                                                                                                        "id" => "NOT_USED",
+                                                                                                                        "value" => 16383000
+                                                                                                                      },
+                                                                                                   "type" => "float",
+                                                                                                   "unit" => "s"
+                                                                                                 },
+                                                                                    "physical" => {
+                                                                                                    "address" => {
+                                                                                                                   "index" => 29
+                                                                                                                 },
+                                                                                                    "endian" => "little",
+                                                                                                    "interface" => "eeprom",
+                                                                                                    "size" => 2.0,
+                                                                                                    "type" => "integer"
+                                                                                                  }
+                                                                                  },
+                                                                "LONG_ON_TIME_MODE" => {
+                                                                                         "logical" => {
+                                                                                                        "option" => {
+                                                                                                                      "ABSOLUTE" => {
+                                                                                                                                      "default" => true
+                                                                                                                                    },
+                                                                                                                      "MINIMAL" => {}
+                                                                                                                    },
+                                                                                                        "type" => "option"
+                                                                                                      },
+                                                                                         "physical" => {
+                                                                                                         "address" => {
+                                                                                                                        "index" => 7.7
+                                                                                                                      },
+                                                                                                         "interface" => "eeprom",
+                                                                                                         "size" => 0.1,
+                                                                                                         "type" => "integer"
+                                                                                                       }
+                                                                                       },
+                                                                "LONG_TOGGLE_USE" => {
+                                                                                       "logical" => {
+                                                                                                      "option" => {
+                                                                                                                    "DONT_USE" => {
+                                                                                                                                    "default" => true
+                                                                                                                                  },
+                                                                                                                    "USE" => {}
+                                                                                                                  },
+                                                                                                      "type" => "option"
+                                                                                                    },
+                                                                                       "physical" => {
+                                                                                                       "address" => {
+                                                                                                                      "index" => 7.3
+                                                                                                                    },
+                                                                                                       "interface" => "eeprom",
+                                                                                                       "size" => 0.1,
+                                                                                                       "type" => "integer"
+                                                                                                     }
+                                                                                     },
+                                                                "SENSOR" => {
+                                                                              "hidden" => true,
+                                                                              "logical" => {
+                                                                                             "type" => "address"
+                                                                                           },
+                                                                              "operations" => "none",
+                                                                              "physical" => [
+                                                                                              {
+                                                                                                "address" => {
+                                                                                                               "index" => 0
+                                                                                                             },
+                                                                                                "interface" => "eeprom",
+                                                                                                "size" => 4.0,
+                                                                                                "type" => "integer"
+                                                                                              },
+                                                                                              {
+                                                                                                "address" => {
+                                                                                                               "index" => 4
+                                                                                                             },
+                                                                                                "interface" => "eeprom",
+                                                                                                "size" => 1.0,
+                                                                                                "type" => "integer"
+                                                                                              }
+                                                                                            ]
+                                                                            },
+                                                                "SHORT_ACTION_TYPE" => {
+                                                                                         "logical" => {
+                                                                                                        "option" => {
+                                                                                                                      "ACTIVE" => {
+                                                                                                                                    "default" => true
+                                                                                                                                  },
+                                                                                                                      "INACTIVE" => {}
+                                                                                                                    },
+                                                                                                        "type" => "option"
+                                                                                                      },
+                                                                                         "physical" => {
+                                                                                                         "address" => {
+                                                                                                                        "index" => 6.0
+                                                                                                                      },
+                                                                                                         "interface" => "eeprom",
+                                                                                                         "size" => 0.1,
+                                                                                                         "type" => "integer"
+                                                                                                       }
+                                                                                       },
+                                                                "SHORT_DRIVING_MODE" => {
+                                                                                          "logical" => {
+                                                                                                         "option" => {
+                                                                                                                       "DRIVE_DIRECTLY" => {
+                                                                                                                                             "default" => true
+                                                                                                                                           },
+                                                                                                                       "DRIVE_VIA_LOWER_END_POSITION" => {},
+                                                                                                                       "DRIVE_VIA_NEXT_END_POSITION" => {},
+                                                                                                                       "DRIVE_VIA_UPPER_END_POSITION" => {}
+                                                                                                                     },
+                                                                                                         "type" => "option"
+                                                                                                       },
+                                                                                          "physical" => {
+                                                                                                          "address" => {
+                                                                                                                         "index" => 6.4
+                                                                                                                       },
+                                                                                                          "interface" => "eeprom",
+                                                                                                          "size" => 0.2,
+                                                                                                          "type" => "integer"
+                                                                                                        }
+                                                                                        },
+                                                                "SHORT_JT_OFF" => {
+                                                                                    "logical" => {
+                                                                                                   "option" => {
+                                                                                                                 "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                 "OFF" => {},
+                                                                                                                 "OFFDELAY" => {},
+                                                                                                                 "ON" => {},
+                                                                                                                 "ONDELAY" => {
+                                                                                                                                "default" => true
+                                                                                                                              },
+                                                                                                                 "RAMPOFF" => {},
+                                                                                                                 "RAMPON" => {},
+                                                                                                                 "REFOFF" => {},
+                                                                                                                 "REFON" => {}
+                                                                                                               },
+                                                                                                   "type" => "option"
+                                                                                                 },
+                                                                                    "physical" => {
+                                                                                                    "address" => {
+                                                                                                                   "index" => 22.4
+                                                                                                                 },
+                                                                                                    "endian" => "little",
+                                                                                                    "interface" => "eeprom",
+                                                                                                    "read_size" => 1,
+                                                                                                    "size" => 0.4,
+                                                                                                    "type" => "integer"
+                                                                                                  }
+                                                                                  },
+                                                                "SHORT_JT_OFFDELAY" => {
+                                                                                         "logical" => {
+                                                                                                        "option" => {
+                                                                                                                      "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                      "OFF" => {},
+                                                                                                                      "OFFDELAY" => {},
+                                                                                                                      "ON" => {},
+                                                                                                                      "ONDELAY" => {},
+                                                                                                                      "RAMPOFF" => {},
+                                                                                                                      "RAMPON" => {},
+                                                                                                                      "REFOFF" => {
+                                                                                                                                    "default" => true
+                                                                                                                                  },
+                                                                                                                      "REFON" => {}
+                                                                                                                    },
+                                                                                                        "type" => "option"
+                                                                                                      },
+                                                                                         "physical" => {
+                                                                                                         "address" => {
+                                                                                                                        "index" => 21.0
+                                                                                                                      },
+                                                                                                         "endian" => "little",
+                                                                                                         "interface" => "eeprom",
+                                                                                                         "read_size" => 1,
+                                                                                                         "size" => 0.4,
+                                                                                                         "type" => "integer"
+                                                                                                       }
+                                                                                       },
+                                                                "SHORT_JT_ON" => {
+                                                                                   "logical" => {
+                                                                                                  "option" => {
+                                                                                                                "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                "OFF" => {},
+                                                                                                                "OFFDELAY" => {
+                                                                                                                                "default" => true
+                                                                                                                              },
+                                                                                                                "ON" => {},
+                                                                                                                "ONDELAY" => {},
+                                                                                                                "RAMPOFF" => {},
+                                                                                                                "RAMPON" => {},
+                                                                                                                "REFOFF" => {},
+                                                                                                                "REFON" => {}
+                                                                                                              },
+                                                                                                  "type" => "option"
+                                                                                                },
+                                                                                   "physical" => {
+                                                                                                   "address" => {
+                                                                                                                  "index" => 20.4
+                                                                                                                },
+                                                                                                   "endian" => "little",
+                                                                                                   "interface" => "eeprom",
+                                                                                                   "read_size" => 1,
+                                                                                                   "size" => 0.4,
+                                                                                                   "type" => "integer"
+                                                                                                 }
+                                                                                 },
+                                                                "SHORT_JT_ONDELAY" => {
+                                                                                        "logical" => {
+                                                                                                       "option" => {
+                                                                                                                     "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                     "OFF" => {},
+                                                                                                                     "OFFDELAY" => {},
+                                                                                                                     "ON" => {},
+                                                                                                                     "ONDELAY" => {},
+                                                                                                                     "RAMPOFF" => {},
+                                                                                                                     "RAMPON" => {},
+                                                                                                                     "REFOFF" => {},
+                                                                                                                     "REFON" => {
+                                                                                                                                  "default" => true
+                                                                                                                                }
+                                                                                                                   },
+                                                                                                       "type" => "option"
+                                                                                                     },
+                                                                                        "physical" => {
+                                                                                                        "address" => {
+                                                                                                                       "index" => 19.0
+                                                                                                                     },
+                                                                                                        "endian" => "little",
+                                                                                                        "interface" => "eeprom",
+                                                                                                        "read_size" => 1,
+                                                                                                        "size" => 0.4,
+                                                                                                        "type" => "integer"
+                                                                                                      }
+                                                                                      },
+                                                                "SHORT_JT_RAMPOFF" => {
+                                                                                        "logical" => {
+                                                                                                       "option" => {
+                                                                                                                     "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                     "OFF" => {
+                                                                                                                                "default" => true
+                                                                                                                              },
+                                                                                                                     "OFFDELAY" => {},
+                                                                                                                     "ON" => {},
+                                                                                                                     "ONDELAY" => {},
+                                                                                                                     "RAMPOFF" => {},
+                                                                                                                     "RAMPON" => {},
+                                                                                                                     "REFOFF" => {},
+                                                                                                                     "REFON" => {}
+                                                                                                                   },
+                                                                                                       "type" => "option"
+                                                                                                     },
+                                                                                        "physical" => {
+                                                                                                        "address" => {
+                                                                                                                       "index" => 22.0
+                                                                                                                     },
+                                                                                                        "endian" => "little",
+                                                                                                        "interface" => "eeprom",
+                                                                                                        "read_size" => 1,
+                                                                                                        "size" => 0.4,
+                                                                                                        "type" => "integer"
+                                                                                                      }
+                                                                                      },
+                                                                "SHORT_JT_RAMPON" => {
+                                                                                       "logical" => {
+                                                                                                      "option" => {
+                                                                                                                    "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                    "OFF" => {},
+                                                                                                                    "OFFDELAY" => {},
+                                                                                                                    "ON" => {
+                                                                                                                              "default" => true
+                                                                                                                            },
+                                                                                                                    "ONDELAY" => {},
+                                                                                                                    "RAMPOFF" => {},
+                                                                                                                    "RAMPON" => {},
+                                                                                                                    "REFOFF" => {},
+                                                                                                                    "REFON" => {}
+                                                                                                                  },
+                                                                                                      "type" => "option"
+                                                                                                    },
+                                                                                       "physical" => {
+                                                                                                       "address" => {
+                                                                                                                      "index" => 20.0
+                                                                                                                    },
+                                                                                                       "endian" => "little",
+                                                                                                       "interface" => "eeprom",
+                                                                                                       "read_size" => 1,
+                                                                                                       "size" => 0.4,
+                                                                                                       "type" => "integer"
+                                                                                                     }
+                                                                                     },
+                                                                "SHORT_JT_REFOFF" => {
+                                                                                       "logical" => {
+                                                                                                      "option" => {
+                                                                                                                    "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                    "OFF" => {
+                                                                                                                               "default" => true
+                                                                                                                             },
+                                                                                                                    "OFFDELAY" => {},
+                                                                                                                    "ON" => {},
+                                                                                                                    "ONDELAY" => {},
+                                                                                                                    "RAMPOFF" => {},
+                                                                                                                    "RAMPON" => {},
+                                                                                                                    "REFOFF" => {},
+                                                                                                                    "REFON" => {}
+                                                                                                                  },
+                                                                                                      "type" => "option"
+                                                                                                    },
+                                                                                       "physical" => {
+                                                                                                       "address" => {
+                                                                                                                      "index" => 21.4
+                                                                                                                    },
+                                                                                                       "endian" => "little",
+                                                                                                       "interface" => "eeprom",
+                                                                                                       "read_size" => 1,
+                                                                                                       "size" => 0.4,
+                                                                                                       "type" => "integer"
+                                                                                                     }
+                                                                                     },
+                                                                "SHORT_JT_REFON" => {
+                                                                                      "logical" => {
+                                                                                                     "option" => {
+                                                                                                                   "NO_JUMP_IGNORE_COMMAND" => {},
+                                                                                                                   "OFF" => {},
+                                                                                                                   "OFFDELAY" => {},
+                                                                                                                   "ON" => {
+                                                                                                                             "default" => true
+                                                                                                                           },
+                                                                                                                   "ONDELAY" => {},
+                                                                                                                   "RAMPOFF" => {},
+                                                                                                                   "RAMPON" => {},
+                                                                                                                   "REFOFF" => {},
+                                                                                                                   "REFON" => {}
+                                                                                                                 },
+                                                                                                     "type" => "option"
+                                                                                                   },
+                                                                                      "physical" => {
+                                                                                                      "address" => {
+                                                                                                                     "index" => 19.4
+                                                                                                                   },
+                                                                                                      "endian" => "little",
+                                                                                                      "interface" => "eeprom",
+                                                                                                      "read_size" => 1,
+                                                                                                      "size" => 0.4,
+                                                                                                      "type" => "integer"
+                                                                                                    }
+                                                                                    },
+                                                                "SHORT_MAX_TIME_FIRST_DIR" => {
+                                                                                                "conversion" => {
+                                                                                                                  "factor" => 10,
+                                                                                                                  "offset" => 0.0,
+                                                                                                                  "type" => "float_integer_scale"
+                                                                                                                },
+                                                                                                "logical" => {
+                                                                                                               "default" => 25.5,
+                                                                                                               "max" => 25.4,
+                                                                                                               "min" => 0.0,
+                                                                                                               "special_value" => {
+                                                                                                                                    "id" => "NOT_USED",
+                                                                                                                                    "value" => 25.5
+                                                                                                                                  },
+                                                                                                               "type" => "float",
+                                                                                                               "unit" => "s"
+                                                                                                             },
+                                                                                                "physical" => {
+                                                                                                                "address" => {
+                                                                                                                               "index" => 18
+                                                                                                                             },
+                                                                                                                "endian" => "little",
+                                                                                                                "interface" => "eeprom",
+                                                                                                                "size" => 1.0,
+                                                                                                                "type" => "integer"
+                                                                                                              }
+                                                                                              },
+                                                                "SHORT_OFFDELAY_TIME" => {
+                                                                                           "conversion" => {
+                                                                                                             1 => {
+                                                                                                                    "factors" => "0.1,1,60,1000",
+                                                                                                                    "type" => "float_configtime",
+                                                                                                                    "value_size" => 1.6
+                                                                                                                  },
+                                                                                                             2 => {
+                                                                                                                    "type" => "integer_integer_map",
+                                                                                                                    "value_map" => {
+                                                                                                                                     "device_value" => 0xc000,
+                                                                                                                                     "mask" => 0xc000,
+                                                                                                                                     "parameter_value" => 0xffff
+                                                                                                                                   }
+                                                                                                                  }
+                                                                                                           },
+                                                                                           "logical" => {
+                                                                                                          "default" => 0.0,
+                                                                                                          "max" => 982980.0,
+                                                                                                          "min" => 0.0,
+                                                                                                          "type" => "float",
+                                                                                                          "unit" => "s"
+                                                                                                        },
+                                                                                           "physical" => {
+                                                                                                           "address" => {
+                                                                                                                          "index" => 12
+                                                                                                                        },
+                                                                                                           "endian" => "little",
+                                                                                                           "interface" => "eeprom",
+                                                                                                           "size" => 2.0,
+                                                                                                           "type" => "integer"
+                                                                                                         }
+                                                                                         },
+                                                                "SHORT_OFF_LEVEL" => {
+                                                                                       "conversion" => {
+                                                                                                         "factor" => 200,
+                                                                                                         "type" => "float_integer_scale"
+                                                                                                       },
+                                                                                       "logical" => {
+                                                                                                      "default" => 0.0,
+                                                                                                      "max" => 1.0,
+                                                                                                      "min" => 0.0,
+                                                                                                      "type" => "float",
+                                                                                                      "unit" => "100%"
+                                                                                                    },
+                                                                                       "physical" => {
+                                                                                                       "address" => {
+                                                                                                                      "index" => 8
+                                                                                                                    },
+                                                                                                       "interface" => "eeprom",
+                                                                                                       "size" => 1.0,
+                                                                                                       "type" => "integer"
+                                                                                                     }
+                                                                                     },
+                                                                "SHORT_OFF_TIME" => {
+                                                                                      "conversion" => {
+                                                                                                        1 => {
+                                                                                                               "factors" => "0.1,1,60,1000",
+                                                                                                               "type" => "float_configtime",
+                                                                                                               "value_size" => 1.6
+                                                                                                             },
+                                                                                                        2 => {
+                                                                                                               "type" => "integer_integer_map",
+                                                                                                               "value_map" => {
+                                                                                                                                "device_value" => 0xc000,
+                                                                                                                                "mask" => 0xc000,
+                                                                                                                                "parameter_value" => 0xffff
+                                                                                                                              }
+                                                                                                             }
+                                                                                                      },
+                                                                                      "logical" => {
+                                                                                                     "default" => 16383000,
+                                                                                                     "max" => 982980.0,
+                                                                                                     "min" => 0.0,
+                                                                                                     "special_value" => {
+                                                                                                                          "id" => "NOT_USED",
+                                                                                                                          "value" => 16383000
+                                                                                                                        },
+                                                                                                     "type" => "float",
+                                                                                                     "unit" => "s"
+                                                                                                   },
+                                                                                      "physical" => {
+                                                                                                      "address" => {
+                                                                                                                     "index" => 16
+                                                                                                                   },
+                                                                                                      "endian" => "little",
+                                                                                                      "interface" => "eeprom",
+                                                                                                      "size" => 2.0,
+                                                                                                      "type" => "integer"
+                                                                                                    }
+                                                                                    },
+                                                                "SHORT_OFF_TIME_MODE" => {
+                                                                                           "logical" => {
+                                                                                                          "option" => {
+                                                                                                                        "ABSOLUTE" => {
+                                                                                                                                        "default" => true
+                                                                                                                                      },
+                                                                                                                        "MINIMAL" => {}
+                                                                                                                      },
+                                                                                                          "type" => "option"
+                                                                                                        },
+                                                                                           "physical" => {
+                                                                                                           "address" => {
+                                                                                                                          "index" => 6.6
+                                                                                                                        },
+                                                                                                           "interface" => "eeprom",
+                                                                                                           "size" => 0.1,
+                                                                                                           "type" => "integer"
+                                                                                                         }
+                                                                                         },
+                                                                "SHORT_ONDELAY_TIME" => {
+                                                                                          "conversion" => {
+                                                                                                            1 => {
+                                                                                                                   "factors" => "0.1,1,60,1000",
+                                                                                                                   "type" => "float_configtime",
+                                                                                                                   "value_size" => 1.6
+                                                                                                                 },
+                                                                                                            2 => {
+                                                                                                                   "type" => "integer_integer_map",
+                                                                                                                   "value_map" => {
+                                                                                                                                    "device_value" => 0xc000,
+                                                                                                                                    "mask" => 0xc000,
+                                                                                                                                    "parameter_value" => 0xffff
+                                                                                                                                  }
+                                                                                                                 }
+                                                                                                          },
+                                                                                          "logical" => {
+                                                                                                         "default" => 0.0,
+                                                                                                         "max" => 982980.0,
+                                                                                                         "min" => 0.0,
+                                                                                                         "type" => "float",
+                                                                                                         "unit" => "s"
+                                                                                                       },
+                                                                                          "physical" => {
+                                                                                                          "address" => {
+                                                                                                                         "index" => 10
+                                                                                                                       },
+                                                                                                          "endian" => "little",
+                                                                                                          "interface" => "eeprom",
+                                                                                                          "size" => 2.0,
+                                                                                                          "type" => "integer"
+                                                                                                        }
+                                                                                        },
+                                                                "SHORT_ON_LEVEL" => {
+                                                                                      "conversion" => {
+                                                                                                        "factor" => 200,
+                                                                                                        "type" => "float_integer_scale"
+                                                                                                      },
+                                                                                      "logical" => {
+                                                                                                     "default" => 1.0,
+                                                                                                     "max" => 1.0,
+                                                                                                     "min" => 0.0,
+                                                                                                     "type" => "float",
+                                                                                                     "unit" => "100%"
+                                                                                                   },
+                                                                                      "physical" => {
+                                                                                                      "address" => {
+                                                                                                                     "index" => 9
+                                                                                                                   },
+                                                                                                      "interface" => "eeprom",
+                                                                                                      "size" => 1.0,
+                                                                                                      "type" => "integer"
+                                                                                                    }
+                                                                                    },
+                                                                "SHORT_ON_TIME" => {
+                                                                                     "conversion" => {
+                                                                                                       1 => {
+                                                                                                              "factors" => "0.1,1,60,1000",
+                                                                                                              "type" => "float_configtime",
+                                                                                                              "value_size" => 1.6
+                                                                                                            },
+                                                                                                       2 => {
+                                                                                                              "type" => "integer_integer_map",
+                                                                                                              "value_map" => {
+                                                                                                                               "device_value" => 0xc000,
+                                                                                                                               "mask" => 0xc000,
+                                                                                                                               "parameter_value" => 0xffff
+                                                                                                                             }
+                                                                                                            }
+                                                                                                     },
+                                                                                     "logical" => {
+                                                                                                    "default" => 16383000,
+                                                                                                    "max" => 982980.0,
+                                                                                                    "min" => 0.0,
+                                                                                                    "special_value" => {
+                                                                                                                         "id" => "NOT_USED",
+                                                                                                                         "value" => 16383000
+                                                                                                                       },
+                                                                                                    "type" => "float",
+                                                                                                    "unit" => "s"
+                                                                                                  },
+                                                                                     "physical" => {
+                                                                                                     "address" => {
+                                                                                                                    "index" => 14
+                                                                                                                  },
+                                                                                                     "endian" => "little",
+                                                                                                     "interface" => "eeprom",
+                                                                                                     "size" => 2.0,
+                                                                                                     "type" => "integer"
+                                                                                                   }
+                                                                                   },
+                                                                "SHORT_ON_TIME_MODE" => {
+                                                                                          "logical" => {
+                                                                                                         "option" => {
+                                                                                                                       "ABSOLUTE" => {
+                                                                                                                                       "default" => true
+                                                                                                                                     },
+                                                                                                                       "MINIMAL" => {}
+                                                                                                                     },
+                                                                                                         "type" => "option"
+                                                                                                       },
+                                                                                          "physical" => {
+                                                                                                          "address" => {
+                                                                                                                         "index" => 6.7
+                                                                                                                       },
+                                                                                                          "interface" => "eeprom",
+                                                                                                          "size" => 0.1,
+                                                                                                          "type" => "integer"
+                                                                                                        }
+                                                                                        },
+                                                                "SHORT_TOGGLE_USE" => {
+                                                                                        "logical" => {
+                                                                                                       "option" => {
+                                                                                                                     "DONT_USE" => {
+                                                                                                                                     "default" => true
+                                                                                                                                   },
+                                                                                                                     "USE" => {}
+                                                                                                                   },
+                                                                                                       "type" => "option"
+                                                                                                     },
+                                                                                        "physical" => {
+                                                                                                        "address" => {
+                                                                                                                       "index" => 6.3
+                                                                                                                     },
+                                                                                                        "interface" => "eeprom",
+                                                                                                        "size" => 0.1,
+                                                                                                        "type" => "integer"
+                                                                                                      }
+                                                                                      },
+                                                                "UI_HINT" => {
+                                                                               "logical" => {
+                                                                                              "default" => "",
+                                                                                              "type" => "string",
+                                                                                              "use_default_on_failure" => true
+                                                                                            },
+                                                                               "physical" => {
+                                                                                               "id" => "UI_HINT",
+                                                                                               "interface" => "store",
+                                                                                               "save_on_change" => true,
+                                                                                               "type" => "string"
+                                                                                             }
+                                                                             }
+                                                              },
+                                               "peer_param" => "SENSOR",
                                                "type" => "LINK"
                                              },
                                    "master" => {
@@ -540,12 +1669,54 @@ our %definition = (
                                  "link" => {
                                              "address_start" => 0x356,
                                              "address_step" => 6,
-                                             "channel_offset" => 0,
+                                             "channel_param" => "CHANNEL",
                                              "count" => 28,
-                                             "peer_address_offset" => 1,
-                                             "peer_address_size" => 4.0,
-                                             "peer_channel_offset" => 5,
-                                             "peer_channel_size" => 1.0,
+                                             "parameter" => {
+                                                              "ACTUATOR" => {
+                                                                              "hidden" => true,
+                                                                              "logical" => {
+                                                                                             "type" => "address"
+                                                                                           },
+                                                                              "operations" => "none",
+                                                                              "physical" => [
+                                                                                              {
+                                                                                                "address" => {
+                                                                                                               "index" => 1
+                                                                                                             },
+                                                                                                "interface" => "eeprom",
+                                                                                                "size" => 4.0,
+                                                                                                "type" => "integer"
+                                                                                              },
+                                                                                              {
+                                                                                                "address" => {
+                                                                                                               "index" => 5
+                                                                                                             },
+                                                                                                "interface" => "eeprom",
+                                                                                                "size" => 1.0,
+                                                                                                "type" => "integer"
+                                                                                              }
+                                                                                            ]
+                                                                            },
+                                                              "CHANNEL" => {
+                                                                             "hidden" => true,
+                                                                             "logical" => {
+                                                                                            "default" => 255,
+                                                                                            "max" => 255,
+                                                                                            "min" => 0,
+                                                                                            "type" => "integer"
+                                                                                          },
+                                                                             "operations" => "none",
+                                                                             "physical" => {
+                                                                                             "address" => {
+                                                                                                            "index" => 0
+                                                                                                          },
+                                                                                             "interface" => "eeprom",
+                                                                                             "size" => 1.0,
+                                                                                             "type" => "integer"
+                                                                                           }
+                                                                           }
+                                                            },
+                                             "peer_param" => "ACTUATOR",
                                              "type" => "LINK"
                                            },
                                  "master" => {
