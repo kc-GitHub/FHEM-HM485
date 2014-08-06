@@ -232,54 +232,12 @@ our %definition = (
                                           "link" => {
                                                       "address_start" => 0x360,
                                                       "address_step" => 6,
-                                                      "channel_param" => "CHANNEL",
+                                                      "channel_offset" => 0,
                                                       "count" => 26,
-                                                      "parameter" => {
-                                                                       "ACTUATOR" => {
-                                                                                       "hidden" => true,
-                                                                                       "logical" => {
-                                                                                                      "type" => "address"
-                                                                                                    },
-                                                                                       "operations" => "none",
-                                                                                       "physical" => [
-                                                                                                       {
-                                                                                                         "address" => {
-                                                                                                                        "index" => 1
-                                                                                                                      },
-                                                                                                         "interface" => "eeprom",
-                                                                                                         "size" => 4.0,
-                                                                                                         "type" => "integer"
-                                                                                                       },
-                                                                                                       {
-                                                                                                         "address" => {
-                                                                                                                        "index" => 5
-                                                                                                                      },
-                                                                                                         "interface" => "eeprom",
-                                                                                                         "size" => 1.0,
-                                                                                                         "type" => "integer"
-                                                                                                       }
-                                                                                                     ]
-                                                                                     },
-                                                                       "CHANNEL" => {
-                                                                                      "hidden" => true,
-                                                                                      "logical" => {
-                                                                                                     "default" => 255,
-                                                                                                     "max" => 255,
-                                                                                                     "min" => 0,
-                                                                                                     "type" => "integer"
-                                                                                                   },
-                                                                                      "operations" => "none",
-                                                                                      "physical" => {
-                                                                                                      "address" => {
-                                                                                                                     "index" => 0
-                                                                                                                   },
-                                                                                                      "interface" => "eeprom",
-                                                                                                      "size" => 1.0,
-                                                                                                      "type" => "integer"
-                                                                                                    }
-                                                                                    }
-                                                                     },
-                                                      "peer_param" => "ACTUATOR",
+                                                      "peer_address_offset" => 1,
+                                                      "peer_address_size" => 4.0,
+                                                      "peer_channel_offset" => 5,
+                                                      "peer_channel_size" => 1.0,
                                                       "type" => "LINK"
                                                     },
                                           "master" => {

@@ -64,12 +64,76 @@ This is the HM485 communication stack for raw communication via "stupid" serial
 interface devices for instance simple USB-RS485 or Network-RS485 adaptor.
 Contributed by Dirk Hoffmann 2013
 
-Todo:
-	Discovery at LXCCU don't work at the moment
-	
 =cut
 
+
 =head1
+doku Kommunikationsformat:
+
+Nachrichten vom HMLAN
+
+  HMLAN: HHM-LAN-IF,03C1,JEQ0185836,1ACAE5,1ACAE5,29B47EFE,0006
+
+	0 = HHM-LAN-IF (Wird nach dem Starten und nach jedem Keepalife geschickt
+		1 = Firmware Version (2 Bytes HEX) / 1000
+		2 = Seriennummer (String)
+		3 = 4. Stelle
+		4 = HMLAN-ID
+		5 = UPTIME
+		6 = assignIDsReport ???
+
+	0 = E|R...
+		0 = Zeichen E oder R + src
+		1 = Status (Hex)
+		2 = msec (seit uptime)
+		3 = ???
+		4 = RSSI -> hex($mFld[4])-65536);
+		5 = Message (A0 82 02 1860F1 186F30 0101000021) $mNo, $flg, $type, $src, $dst, data???
+		
+		#@mFld=($src, $status, $msec, $d2, $rssi, $msg)
+		
+	0 = I00....
+		Ack from the HMLAN
+
+Nachrichten zum HMLAN
+
+  Initialisierungssequenz:
+	A[$ID]									HM-LAN Id Setzen (Wenn nötig)
+	C										???
+	Y01,01,[$key]							??? Es wird kein $key gesetzt. AttrVal($name, "hmKey", "") ist auch nicht dokumentiert
+	Y02,00,									???
+	Y03,00,									???
+	Y03,00,			
+  	T[$timeSince2000],04,00,00000000");		Zeit stellen
+
+  Keepalive-Nachricht
+	K
+
+  Lange Nachrichten (> 51 zeichen)
+  	0 = S[$time]										Zeit in msec
+  	1 = 00												???
+  	2 = 00000000										???
+  	3 = 01												???
+  	4 = [$time]											Zeit in msec
+  	5 = Message (01 B0 11 1ACAE5 178D3F 0201C80000)		$msgNo, $flg, $type, $src, $dst, $data???
+
+Befehle senden:
+on
+SE48EBDBA,00,00000000,01,E48EBDBA,01B0111ACAE5178D3F0201C80000
+SE48FAE69,00,00000000,01,E48FAE69,02B0111ACAE5178D3F0201C80000
+SE4901400,00,00000000,01,E4901400,03B0111ACAE5178D3F0201C80000
+SE4905000,00,00000000,01,E4905000,04B0111ACAE5178D3F0201C80000
+
+off
+SE4907D38,00,00000000,01,E4907D38,05B0111ACAE5178D3F0201000000	3.834.674.488
+SE490854A,00,00000000,01,E490854A,06B0111ACAE5178D3F0201000000	3.834.676.554
+SE4908AF9,00,00000000,01,E4908AF9,07B0111ACAE5178D3F0201000000	3.834.678.009
+
+
+
+
+#######################
+
 Nachrichten vom HMW-LG
 Das hier ist noch spekulation:
 
@@ -127,16 +191,6 @@ use Data::Dumper;
 ##################################################
 # Forward declarations
 #
-sub init();
-sub clientRead($);
-sub clientWrite($$$);
-sub clientWelcome($$);
-sub clientClose($);
-sub interfaceRead($);
-sub interfaceWrite($);
-sub interfaceSetGpio ($);
-sub interfaceInit($);
-sub checkResendQueueItems();
 
 ##################################################
 # Constants:
@@ -163,9 +217,8 @@ my $clientCount    = 0;
 my $serialNumber   = SERIALNUMBER_DEF;
 my $msgCounter     = 1;
 
-=head2
-	Initialize the daemon
-=cut
+################################################
+
 sub init() {
 	my $scriptPath = '';
 	$scriptPath = dirname(abs_path($0)) . '/';
@@ -225,23 +278,22 @@ sub init() {
 	$hm485Protocoll->setStateIdle();
 }
 
-=head2
-	Receive data from client
+=head2 NAME
+# Daten Empfangen
 
-	Start byte FD
-	|  message lenth incl message counter
-	|  |  message counter, incements with each message, also KeepAlive, overflow at 0xFF --> 0x01, start after "Transparenzbefehl" with 01
-	|  |  |  Command (e.g. e (Event)
-	|  |  |  |  target address
-	|  |  |  |  |           CTRL byte
-	|  |  |  |  |           |  source address
-	|  |  |  |  |           |  |           payload ...
-	|  |  |  |  |           |  |           |
-	-- -- -- -- ----------- -- -- -------- -----------
-	FD 0F 15 65 00 00 00 01 5E 00 00 8F 14 69 02 C8 00
-
-
-	@param	string  the message
+# Startzeichen FD (hab noch kein FE gesehen)
+# |  Länge der Nachricht inkl. MessageCounter
+# |  |  MessageCounter, wird mit jedem KeepAlive oder anderer Message hochgezählt, Overflow bei 0xFF --> 0x01, startet nach Transparenzbefehl mit 01
+# |  |  |  Befehl (z.B. E steht für Event)
+# |  |  |  |  ab hier kommen die Nutzdaten
+# |  |  |  |  ---------------------------------------
+# |  |  |  |  Zieladresse
+# |  |  |  |  |           CTRL-Byte
+# |  |  |  |  |           |  Absenderadresse
+# |  |  |  |  |           |  |           Nutzdaten, könnte das der Jalousie-Aktor-Status sein?
+# |  |  |  |  |           |  |           |
+# -- -- -- -- ----------- -- -- -------- -----------
+# FD 0F 15 65 00 00 00 01 5E 00 00 8F 14 69 02 C8 00
 =cut
 sub clientRead($) {
 	my ($msg) = @_;
@@ -282,13 +334,6 @@ sub clientRead($) {
 	}
 }
 
-=head2
-	Send data to Client
-
-	@param	integer the message id
-	@param	integer the command
-	@param	string  the payload
-=cut
 sub clientWrite($$$) {
 	my ($msgId, $msgCmd, $msgData) = @_;
 	my $len = 2 + length($msgData);
@@ -312,21 +357,12 @@ sub clientWrite($$$) {
 	}	
 }
 
-=head2
-	Dispatch welcome message
-
-	@param	hash    the client hash (not used)
-	@param	integer the client count
-	
-	@return integer 1 if welcome mesage was sent 
-=cut
-sub clientWelcome($$) {
+# Dispatch Welcome Message
+sub clientWelcome($) {
 	my ($cHash, $clientNum) = @_;
 	my $retVal = 0;
 	
-	if ($clientNum > 1) {
-		ServerTools_serverWriteClient('Connection refused. Only on Client allowed');
-	} else {
+	if ($clientNum == 1) {
 		my $welcomeMsg = sprintf(
 			'H%02X,%02X,%s,%s,%s%s',
 			($msgCounter-1), PROTOCOL_VERSION, INTERFACE_NAME, VERSION , $serialNumber, CRLF
@@ -349,26 +385,18 @@ sub clientWelcome($$) {
 		
 		$clientCount = $clientNum;
 		$retVal = 1;
+	} else {
+		ServerTools_serverWriteClient('Connection refused. Only on Client allowed');
 	}
 	
 	return $retVal;
 }
 
-=head2
-	Close the connection to client.
-
-	@param	hash    the client hash (not used)
-=cut
 sub clientClose($) {
 	my ($cHash) = @_;
 	$clientCount = ($clientCount>0) ? $clientCount-1 : 0;
 }
 
-=head2
-	Read bytes from serial Interface
-	
-	@param	hash    the client hash
-=cut
 sub interfaceRead($) {
 	my ($hash) = @_;
 
@@ -379,8 +407,9 @@ sub interfaceRead($) {
 	if (defined($buffer)) {
 		if ($hm485Protocoll->checkStateDiscoveryWait()) {
 			# We found a discovery ACK
-			$hm485Protocoll->discoveryFound(ord(substr($buffer, 0, 1)));
-
+			$hm485Protocoll->discoveryFound(
+				ord(substr($buffer, 0, 1))
+			);
 		} else {
 			if ($hm485Protocoll->checkStateIdle()) {
 				$hm485Protocoll->readFrame($buffer);
@@ -389,11 +418,6 @@ sub interfaceRead($) {
 	}
 }
 
-=head2
-	Write bytes to serial Interface
-	
-	@param	string  the buffer to write
-=cut
 sub interfaceWrite($) {
 	my ($buffer) = @_;
 
@@ -402,11 +426,14 @@ sub interfaceWrite($) {
 	interfaceSetGpio(0);               # reset gpio pin for RS485 TX enable if necesarry
 }
 
-=head2
-	Set or reset specific gpio line for enable the transmitter in RS485 tranceiver.
-	Set or reset works only if attr "gpioTxenCmd_0" and "gpioTxenCmd_1" are defined.
-
-	@param	integer  the value, 1: execute set comand, 0: execute reset comand
+=head2 interfaceSetGpio
+	Title:		interfaceSetGpio
+	Function:	Set or reset specific gpio line for enable the transmitter in RS485 tranceiver.
+				Set or reset executes only if attr "gpioTxenCmd_0" and "gpioTxenCmd_1" are defined.
+				If you use a USB-RS485 converter or a Network-RS485 converter no set or reset are required. 
+	Returns:	nothing
+	Args:		named arguments:
+				-argument1 => int:	$value			1: execute set comand, 0: execute reset comand
 =cut
 sub interfaceSetGpio ($) {
 	my ($value) = @_;
@@ -417,11 +444,15 @@ sub interfaceSetGpio ($) {
 	}
 }
 
-=head2
-	Implements DoInit function. Initialize the interface device
+################################################################################
 
-	@param	hash of device addressed
-	@return string | undef
+=head2 interfaceInit
+
+ Title    : interfaceInit
+ Function : Implements DoInit function. Initialize the interface device
+ Returns  : string | undef
+ Args     : named arguments:
+            -argument1 => hash: hash of device addressed
 =cut
 sub interfaceInit($) {
 	my ($hash) = @_;
@@ -457,13 +488,6 @@ sub interfaceInit($) {
 	return undef;
 }
 
-=head2
-	Wrapper for $hm485Protocoll->checkResendQueueItems
-
-	In $hm485Protocoll we execute checkResendQueueItems via main::setTimeout.
-	To setTimeout we can only pass function name without package name.
-	So the checkResendQueueItems function in main was executed.
-=cut
 sub checkResendQueueItems () {
 	$hm485Protocoll->checkResendQueueItems();
 }

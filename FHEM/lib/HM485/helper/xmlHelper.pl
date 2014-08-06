@@ -257,18 +257,18 @@ sub fixChannelPeerAdresses($) {
 			}
 			
 			if (defined ($hash->{$param}{'paramset'}{'link'}{'channel_param'})){
-#				my $channelParam = $hash->{$param}{'paramset'}{'link'}{'channel_param'};
-#				$hash->{$param}{'paramset'}{'link'}{'channel_offset'}      = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$channelParam}{'physical'}{'address'}{'index'};
+				my $channelParam = $hash->{$param}{'paramset'}{'link'}{'channel_param'};
+				$hash->{$param}{'paramset'}{'link'}{'channel_offset'}      = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$channelParam}{'physical'}{'address'}{'index'};
 
-#				my $peerParam = $hash->{$param}{'paramset'}{'link'}{'peer_param'};
-#				$hash->{$param}{'paramset'}{'link'}{'peer_address_offset'} = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[0]{'address'}{'index'};
-#				$hash->{$param}{'paramset'}{'link'}{'peer_address_size'}   = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[0]{'size'};
-#				$hash->{$param}{'paramset'}{'link'}{'peer_channel_offset'} = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[1]{'address'}{'index'};
-#				$hash->{$param}{'paramset'}{'link'}{'peer_channel_size'}   = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[1]{'size'};
-#
-#				delete ($hash->{$param}{'paramset'}{'link'}{'parameter'}); 
-#				delete ($hash->{$param}{'paramset'}{'link'}{'channel_param'}); 
-#				delete ($hash->{$param}{'paramset'}{'link'}{'peer_param'}); 
+				my $peerParam = $hash->{$param}{'paramset'}{'link'}{'peer_param'};
+				$hash->{$param}{'paramset'}{'link'}{'peer_address_offset'} = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[0]{'address'}{'index'};
+				$hash->{$param}{'paramset'}{'link'}{'peer_address_size'}   = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[0]{'size'};
+				$hash->{$param}{'paramset'}{'link'}{'peer_channel_offset'} = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[1]{'address'}{'index'};
+				$hash->{$param}{'paramset'}{'link'}{'peer_channel_size'}   = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[1]{'size'};
+
+				delete ($hash->{$param}{'paramset'}{'link'}{'parameter'}); 
+				delete ($hash->{$param}{'paramset'}{'link'}{'channel_param'}); 
+				delete ($hash->{$param}{'paramset'}{'link'}{'peer_param'}); 
 			}
 		}
 	}
