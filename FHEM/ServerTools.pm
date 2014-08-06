@@ -64,8 +64,8 @@ sub ServerTools_init($$$$$$) {
 	require $pathFHEM . 'DevIo.pm';
 	require $pathFHEM . 'TcpServerUtils.pm';
 	
-	$hash{$serverName}->{NAME} = $serverName;
-	ServerTools_serverInit($hash{$serverName}, $localPort);
+	$hash{'SERVER'}->{NAME} = 'SERVER';
+	ServerTools_serverInit($hash{'SERVER'}, $localPort);
 
 	$hash{'SERIAL'}->{NAME} = 'SERIAL';
 	ServerTools_serialInit($hash{'SERIAL'}, $serialDevice, $initFnSerial);
@@ -123,7 +123,7 @@ sub ServerTools_main () {
 
 			if(vec($rout, $selectlist{$p}{FD}, 1)) {
 				my $name = $selectlist{$p}{NAME};
-				$name = ($name eq $serverName) ? $selectlist{$p}{NAME} . '.' . $selectlist{$p}{PORT} : $name;
+				$name = ($name eq 'SERVER') ? $selectlist{$p}{NAME} . '.' . $selectlist{$p}{PORT} : $name;
 				$name = ($name eq 'SERIAL') ? $selectlist{$p}{NAME} . '.' . $selectlist{$p}{DeviceName} : $name;
 				CallFn($name, "ReadFn", $selectlist{$p})
 			}
@@ -227,7 +227,7 @@ sub ServerTools_serverWriteClient($) {
 	my ($buffer) = @_;
 	
 	foreach my $p (keys %selectlist) {
-		if($selectlist{$p} && $selectlist{$p}{SNAME} && $selectlist{$p}{SNAME} eq $serverName) {
+		if($selectlist{$p} && $selectlist{$p}{SNAME} && $selectlist{$p}{SNAME} eq 'SERVER') {
 			syswrite($selectlist{$p}->{CD}, $buffer);
 			select(undef, undef, undef, 0.001);
 		}
@@ -278,7 +278,7 @@ sub CallFn(@) {
 	if(!$selectlist{$d}) {
 		my $msg = 'Strange call for nonexistent ' . $d;
 		Log (0, $msg);
-		die($serverName . ': ' . $msg);
+		die($msg);
 	}
 
 	my $fn = $selectlist{$d}{$n};
@@ -296,7 +296,7 @@ sub CallFn(@) {
 	} else {
 		my $msg = 'Strange call for nonexistent ' . $n . ' in  ' .  $d;
 		Log (0, $msg);
-		die($serverName . ': ' . $msg);
+		die($msg);
 	}
 		
 	return '';
@@ -364,7 +364,7 @@ sub handleTimeout() {
 ### Functions for Logging
 sub Log($$) {
 	my ($loglevel, $msg) = @_;
-	Log3 ($serverName, $loglevel, $serverName . ': ' . $msg);
+	Log3 ($serverName, $loglevel, $msg);
 }
 
 sub Log3($$$) {
@@ -460,7 +460,7 @@ sub parseCommand($) {
 sub DoTrigger($$) {
 	my ($name, $text) = @_;
 	
-	Log(2, $text);
+	Log(1, $text);
 	ServerTools_serialReconnect();
 }
 

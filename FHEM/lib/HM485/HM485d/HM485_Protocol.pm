@@ -44,11 +44,11 @@ use constant {
 	CMD_DISCOVERY           => 0x44,
 
 	### Commands to client
-	CMD_ALIVE               => 0x61,
+	CMD_RESPONSE            => 0x72,
+	CMD_ERROR               => 0x61,
 	CMD_EVENT               => 0x65,
 	CMD_DISCOVERY_RESULT    => 0x64,
 	CMD_DISCOVERY_END       => 0x63,
-	CMD_RESPONSE            => 0x72,
 
 	LOGTAG                  => 'HM485d'
 };
@@ -193,6 +193,7 @@ sub sendQueueNextItem() {
 	my ($self) = @_;
 
 	# TODOs:	line watching: if line free to send?
+
 	delete ($self->{sendQueue}{0});
 
 	my $queueCount = scalar(keys (%{$self->{sendQueue}}));
@@ -737,7 +738,7 @@ sub discoveryNextStep ($) {
 				}
 			}
 		} else {
-			HM485::Util::logger(LOGTAG, 2, 'Discovery: We found more than 255 Modules. Cancel with error.');
+			HM485::Util::logger(LOGTAG, 3, 'Discovery: We found more than 255 Modules. Cancel with error.');
 			$done = 1;
 		}
 
@@ -798,7 +799,7 @@ sub sendError($$$) {
 	my ($self, $msgId, $error) = @_;
 	
 	$error = ord($error);
-	$self->sendToClient($msgId, CMD_ALIVE, int($error));
+	$self->sendToClient($msgId, CMD_ERROR, int($error));
 }
 
 sub sendResponse($$$) {

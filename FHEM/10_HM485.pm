@@ -868,7 +868,7 @@ sub HM485_ProcessResponse($$$) {
 		my $hmwId       = $ioHash->{'.waitForResponse'}{$msgId}{hmwId};
 		my $requestData = $ioHash->{'.waitForResponse'}{$msgId}{requestData};
 		my $hash        = $modules{HM485}{defptr}{$hmwId};
-print Dumper($requestType);
+#print Dumper($requestType);
 		# Check if main device exists or we need create it
 		if($hash->{DEF} && $hash->{DEF} eq $hmwId) {
 	
@@ -909,7 +909,7 @@ print Dumper($requestType);
 
 		if($hash->{DEF} eq $hmwId) {
 			if ($requestType eq '57') {                                     # W (ACK written Eeprom Data)
-				# ACK for write EEprom data
+				# AKC for write EEprom data
 				my $devHash = HM485_GetHashByHmwid(substr($hmwId, 0,8));
 				HM485::Device::internalUpdateEEpromData($devHash, $requestData);
 			}
@@ -934,6 +934,7 @@ sub HM485_SetStateNack($$) {
 	my $devHash = HM485_GetHashByHmwid($hmwId);
 	
 	my $txt = 'RESPONSE TIMEOUT';
+#	$devHash->{STATE} = 'NACK';
 	readingsSingleUpdate($devHash, 'state', $txt, 1);
 
 	HM485::Util::logger(HM485::LOGTAG_HM485, 3, $txt . ' for ' . $hmwId);
