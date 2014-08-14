@@ -37,16 +37,16 @@ our %definition = (
     },
     'paramset' =>     {
       "enforce" => {
-                     "CENTRAL_ADDRESS" => {
+                     "central_address" => {
                                             "value" => 1
                                           },
-                     "DIRECT_LINK_DEACTIVATE" => {
+                     "direct_link_deactivate" => {
                                                    "value" => true
                                                  }
                    },
-      "id" => "HMW-Sen-SC-12-DR_dev_master",
+      "id" => "hmw-sen-sc-12-dr_dev_master",
       "parameter" => {
-                       "CENTRAL_ADDRESS" => {
+                       "central_address" => {
                                               "hidden" => true,
                                               "logical" => {
                                                              "type" => "integer"
@@ -60,7 +60,7 @@ our %definition = (
                                                               "type" => "integer"
                                                             }
                                             },
-                       "DIRECT_LINK_DEACTIVATE" => {
+                       "direct_link_deactivate" => {
                                                      "hidden" => true,
                                                      "logical" => {
                                                                     "default" => false,
@@ -76,39 +76,39 @@ our %definition = (
                                                                    }
                                                    }
                      },
-      "type" => "MASTER"
+      "type" => "master"
     },
     'frames' =>     {
-      "INFO_LEVEL" => {
+      "info_level" => {
                         "channel_field" => 10,
                         "direction" => "from_device",
                         "event" => true,
                         "parameter" => {
                                          "index" => 11.0,
-                                         "param" => "STATE",
+                                         "param" => "state",
                                          "size" => 1.0,
                                          "type" => "integer"
                                        },
                         "type" => 0x69
                       },
-      "LEVEL_GET" => {
+      "level_get" => {
                        "channel_field" => 10,
                        "direction" => "to_device",
-                       "type" => 0x53
+                       "type" => 0x73
                      }
     },
     'channels' =>     {
-      "MAINTENANCE" => {
+      "maintenance" => {
                          "class" => "maintenance",
                          "count" => 1,
                          "index" => 0,
                          "paramset" => {
                                          "maint_ch_master" => {
-                                                                "type" => "MASTER"
+                                                                "type" => "master"
                                                               },
                                          "maint_ch_values" => {
                                                                 "parameter" => {
-                                                                                 "CONFIG_PENDING" => {
+                                                                                 "config_pending" => {
                                                                                                        "logical" => {
                                                                                                                       "type" => "boolean"
                                                                                                                     },
@@ -116,11 +116,11 @@ our %definition = (
                                                                                                        "physical" => {
                                                                                                                        "interface" => "internal",
                                                                                                                        "type" => "integer",
-                                                                                                                       "value_id" => "CONFIG_PENDING"
+                                                                                                                       "value_id" => "config_pending"
                                                                                                                      },
                                                                                                        "ui_flags" => "service"
                                                                                                      },
-                                                                                 "STICKY_UNREACH" => {
+                                                                                 "sticky_unreach" => {
                                                                                                        "logical" => {
                                                                                                                       "type" => "boolean"
                                                                                                                     },
@@ -128,11 +128,11 @@ our %definition = (
                                                                                                        "physical" => {
                                                                                                                        "interface" => "internal",
                                                                                                                        "type" => "integer",
-                                                                                                                       "value_id" => "STICKY_UNREACH"
+                                                                                                                       "value_id" => "sticky_unreach"
                                                                                                                      },
                                                                                                        "ui_flags" => "service"
                                                                                                      },
-                                                                                 "UNREACH" => {
+                                                                                 "unreach" => {
                                                                                                 "logical" => {
                                                                                                                "type" => "boolean"
                                                                                                              },
@@ -140,17 +140,17 @@ our %definition = (
                                                                                                 "physical" => {
                                                                                                                 "interface" => "internal",
                                                                                                                 "type" => "integer",
-                                                                                                                "value_id" => "UNREACH"
+                                                                                                                "value_id" => "unreach"
                                                                                                               },
                                                                                                 "ui_flags" => "service"
                                                                                               }
                                                                                },
-                                                                "type" => "VALUES"
+                                                                "type" => "values"
                                                               }
                                        },
                          "ui_flags" => "internal"
                        },
-      "SENSOR" => {
+      "sensor" => {
                     "count" => 12,
                     "index" => 1,
                     "paramset" => {
@@ -163,7 +163,7 @@ our %definition = (
                                                                                      "invert" => true,
                                                                                      "type" => "boolean_integer"
                                                                                    },
-                                                                   "id" => "INPUT_LOCKED",
+                                                                   "id" => "input_locked",
                                                                    "logical" => {
                                                                                   "default" => false,
                                                                                   "type" => "boolean"
@@ -177,27 +177,27 @@ our %definition = (
                                                                                    "type" => "integer"
                                                                                  }
                                                                  },
-                                                  "type" => "MASTER"
+                                                  "type" => "master"
                                                 },
                                     "values" => {
                                                   "parameter" => {
-                                                                   "INSTALL_TEST" => {
+                                                                   "install_test" => {
                                                                                        "logical" => {
                                                                                                       "type" => "action"
                                                                                                     },
                                                                                        "operations" => "event",
                                                                                        "physical" => {
                                                                                                        "event" => {
-                                                                                                                    "frame" => "INFO_LEVEL"
+                                                                                                                    "frame" => "info_level"
                                                                                                                   },
                                                                                                        "interface" => "command",
                                                                                                        "type" => "integer",
-                                                                                                       "value_id" => "TEST_COUNTER"
+                                                                                                       "value_id" => "test_counter"
                                                                                                      },
                                                                                        "ui_flags" => "internal"
                                                                                      },
-                                                                   "SENSOR" => {
-                                                                                 "control" => "DOOR_SENSOR.STATE",
+                                                                   "sensor" => {
+                                                                                 "control" => "door_sensor.state",
                                                                                  "logical" => {
                                                                                                 "type" => "boolean"
                                                                                               },
@@ -205,19 +205,19 @@ our %definition = (
                                                                                  "physical" => {
                                                                                                  "event" => {
                                                                                                               "auth_violate_policy" => "reject",
-                                                                                                              "frame" => "INFO_LEVEL"
+                                                                                                              "frame" => "info_level"
                                                                                                             },
                                                                                                  "get" => {
-                                                                                                            "request" => "LEVEL_GET",
-                                                                                                            "response" => "INFO_LEVEL"
+                                                                                                            "request" => "level_get",
+                                                                                                            "response" => "info_level"
                                                                                                           },
                                                                                                  "interface" => "command",
                                                                                                  "type" => "integer",
-                                                                                                 "value_id" => "STATE"
+                                                                                                 "value_id" => "state"
                                                                                                }
                                                                                }
                                                                  },
-                                                  "type" => "VALUES"
+                                                  "type" => "values"
                                                 }
                                   },
                     "physical_index_offset" => -1

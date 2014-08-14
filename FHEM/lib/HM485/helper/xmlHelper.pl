@@ -140,12 +140,12 @@ sub convertFile($$) {
 
 	$content.= 'our %definition = (' . ($lf ? $lf . '  ' : '') . '\'' . $defKey . '\' => {' . $lf;
 
-	$content.= printDump('version', $xml->{'version'});
-	$content.= printDump('eep_size', $xml->{'eep_size'});
+	$content.= lc(printDump('version', $xml->{'version'}));
+	$content.= lc(printDump('eep_size', $xml->{'eep_size'}));
 	$content.= printDump('supported_types', $xml->{'supported_types'});
-	$content.= printDump('paramset', $xml->{'paramset'});
-	$content.= printDump('frames', $xml->{'frames'});
-	$content.= printDump('channels', $xml->{'channels'});
+	$content.= lc(printDump('paramset', $xml->{'paramset'}));
+	$content.= lc(printDump('frames', $xml->{'frames'}));
+	$content.= lc(printDump('channels', $xml->{'channels'}));
 	$content.=  '  }' . $lf. ');	' . $lf;
 	
 	# convert strings in values  
@@ -154,7 +154,6 @@ sub convertFile($$) {
 	$content =~ s/(\s*=>\s*)("#)([a-zA-Z])(")(.*)/$1.sprintf('0x%02X',ord($3)).$5/ge;	# char to hex
 	$content =~ s/(\s*=>\s*)(")(true|false)(")(.*)/$1$3$5/g;							# true / false to 1/0
 	$content =~ s/(\s*=>\s*)("\+)([0-9]*\.{0,1}[0-9]*)(")(.*)/$1$3$5/g;					# +1 -> 1
-#	$content = lc($content); 
 	
 	open(FH, ">$outputFile") or die('Error opening "' . $outputFile . '"');
 	print FH $content;

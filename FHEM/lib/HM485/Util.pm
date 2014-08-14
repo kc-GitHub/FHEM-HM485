@@ -3,7 +3,7 @@
 
 =head1 SYNOPSIS
 	Helper module for HomeMatic Wired (HM485) for FHEM
-	contributed by Dirk Hoffmann 2012 - 2013
+	contributed by Dirk Hoffmann 2012 - 2014
 	$Id$
 
 =head1 DESCRIPTION

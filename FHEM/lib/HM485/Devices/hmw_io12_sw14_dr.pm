@@ -21,13 +21,13 @@ our %definition = (
     },
     'paramset' =>     {
       "enforce" => {
-                     "id" => "CENTRAL_ADDRESS",
+                     "id" => "central_address",
                      "value" => 1
                    },
-      "id" => "HMW-IO-12-Sw14-DR_dev_master",
+      "id" => "hmw-io-12-sw14-dr_dev_master",
       "parameter" => {
                        "hidden" => true,
-                       "id" => "CENTRAL_ADDRESS",
+                       "id" => "central_address",
                        "logical" => {
                                       "type" => "integer"
                                     },
@@ -40,44 +40,44 @@ our %definition = (
                                        "type" => "integer"
                                      }
                      },
-      "type" => "MASTER"
+      "type" => "master"
     },
     'frames' =>     {
-      "INFO_FREQUENCY" => {
+      "info_frequency" => {
                             "channel_field" => 10,
                             "direction" => "from_device",
                             "event" => true,
                             "parameter" => {
                                              "index" => 11.0,
-                                             "param" => "STATE",
+                                             "param" => "state",
                                              "size" => 3.0,
                                              "type" => "integer"
                                            },
                             "type" => 0x69
                           },
-      "INFO_LEVEL" => {
+      "info_level" => {
                         "channel_field" => 10,
                         "direction" => "from_device",
                         "event" => true,
                         "parameter" => {
                                          "index" => 11.0,
-                                         "param" => "STATE",
+                                         "param" => "state",
                                          "size" => 2.0,
                                          "type" => "integer"
                                        },
                         "type" => 0x69
                       },
-      "LEVEL_GET" => {
+      "level_get" => {
                        "channel_field" => 10,
                        "direction" => "to_device",
-                       "type" => 0x53
+                       "type" => 0x73
                      },
-      "LEVEL_SET" => {
+      "level_set" => {
                        "channel_field" => 10,
                        "direction" => "to_device",
                        "parameter" => {
                                         "index" => 11.0,
-                                        "param" => "STATE",
+                                        "param" => "state",
                                         "size" => 2.0,
                                         "type" => "integer"
                                       },
@@ -85,18 +85,18 @@ our %definition = (
                      }
     },
     'channels' =>     {
-      "DIGITAL_ANALOG_INPUT" => {
+      "digital_analog_input" => {
                                   "count" => 6,
                                   "index" => 21,
                                   "paramset" => {
                                                   "link" => {},
                                                   "master" => {
                                                                 "parameter" => {
-                                                                                 "BEHAVIOUR" => {
+                                                                                 "behaviour" => {
                                                                                                   "logical" => {
                                                                                                                  "option" => {
-                                                                                                                               "ANALOG_INPUT" => {},
-                                                                                                                               "DIGITAL_INPUT" => {
+                                                                                                                               "analog_input" => {},
+                                                                                                                               "digital_input" => {
                                                                                                                                                     "default" => true
                                                                                                                                                   }
                                                                                                                              },
@@ -105,11 +105,11 @@ our %definition = (
                                                                                                   "physical" => {
                                                                                                                   "interface" => "internal",
                                                                                                                   "type" => "integer",
-                                                                                                                  "value_id" => "BEHAVIOUR"
+                                                                                                                  "value_id" => "behaviour"
                                                                                                                 },
                                                                                                   "ui_flags" => "transform"
                                                                                                 },
-                                                                                 "CALIBRATION" => {
+                                                                                 "calibration" => {
                                                                                                     "conversion" => {
                                                                                                                       1 => {
                                                                                                                              "offset" => 127,
@@ -141,7 +141,7 @@ our %definition = (
                                                                                                                   }
                                                                                                   }
                                                                                },
-                                                                "type" => "MASTER"
+                                                                "type" => "master"
                                                               },
                                                   "values" => {
                                                                 "parameter" => {
@@ -149,7 +149,7 @@ our %definition = (
                                                                                                    "factor" => 1,
                                                                                                    "type" => "float_integer_scale"
                                                                                                  },
-                                                                                 "id" => "VALUE",
+                                                                                 "id" => "value",
                                                                                  "logical" => {
                                                                                                 "max" => 1000,
                                                                                                 "min" => 0,
@@ -158,23 +158,23 @@ our %definition = (
                                                                                  "operations" => "read,event",
                                                                                  "physical" => {
                                                                                                  "event" => {
-                                                                                                              "frame" => "INFO_LEVEL"
+                                                                                                              "frame" => "info_level"
                                                                                                             },
                                                                                                  "get" => {
-                                                                                                            "request" => "LEVEL_GET",
-                                                                                                            "response" => "INFO_LEVEL"
+                                                                                                            "request" => "level_get",
+                                                                                                            "response" => "info_level"
                                                                                                           },
                                                                                                  "interface" => "command",
                                                                                                  "type" => "integer",
-                                                                                                 "value_id" => "STATE"
+                                                                                                 "value_id" => "state"
                                                                                                }
                                                                                },
-                                                                "type" => "VALUES"
+                                                                "type" => "values"
                                                               }
                                                 },
                                   "physical_index_offset" => -1,
                                   "special_parameter" => {
-                                                           "id" => "BEHAVIOUR",
+                                                           "id" => "behaviour",
                                                            "logical" => {
                                                                           "type" => "integer"
                                                                         },
@@ -198,7 +198,7 @@ our %definition = (
                                                                                                                                       "true" => 1023,
                                                                                                                                       "type" => "boolean_integer"
                                                                                                                                     },
-                                                                                                                    "id" => "STATE",
+                                                                                                                    "id" => "state",
                                                                                                                     "logical" => {
                                                                                                                                    "default" => false,
                                                                                                                                    "type" => "boolean"
@@ -206,26 +206,26 @@ our %definition = (
                                                                                                                     "operations" => "read,event",
                                                                                                                     "physical" => {
                                                                                                                                     "event" => {
-                                                                                                                                                 "frame" => "INFO_LEVEL"
+                                                                                                                                                 "frame" => "info_level"
                                                                                                                                                },
                                                                                                                                     "get" => {
-                                                                                                                                               "request" => "LEVEL_GET",
-                                                                                                                                               "response" => "INFO_LEVEL"
+                                                                                                                                               "request" => "level_get",
+                                                                                                                                               "response" => "info_level"
                                                                                                                                              },
                                                                                                                                     "interface" => "command",
                                                                                                                                     "type" => "integer",
-                                                                                                                                    "value_id" => "STATE"
+                                                                                                                                    "value_id" => "state"
                                                                                                                                   }
                                                                                                                   },
-                                                                                                   "type" => "VALUES"
+                                                                                                   "type" => "values"
                                                                                                  },
                                                                    "hmw_io_ch_master" => {
                                                                                            "parameter" => {
-                                                                                                            "id" => "BEHAVIOUR",
+                                                                                                            "id" => "behaviour",
                                                                                                             "logical" => {
                                                                                                                            "option" => {
-                                                                                                                                         "ANALOG_INPUT" => {},
-                                                                                                                                         "DIGITAL_INPUT" => {
+                                                                                                                                         "analog_input" => {},
+                                                                                                                                         "digital_input" => {
                                                                                                                                                               "default" => true
                                                                                                                                                             }
                                                                                                                                        },
@@ -234,27 +234,27 @@ our %definition = (
                                                                                                             "physical" => {
                                                                                                                             "interface" => "internal",
                                                                                                                             "type" => "integer",
-                                                                                                                            "value_id" => "BEHAVIOUR"
+                                                                                                                            "value_id" => "behaviour"
                                                                                                                           },
                                                                                                             "ui_flags" => "transform"
                                                                                                           },
-                                                                                           "type" => "MASTER"
+                                                                                           "type" => "master"
                                                                                          }
                                                                  }
                                                  }
                                 },
-      "DIGITAL_ANALOG_OUTPUT" => {
+      "digital_analog_output" => {
                                    "count" => 8,
                                    "index" => 7,
                                    "paramset" => {
                                                    "link" => {},
                                                    "master" => {
                                                                  "parameter" => {
-                                                                                  "BEHAVIOUR" => {
+                                                                                  "behaviour" => {
                                                                                                    "logical" => {
                                                                                                                   "option" => {
-                                                                                                                                "ANALOG_OUTPUT" => {},
-                                                                                                                                "DIGITAL_OUTPUT" => {
+                                                                                                                                "analog_output" => {},
+                                                                                                                                "digital_output" => {
                                                                                                                                                       "default" => true
                                                                                                                                                     }
                                                                                                                               },
@@ -263,11 +263,11 @@ our %definition = (
                                                                                                    "physical" => {
                                                                                                                    "interface" => "internal",
                                                                                                                    "type" => "integer",
-                                                                                                                   "value_id" => "BEHAVIOUR"
+                                                                                                                   "value_id" => "behaviour"
                                                                                                                  },
                                                                                                    "ui_flags" => "transform"
                                                                                                  },
-                                                                                  "PULSETIME" => {
+                                                                                  "pulsetime" => {
                                                                                                    "conversion" => {
                                                                                                                      1 => {
                                                                                                                             "factor" => 100,
@@ -301,44 +301,44 @@ our %definition = (
                                                                                                                  }
                                                                                                  }
                                                                                 },
-                                                                 "type" => "MASTER"
+                                                                 "type" => "master"
                                                                },
                                                    "values" => {
                                                                  "parameter" => {
-                                                                                  "control" => "DIGITAL_ANALOG_OUTPUT.FREQUENCY",
+                                                                                  "control" => "digital_analog_output.frequency",
                                                                                   "conversion" => {
                                                                                                     "type" => "float_integer_scale"
                                                                                                   },
-                                                                                  "id" => "FREQUENCY",
+                                                                                  "id" => "frequency",
                                                                                   "logical" => {
                                                                                                  "max" => 50000.0,
                                                                                                  "min" => 0.0,
                                                                                                  "type" => "float",
-                                                                                                 "unit" => "mHz"
+                                                                                                 "unit" => "mhz"
                                                                                                },
                                                                                   "operations" => "read,write,event",
                                                                                   "physical" => {
                                                                                                   "event" => {
-                                                                                                               "frame" => "INFO_LEVEL"
+                                                                                                               "frame" => "info_level"
                                                                                                              },
                                                                                                   "get" => {
-                                                                                                             "request" => "LEVEL_GET",
-                                                                                                             "response" => "INFO_LEVEL"
+                                                                                                             "request" => "level_get",
+                                                                                                             "response" => "info_level"
                                                                                                            },
                                                                                                   "interface" => "command",
                                                                                                   "set" => {
-                                                                                                             "request" => "LEVEL_SET"
+                                                                                                             "request" => "level_set"
                                                                                                            },
                                                                                                   "type" => "integer",
-                                                                                                  "value_id" => "STATE"
+                                                                                                  "value_id" => "state"
                                                                                                 }
                                                                                 },
-                                                                 "type" => "VALUES"
+                                                                 "type" => "values"
                                                                }
                                                  },
                                    "physical_index_offset" => -1,
                                    "special_parameter" => {
-                                                            "id" => "BEHAVIOUR",
+                                                            "id" => "behaviour",
                                                             "logical" => {
                                                                            "type" => "integer"
                                                                          },
@@ -356,14 +356,14 @@ our %definition = (
                                                     "paramset" => {
                                                                     "hmw_digital_output_values" => {
                                                                                                      "parameter" => {
-                                                                                                                      "control" => "SWITCH.STATE",
+                                                                                                                      "control" => "switch.state",
                                                                                                                       "conversion" => {
                                                                                                                                         "false" => 0,
                                                                                                                                         "threshold" => 1,
                                                                                                                                         "true" => 1023,
                                                                                                                                         "type" => "boolean_integer"
                                                                                                                                       },
-                                                                                                                      "id" => "STATE",
+                                                                                                                      "id" => "state",
                                                                                                                       "logical" => {
                                                                                                                                      "default" => false,
                                                                                                                                      "type" => "boolean"
@@ -371,29 +371,29 @@ our %definition = (
                                                                                                                       "operations" => "read,write,event",
                                                                                                                       "physical" => {
                                                                                                                                       "event" => {
-                                                                                                                                                   "frame" => "INFO_LEVEL"
+                                                                                                                                                   "frame" => "info_level"
                                                                                                                                                  },
                                                                                                                                       "get" => {
-                                                                                                                                                 "request" => "LEVEL_GET",
-                                                                                                                                                 "response" => "INFO_LEVEL"
+                                                                                                                                                 "request" => "level_get",
+                                                                                                                                                 "response" => "info_level"
                                                                                                                                                },
                                                                                                                                       "interface" => "command",
                                                                                                                                       "set" => {
-                                                                                                                                                 "request" => "LEVEL_SET"
+                                                                                                                                                 "request" => "level_set"
                                                                                                                                                },
                                                                                                                                       "type" => "integer",
-                                                                                                                                      "value_id" => "STATE"
+                                                                                                                                      "value_id" => "state"
                                                                                                                                     }
                                                                                                                     },
-                                                                                                     "type" => "VALUES"
+                                                                                                     "type" => "values"
                                                                                                    },
                                                                     "hmw_io_ch_master" => {
                                                                                             "parameter" => {
-                                                                                                             "id" => "BEHAVIOUR",
+                                                                                                             "id" => "behaviour",
                                                                                                              "logical" => {
                                                                                                                             "option" => {
-                                                                                                                                          "ANALOG_OUTPUT" => {},
-                                                                                                                                          "DIGITAL_OUTPUT" => {
+                                                                                                                                          "analog_output" => {},
+                                                                                                                                          "digital_output" => {
                                                                                                                                                                 "default" => true
                                                                                                                                                               }
                                                                                                                                         },
@@ -402,40 +402,40 @@ our %definition = (
                                                                                                              "physical" => {
                                                                                                                              "interface" => "internal",
                                                                                                                              "type" => "integer",
-                                                                                                                             "value_id" => "BEHAVIOUR"
+                                                                                                                             "value_id" => "behaviour"
                                                                                                                            },
                                                                                                              "ui_flags" => "transform"
                                                                                                            },
-                                                                                            "type" => "MASTER"
+                                                                                            "type" => "master"
                                                                                           }
                                                                   }
                                                   }
                                  },
-      "DIGITAL_INPUT" => {
+      "digital_input" => {
                            "count" => 6,
                            "index" => 15,
                            "paramset" => {
                                            "link" => {},
                                            "master" => {
                                                          "parameter" => {
-                                                                          "id" => "BEHAVIOUR",
+                                                                          "id" => "behaviour",
                                                                           "logical" => {
                                                                                          "option" => {
-                                                                                                       "DIGITAL_INPUT" => {
+                                                                                                       "digital_input" => {
                                                                                                                             "default" => true
                                                                                                                           },
-                                                                                                       "FREQUENCY_INPUT" => {}
+                                                                                                       "frequency_input" => {}
                                                                                                      },
                                                                                          "type" => "option"
                                                                                        },
                                                                           "physical" => {
                                                                                           "interface" => "internal",
                                                                                           "type" => "integer",
-                                                                                          "value_id" => "BEHAVIOUR"
+                                                                                          "value_id" => "behaviour"
                                                                                         },
                                                                           "ui_flags" => "transform"
                                                                         },
-                                                         "type" => "MASTER"
+                                                         "type" => "master"
                                                        },
                                            "values" => {
                                                          "parameter" => {
@@ -443,33 +443,33 @@ our %definition = (
                                                                                             "factor" => 1.0,
                                                                                             "type" => "float_integer_scale"
                                                                                           },
-                                                                          "id" => "FREQUENCY",
+                                                                          "id" => "frequency",
                                                                           "logical" => {
                                                                                          "max" => 350000,
                                                                                          "min" => 0,
                                                                                          "type" => "float",
-                                                                                         "unit" => "mHz"
+                                                                                         "unit" => "mhz"
                                                                                        },
                                                                           "operations" => "read,event",
                                                                           "physical" => {
                                                                                           "event" => {
-                                                                                                       "frame" => "INFO_FREQUENCY"
+                                                                                                       "frame" => "info_frequency"
                                                                                                      },
                                                                                           "get" => {
-                                                                                                     "request" => "LEVEL_GET",
-                                                                                                     "response" => "INFO_FREQUENCY"
+                                                                                                     "request" => "level_get",
+                                                                                                     "response" => "info_frequency"
                                                                                                    },
                                                                                           "interface" => "command",
                                                                                           "type" => "integer",
-                                                                                          "value_id" => "STATE"
+                                                                                          "value_id" => "state"
                                                                                         }
                                                                         },
-                                                         "type" => "VALUES"
+                                                         "type" => "values"
                                                        }
                                          },
                            "physical_index_offset" => -1,
                            "special_parameter" => {
-                                                    "id" => "BEHAVIOUR",
+                                                    "id" => "behaviour",
                                                     "logical" => {
                                                                    "type" => "integer"
                                                                  },
@@ -493,7 +493,7 @@ our %definition = (
                                                                                                                                "true" => 1023,
                                                                                                                                "type" => "boolean_integer"
                                                                                                                              },
-                                                                                                             "id" => "STATE",
+                                                                                                             "id" => "state",
                                                                                                              "logical" => {
                                                                                                                             "default" => false,
                                                                                                                             "type" => "boolean"
@@ -501,61 +501,61 @@ our %definition = (
                                                                                                              "operations" => "read,event",
                                                                                                              "physical" => {
                                                                                                                              "event" => {
-                                                                                                                                          "frame" => "INFO_LEVEL"
+                                                                                                                                          "frame" => "info_level"
                                                                                                                                         },
                                                                                                                              "get" => {
-                                                                                                                                        "request" => "LEVEL_GET",
-                                                                                                                                        "response" => "INFO_LEVEL"
+                                                                                                                                        "request" => "level_get",
+                                                                                                                                        "response" => "info_level"
                                                                                                                                       },
                                                                                                                              "interface" => "command",
                                                                                                                              "type" => "integer",
-                                                                                                                             "value_id" => "STATE"
+                                                                                                                             "value_id" => "state"
                                                                                                                            }
                                                                                                            },
-                                                                                            "type" => "VALUES"
+                                                                                            "type" => "values"
                                                                                           },
                                                             "hmw_io_ch_master" => {
                                                                                     "parameter" => {
-                                                                                                     "id" => "BEHAVIOUR",
+                                                                                                     "id" => "behaviour",
                                                                                                      "logical" => {
                                                                                                                     "option" => {
-                                                                                                                                  "DIGITAL_INPUT" => {
+                                                                                                                                  "digital_input" => {
                                                                                                                                                        "default" => true
                                                                                                                                                      },
-                                                                                                                                  "FREQUENCY_INPUT" => {}
+                                                                                                                                  "frequency_input" => {}
                                                                                                                                 },
                                                                                                                     "type" => "option"
                                                                                                                   },
                                                                                                      "physical" => {
                                                                                                                      "interface" => "internal",
                                                                                                                      "type" => "integer",
-                                                                                                                     "value_id" => "BEHAVIOUR"
+                                                                                                                     "value_id" => "behaviour"
                                                                                                                    },
                                                                                                      "ui_flags" => "transform"
                                                                                                    },
-                                                                                    "type" => "MASTER"
+                                                                                    "type" => "master"
                                                                                   }
                                                           }
                                           }
                          },
-      "DIGITAL_OUTPUT" => {
+      "digital_output" => {
                             "count" => 6,
                             "index" => 1,
                             "paramset" => {
                                             "link" => {},
                                             "master" => {
-                                                          "type" => "MASTER"
+                                                          "type" => "master"
                                                         },
                                             "values" => {
                                                           "parameter" => {
-                                                                           "control" => "SWITCH.STATE",
+                                                                           "control" => "switch.state",
                                                                            "conversion" => {
                                                                                              "false" => 0,
                                                                                              "threshold" => 1,
                                                                                              "true" => 1023,
                                                                                              "type" => "boolean_integer"
                                                                                            },
-                                                                           "id" => "STATE",
+                                                                           "id" => "state",
                                                                            "logical" => {
                                                                                           "default" => false,
                                                                                           "type" => "boolean"
@@ -563,36 +563,36 @@ our %definition = (
                                                                            "operations" => "read,write,event",
                                                                            "physical" => {
                                                                                            "event" => {
-                                                                                                        "frame" => "INFO_LEVEL"
+                                                                                                        "frame" => "info_level"
                                                                                                       },
                                                                                            "get" => {
-                                                                                                      "request" => "LEVEL_GET",
-                                                                                                      "response" => "INFO_LEVEL"
+                                                                                                      "request" => "level_get",
+                                                                                                      "response" => "info_level"
                                                                                                     },
                                                                                            "interface" => "command",
                                                                                            "set" => {
-                                                                                                      "request" => "LEVEL_SET"
+                                                                                                      "request" => "level_set"
                                                                                                     },
                                                                                            "type" => "integer",
-                                                                                           "value_id" => "STATE"
+                                                                                           "value_id" => "state"
                                                                                          }
                                                                          },
-                                                          "type" => "VALUES"
+                                                          "type" => "values"
                                                         }
                                           },
                             "physical_index_offset" => -1
                           },
-      "MAINTENANCE" => {
+      "maintenance" => {
                          "class" => "maintenance",
                          "count" => 1,
                          "index" => 0,
                          "paramset" => {
                                          "maint_ch_master" => {
-                                                                "type" => "MASTER"
+                                                                "type" => "master"
                                                               },
                                          "maint_ch_values" => {
                                                                 "parameter" => {
-                                                                                 "CONFIG_PENDING" => {
+                                                                                 "config_pending" => {
                                                                                                        "logical" => {
                                                                                                                       "type" => "boolean"
                                                                                                                     },
@@ -600,11 +600,11 @@ our %definition = (
                                                                                                        "physical" => {
                                                                                                                        "interface" => "internal",
                                                                                                                        "type" => "integer",
-                                                                                                                       "value_id" => "CONFIG_PENDING"
+                                                                                                                       "value_id" => "config_pending"
                                                                                                                      },
                                                                                                        "ui_flags" => "service"
                                                                                                      },
-                                                                                 "STICKY_UNREACH" => {
+                                                                                 "sticky_unreach" => {
                                                                                                        "logical" => {
                                                                                                                       "type" => "boolean"
                                                                                                                     },
@@ -612,11 +612,11 @@ our %definition = (
                                                                                                        "physical" => {
                                                                                                                        "interface" => "internal",
                                                                                                                        "type" => "integer",
-                                                                                                                       "value_id" => "STICKY_UNREACH"
+                                                                                                                       "value_id" => "sticky_unreach"
                                                                                                                      },
                                                                                                        "ui_flags" => "service"
                                                                                                      },
-                                                                                 "UNREACH" => {
+                                                                                 "unreach" => {
                                                                                                 "logical" => {
                                                                                                                "type" => "boolean"
                                                                                                              },
@@ -624,12 +624,12 @@ our %definition = (
                                                                                                 "physical" => {
                                                                                                                 "interface" => "internal",
                                                                                                                 "type" => "integer",
-                                                                                                                "value_id" => "UNREACH"
+                                                                                                                "value_id" => "unreach"
                                                                                                               },
                                                                                                 "ui_flags" => "service"
                                                                                               }
                                                                                },
-                                                                "type" => "VALUES"
+                                                                "type" => "values"
                                                               }
                                        },
                          "ui_flags" => "internal"

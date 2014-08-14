@@ -26,16 +26,16 @@ our %definition = (
     },
     'paramset' =>     {
       "enforce" => {
-                     "CENTRAL_ADDRESS" => {
+                     "central_address" => {
                                             "value" => 1
                                           },
-                     "DIRECT_LINK_DEACTIVATE" => {
+                     "direct_link_deactivate" => {
                                                    "value" => true
                                                  }
                    },
-      "id" => "HMW-IO-4-FM_dev_master",
+      "id" => "hmw-io-4-fm_dev_master",
       "parameter" => {
-                       "CENTRAL_ADDRESS" => {
+                       "central_address" => {
                                               "hidden" => true,
                                               "logical" => {
                                                              "type" => "integer"
@@ -49,7 +49,7 @@ our %definition = (
                                                               "type" => "integer"
                                                             }
                                             },
-                       "DIRECT_LINK_DEACTIVATE" => {
+                       "direct_link_deactivate" => {
                                                      "hidden" => true,
                                                      "logical" => {
                                                                     "default" => false,
@@ -64,7 +64,7 @@ our %definition = (
                                                                      "type" => "integer"
                                                                    }
                                                    },
-                       "LOGGING_TIME" => {
+                       "logging_time" => {
                                            "conversion" => {
                                                              "factor" => 10,
                                                              "offset" => 0.0,
@@ -87,28 +87,28 @@ our %definition = (
                                                          }
                                          }
                      },
-      "type" => "MASTER"
+      "type" => "master"
     },
     'frames' =>     {
-      "INFO_LEVEL" => {
+      "info_level" => {
                         "channel_field" => 10,
                         "direction" => "from_device",
                         "event" => true,
                         "parameter" => {
                                          "11.0" => {
-                                                     "param" => "STATE",
+                                                     "param" => "state",
                                                      "size" => 1.0,
                                                      "type" => "integer"
                                                    },
                                          "12.4" => {
-                                                     "param" => "STATE_FLAGS",
+                                                     "param" => "state_flags",
                                                      "size" => 0.3,
                                                      "type" => "integer"
                                                    }
                                        },
                         "type" => 0x69
                       },
-      "KEY_EVENT_LONG" => {
+      "key_event_long" => {
                             "channel_field" => 10,
                             "direction" => "from_device",
                             "event" => true,
@@ -119,14 +119,14 @@ our %definition = (
                                                          "type" => "integer"
                                                        },
                                              "12.2" => {
-                                                         "param" => "COUNTER",
+                                                         "param" => "counter",
                                                          "size" => 0.6,
                                                          "type" => "integer"
                                                        }
                                            },
-                            "type" => 0x4B
+                            "type" => 0x6B
                           },
-      "KEY_EVENT_SHORT" => {
+      "key_event_short" => {
                              "channel_field" => 10,
                              "direction" => "from_device",
                              "event" => true,
@@ -137,14 +137,14 @@ our %definition = (
                                                           "type" => "integer"
                                                         },
                                               "12.2" => {
-                                                          "param" => "COUNTER",
+                                                          "param" => "counter",
                                                           "size" => 0.6,
                                                           "type" => "integer"
                                                         }
                                             },
-                             "type" => 0x4B
+                             "type" => 0x6B
                            },
-      "KEY_SIM_LONG" => {
+      "key_sim_long" => {
                           "channel_field" => 10,
                           "direction" => "from_device",
                           "parameter" => {
@@ -154,15 +154,15 @@ our %definition = (
                                                        "type" => "integer"
                                                      },
                                            "12.2" => {
-                                                       "param" => "SIM_COUNTER",
+                                                       "param" => "sim_counter",
                                                        "size" => 0.6,
                                                        "type" => "integer"
                                                      }
                                          },
                           "receiver_channel_field" => 11,
-                          "type" => 0x4B
+                          "type" => 0x6B
                         },
-      "KEY_SIM_SHORT" => {
+      "key_sim_short" => {
                            "channel_field" => 10,
                            "direction" => "from_device",
                            "parameter" => {
@@ -172,47 +172,47 @@ our %definition = (
                                                         "type" => "integer"
                                                       },
                                             "12.2" => {
-                                                        "param" => "SIM_COUNTER",
+                                                        "param" => "sim_counter",
                                                         "size" => 0.6,
                                                         "type" => "integer"
                                                       }
                                           },
                            "receiver_channel_field" => 11,
-                           "type" => 0x4B
+                           "type" => 0x6B
                          },
-      "LEVEL_GET" => {
+      "level_get" => {
                        "channel_field" => 10,
                        "direction" => "to_device",
-                       "type" => 0x53
+                       "type" => 0x73
                      },
-      "LEVEL_SET" => {
+      "level_set" => {
                        "channel_field" => 10,
                        "direction" => "to_device",
                        "parameter" => {
                                         "index" => 11.0,
-                                        "param" => "STATE",
+                                        "param" => "state",
                                         "size" => 1.0,
                                         "type" => "integer"
                                       },
                        "type" => 0x78
                      },
-      "SET_LOCK" => {
+      "set_lock" => {
                       "channel_field" => 11,
                       "direction" => "to_device",
                       "parameter" => {
                                        "index" => 12.0,
-                                       "param" => "INHIBIT",
+                                       "param" => "inhibit",
                                        "size" => 1.0,
                                        "type" => "integer"
                                      },
                       "type" => 0x6C
                     },
-      "TOGGLE_INSTALL_TEST" => {
+      "toggle_install_test" => {
                                  "channel_field" => 10,
                                  "direction" => "to_device",
                                  "parameter" => {
                                                   "index" => 11.0,
-                                                  "param" => "TOGGLE_FLAG",
+                                                  "param" => "toggle_flag",
                                                   "size" => 1.0,
                                                   "type" => "integer"
                                                 },
@@ -220,22 +220,22 @@ our %definition = (
                                }
     },
     'channels' =>     {
-      "INPUT_OUTPUT" => {
+      "input_output" => {
                           "count" => 4,
                           "index" => 1,
                           "link_roles" => {
                                             "source" => {
-                                                          "name" => "SWITCH"
+                                                          "name" => "switch"
                                                         }
                                           },
                           "paramset" => {
                                           "link" => {
                                                       "address_start" => 0x360,
                                                       "address_step" => 6,
-                                                      "channel_param" => "CHANNEL",
+                                                      "channel_param" => "channel",
                                                       "count" => 26,
                                                       "parameter" => {
-                                                                       "ACTUATOR" => {
+                                                                       "actuator" => {
                                                                                        "hidden" => true,
                                                                                        "logical" => {
                                                                                                       "type" => "address"
@@ -260,7 +260,7 @@ our %definition = (
                                                                                                        }
                                                                                                      ]
                                                                                      },
-                                                                       "CHANNEL" => {
+                                                                       "channel" => {
                                                                                       "hidden" => true,
                                                                                       "logical" => {
                                                                                                      "default" => 255,
@@ -279,31 +279,31 @@ our %definition = (
                                                                                                     }
                                                                                     }
                                                                      },
-                                                      "peer_param" => "ACTUATOR",
-                                                      "type" => "LINK"
+                                                      "peer_param" => "actuator",
+                                                      "type" => "link"
                                                     },
                                           "master" => {
                                                         "address_start" => 0x08,
                                                         "address_step" => 2,
                                                         "parameter" => {
-                                                                         "BEHAVIOUR" => {
+                                                                         "behaviour" => {
                                                                                           "logical" => {
                                                                                                          "option" => {
-                                                                                                                       "INPUT" => {
+                                                                                                                       "input" => {
                                                                                                                                     "default" => true
                                                                                                                                   },
-                                                                                                                       "OUTPUT" => {}
+                                                                                                                       "output" => {}
                                                                                                                      },
                                                                                                          "type" => "option"
                                                                                                        },
                                                                                           "physical" => {
                                                                                                           "interface" => "internal",
                                                                                                           "type" => "integer",
-                                                                                                          "value_id" => "BEHAVIOUR"
+                                                                                                          "value_id" => "behaviour"
                                                                                                         },
                                                                                           "ui_flags" => "transform"
                                                                                         },
-                                                                         "INPUT_LOCKED" => {
+                                                                         "input_locked" => {
                                                                                              "conversion" => {
                                                                                                                "invert" => true,
                                                                                                                "type" => "boolean_integer"
@@ -321,13 +321,13 @@ our %definition = (
                                                                                                              "type" => "integer"
                                                                                                            }
                                                                                            },
-                                                                         "INPUT_TYPE" => {
+                                                                         "input_type" => {
                                                                                            "logical" => {
                                                                                                           "option" => {
-                                                                                                                        "PUSHBUTTON" => {
+                                                                                                                        "pushbutton" => {
                                                                                                                                           "default" => true
                                                                                                                                         },
-                                                                                                                        "SWITCH" => {}
+                                                                                                                        "switch" => {}
                                                                                                                       },
                                                                                                           "type" => "option"
                                                                                                         },
@@ -340,7 +340,7 @@ our %definition = (
                                                                                                            "type" => "integer"
                                                                                                          }
                                                                                          },
-                                                                         "LONG_PRESS_TIME" => {
+                                                                         "long_press_time" => {
                                                                                                 "conversion" => {
                                                                                                                   1 => {
                                                                                                                          "factor" => 10,
@@ -373,11 +373,11 @@ our %definition = (
                                                                                                               }
                                                                                               }
                                                                        },
-                                                        "type" => "MASTER"
+                                                        "type" => "master"
                                                       },
                                           "values" => {
                                                         "parameter" => {
-                                                                         "INSTALL_TEST" => {
+                                                                         "install_test" => {
                                                                                              "logical" => {
                                                                                                             "type" => "action"
                                                                                                           },
@@ -385,23 +385,23 @@ our %definition = (
                                                                                              "physical" => {
                                                                                                              "event" => {
                                                                                                                           1 => {
-                                                                                                                                 "frame" => "KEY_EVENT_SHORT"
+                                                                                                                                 "frame" => "key_event_short"
                                                                                                                                },
                                                                                                                           2 => {
-                                                                                                                                 "frame" => "KEY_EVENT_LONG"
+                                                                                                                                 "frame" => "key_event_long"
                                                                                                                                }
                                                                                                                         },
                                                                                                              "interface" => "command",
                                                                                                              "type" => "integer",
-                                                                                                             "value_id" => "TEST_COUNTER"
+                                                                                                             "value_id" => "test_counter"
                                                                                                            },
                                                                                              "ui_flags" => "internal"
                                                                                            },
-                                                                         "PRESS_LONG" => {
-                                                                                           "control" => "BUTTON.LONG",
+                                                                         "press_long" => {
+                                                                                           "control" => "button.long",
                                                                                            "conversion" => {
                                                                                                              "counter_size" => 6,
-                                                                                                             "sim_counter" => "SIM_COUNTER",
+                                                                                                             "sim_counter" => "sim_counter",
                                                                                                              "type" => "action_key_counter"
                                                                                                            },
                                                                                            "logical" => {
@@ -411,21 +411,21 @@ our %definition = (
                                                                                            "operations" => "event,write",
                                                                                            "physical" => {
                                                                                                            "event" => {
-                                                                                                                        "frame" => "KEY_EVENT_LONG"
+                                                                                                                        "frame" => "key_event_long"
                                                                                                                       },
                                                                                                            "interface" => "command",
                                                                                                            "set" => {
-                                                                                                                      "request" => "KEY_SIM_LONG"
+                                                                                                                      "request" => "key_sim_long"
                                                                                                                     },
                                                                                                            "type" => "integer",
-                                                                                                           "value_id" => "COUNTER"
+                                                                                                           "value_id" => "counter"
                                                                                                          }
                                                                                          },
-                                                                         "PRESS_SHORT" => {
-                                                                                            "control" => "BUTTON.SHORT",
+                                                                         "press_short" => {
+                                                                                            "control" => "button.short",
                                                                                             "conversion" => {
                                                                                                               "counter_size" => 6,
-                                                                                                              "sim_counter" => "SIM_COUNTER",
+                                                                                                              "sim_counter" => "sim_counter",
                                                                                                               "type" => "action_key_counter"
                                                                                                             },
                                                                                             "logical" => {
@@ -435,23 +435,23 @@ our %definition = (
                                                                                             "operations" => "event,write",
                                                                                             "physical" => {
                                                                                                             "event" => {
-                                                                                                                         "frame" => "KEY_EVENT_SHORT"
+                                                                                                                         "frame" => "key_event_short"
                                                                                                                        },
                                                                                                             "interface" => "command",
                                                                                                             "set" => {
-                                                                                                                       "request" => "KEY_SIM_SHORT"
+                                                                                                                       "request" => "key_sim_short"
                                                                                                                      },
                                                                                                             "type" => "integer",
-                                                                                                            "value_id" => "COUNTER"
+                                                                                                            "value_id" => "counter"
                                                                                                           }
                                                                                           }
                                                                        },
-                                                        "type" => "VALUES"
+                                                        "type" => "values"
                                                       }
                                         },
                           "physical_index_offset" => -1,
                           "special_parameter" => {
-                                                   "id" => "BEHAVIOUR",
+                                                   "id" => "behaviour",
                                                    "logical" => {
                                                                   "type" => "integer"
                                                                 },
@@ -468,7 +468,7 @@ our %definition = (
                           "subconfig" => {
                                            "link_roles" => {
                                                              "target" => {
-                                                                           "name" => "SWITCH"
+                                                                           "name" => "switch"
                                                                          }
                                                            },
                                            "paramset" => {
@@ -476,28 +476,28 @@ our %definition = (
                                                                                    "address_start" => 0x10,
                                                                                    "address_step" => 2,
                                                                                    "parameter" => {
-                                                                                                    "BEHAVIOUR" => {
+                                                                                                    "behaviour" => {
                                                                                                                      "logical" => {
                                                                                                                                     "option" => {
-                                                                                                                                                  "INPUT" => {
+                                                                                                                                                  "input" => {
                                                                                                                                                                "default" => true
                                                                                                                                                              },
-                                                                                                                                                  "OUTPUT" => {}
+                                                                                                                                                  "output" => {}
                                                                                                                                                 },
                                                                                                                                     "type" => "option"
                                                                                                                                   },
                                                                                                                      "physical" => {
                                                                                                                                      "interface" => "internal",
                                                                                                                                      "type" => "integer",
-                                                                                                                                     "value_id" => "BEHAVIOUR"
+                                                                                                                                     "value_id" => "behaviour"
                                                                                                                                    },
                                                                                                                      "ui_flags" => "transform"
                                                                                                                    },
-                                                                                                    "LOGGING" => {
+                                                                                                    "logging" => {
                                                                                                                    "logical" => {
                                                                                                                                   "option" => {
-                                                                                                                                                "OFF" => {},
-                                                                                                                                                "ON" => {
+                                                                                                                                                "off" => {},
+                                                                                                                                                "on" => {
                                                                                                                                                           "default" => true
                                                                                                                                                         }
                                                                                                                                               },
@@ -513,15 +513,15 @@ our %definition = (
                                                                                                                                  }
                                                                                                                  }
                                                                                                   },
-                                                                                   "type" => "MASTER"
+                                                                                   "type" => "master"
                                                                                  },
                                                            "hmw_switch_ch_link" => {
                                                                                      "address_start" => 0x18,
                                                                                      "address_step" => 28,
-                                                                                     "channel_param" => "CHANNEL",
+                                                                                     "channel_param" => "channel",
                                                                                      "count" => 30,
                                                                                      "parameter" => {
-                                                                                                      "CHANNEL" => {
+                                                                                                      "channel" => {
                                                                                                                      "hidden" => true,
                                                                                                                      "logical" => {
                                                                                                                                     "default" => 255,
@@ -539,13 +539,13 @@ our %definition = (
                                                                                                                                      "type" => "integer"
                                                                                                                                    }
                                                                                                                    },
-                                                                                                      "LONG_ACTION_TYPE" => {
+                                                                                                      "long_action_type" => {
                                                                                                                               "logical" => {
                                                                                                                                              "option" => {
-                                                                                                                                                           "ACTIVE" => {
+                                                                                                                                                           "active" => {
                                                                                                                                                                          "default" => true
                                                                                                                                                                        },
-                                                                                                                                                           "INACTIVE" => {}
+                                                                                                                                                           "inactive" => {}
                                                                                                                                                          },
                                                                                                                                              "type" => "option"
                                                                                                                                            },
@@ -558,14 +558,14 @@ our %definition = (
                                                                                                                                               "type" => "integer"
                                                                                                                                             }
                                                                                                                             },
-                                                                                                      "LONG_JT_OFF" => {
+                                                                                                      "long_jt_off" => {
                                                                                                                          "logical" => {
                                                                                                                                         "option" => {
-                                                                                                                                                      "NO_JUMP_IGNORE_COMMAND" => {},
-                                                                                                                                                      "OFF" => {},
-                                                                                                                                                      "OFFDELAY" => {},
-                                                                                                                                                      "ON" => {},
-                                                                                                                                                      "ONDELAY" => {
+                                                                                                                                                      "no_jump_ignore_command" => {},
+                                                                                                                                                      "off" => {},
+                                                                                                                                                      "offdelay" => {},
+                                                                                                                                                      "on" => {},
+                                                                                                                                                      "ondelay" => {
                                                                                                                                                                      "default" => true
                                                                                                                                                                    }
                                                                                                                                                     },
@@ -582,16 +582,16 @@ our %definition = (
                                                                                                                                          "type" => "integer"
                                                                                                                                        }
                                                                                                                        },
-                                                                                                      "LONG_JT_OFFDELAY" => {
+                                                                                                      "long_jt_offdelay" => {
                                                                                                                               "logical" => {
                                                                                                                                              "option" => {
-                                                                                                                                                           "NO_JUMP_IGNORE_COMMAND" => {},
-                                                                                                                                                           "OFF" => {
+                                                                                                                                                           "no_jump_ignore_command" => {},
+                                                                                                                                                           "off" => {
                                                                                                                                                                       "default" => true
                                                                                                                                                                     },
-                                                                                                                                                           "OFFDELAY" => {},
-                                                                                                                                                           "ON" => {},
-                                                                                                                                                           "ONDELAY" => {}
+                                                                                                                                                           "offdelay" => {},
+                                                                                                                                                           "on" => {},
+                                                                                                                                                           "ondelay" => {}
                                                                                                                                                          },
                                                                                                                                              "type" => "option"
                                                                                                                                            },
@@ -606,16 +606,16 @@ our %definition = (
                                                                                                                                               "type" => "integer"
                                                                                                                                             }
                                                                                                                             },
-                                                                                                      "LONG_JT_ON" => {
+                                                                                                      "long_jt_on" => {
                                                                                                                         "logical" => {
                                                                                                                                        "option" => {
-                                                                                                                                                     "NO_JUMP_IGNORE_COMMAND" => {},
-                                                                                                                                                     "OFF" => {},
-                                                                                                                                                     "OFFDELAY" => {
+                                                                                                                                                     "no_jump_ignore_command" => {},
+                                                                                                                                                     "off" => {},
+                                                                                                                                                     "offdelay" => {
                                                                                                                                                                      "default" => true
                                                                                                                                                                    },
-                                                                                                                                                     "ON" => {},
-                                                                                                                                                     "ONDELAY" => {}
+                                                                                                                                                     "on" => {},
+                                                                                                                                                     "ondelay" => {}
                                                                                                                                                    },
                                                                                                                                        "type" => "option"
                                                                                                                                      },
@@ -630,16 +630,16 @@ our %definition = (
                                                                                                                                         "type" => "integer"
                                                                                                                                       }
                                                                                                                       },
-                                                                                                      "LONG_JT_ONDELAY" => {
+                                                                                                      "long_jt_ondelay" => {
                                                                                                                              "logical" => {
                                                                                                                                             "option" => {
-                                                                                                                                                          "NO_JUMP_IGNORE_COMMAND" => {},
-                                                                                                                                                          "OFF" => {},
-                                                                                                                                                          "OFFDELAY" => {},
-                                                                                                                                                          "ON" => {
+                                                                                                                                                          "no_jump_ignore_command" => {},
+                                                                                                                                                          "off" => {},
+                                                                                                                                                          "offdelay" => {},
+                                                                                                                                                          "on" => {
                                                                                                                                                                     "default" => true
                                                                                                                                                                   },
-                                                                                                                                                          "ONDELAY" => {}
+                                                                                                                                                          "ondelay" => {}
                                                                                                                                                         },
                                                                                                                                             "type" => "option"
                                                                                                                                           },
@@ -654,7 +654,7 @@ our %definition = (
                                                                                                                                              "type" => "integer"
                                                                                                                                            }
                                                                                                                            },
-                                                                                                      "LONG_MULTIEXECUTE" => {
+                                                                                                      "long_multiexecute" => {
                                                                                                                                "logical" => {
                                                                                                                                               "default" => true,
                                                                                                                                               "type" => "boolean"
@@ -668,7 +668,7 @@ our %definition = (
                                                                                                                                                "type" => "integer"
                                                                                                                                              }
                                                                                                                              },
-                                                                                                      "LONG_OFFDELAY_TIME" => {
+                                                                                                      "long_offdelay_time" => {
                                                                                                                                 "conversion" => {
                                                                                                                                                   1 => {
                                                                                                                                                          "factors" => "0.1,1,60,1000",
@@ -701,7 +701,7 @@ our %definition = (
                                                                                                                                                 "type" => "integer"
                                                                                                                                               }
                                                                                                                               },
-                                                                                                      "LONG_OFF_TIME" => {
+                                                                                                      "long_off_time" => {
                                                                                                                            "conversion" => {
                                                                                                                                              1 => {
                                                                                                                                                     "factors" => "0.1,1,60,1000",
@@ -722,7 +722,7 @@ our %definition = (
                                                                                                                                           "max" => 982980.0,
                                                                                                                                           "min" => 0.0,
                                                                                                                                           "special_value" => {
-                                                                                                                                                               "id" => "NOT_USED",
+                                                                                                                                                               "id" => "not_used",
                                                                                                                                                                "value" => 16383000
                                                                                                                                                              },
                                                                                                                                           "type" => "float",
@@ -738,13 +738,13 @@ our %definition = (
                                                                                                                                            "type" => "integer"
                                                                                                                                          }
                                                                                                                          },
-                                                                                                      "LONG_OFF_TIME_MODE" => {
+                                                                                                      "long_off_time_mode" => {
                                                                                                                                 "logical" => {
                                                                                                                                                "option" => {
-                                                                                                                                                             "ABSOLUTE" => {
+                                                                                                                                                             "absolute" => {
                                                                                                                                                                              "default" => true
                                                                                                                                                                            },
-                                                                                                                                                             "MINIMAL" => {}
+                                                                                                                                                             "minimal" => {}
                                                                                                                                                            },
                                                                                                                                                "type" => "option"
                                                                                                                                              },
@@ -757,7 +757,7 @@ our %definition = (
                                                                                                                                                 "type" => "integer"
                                                                                                                                               }
                                                                                                                               },
-                                                                                                      "LONG_ONDELAY_TIME" => {
+                                                                                                      "long_ondelay_time" => {
                                                                                                                                "conversion" => {
                                                                                                                                                  1 => {
                                                                                                                                                         "factors" => "0.1,1,60,1000",
@@ -790,7 +790,7 @@ our %definition = (
                                                                                                                                                "type" => "integer"
                                                                                                                                              }
                                                                                                                              },
-                                                                                                      "LONG_ON_TIME" => {
+                                                                                                      "long_on_time" => {
                                                                                                                           "conversion" => {
                                                                                                                                             1 => {
                                                                                                                                                    "factors" => "0.1,1,60,1000",
@@ -811,7 +811,7 @@ our %definition = (
                                                                                                                                          "max" => 982980.0,
                                                                                                                                          "min" => 0.0,
                                                                                                                                          "special_value" => {
-                                                                                                                                                              "id" => "NOT_USED",
+                                                                                                                                                              "id" => "not_used",
                                                                                                                                                               "value" => 16383000
                                                                                                                                                             },
                                                                                                                                          "type" => "float",
@@ -827,13 +827,13 @@ our %definition = (
                                                                                                                                           "type" => "integer"
                                                                                                                                         }
                                                                                                                         },
-                                                                                                      "LONG_ON_TIME_MODE" => {
+                                                                                                      "long_on_time_mode" => {
                                                                                                                                "logical" => {
                                                                                                                                               "option" => {
-                                                                                                                                                            "ABSOLUTE" => {
+                                                                                                                                                            "absolute" => {
                                                                                                                                                                             "default" => true
                                                                                                                                                                           },
-                                                                                                                                                            "MINIMAL" => {}
+                                                                                                                                                            "minimal" => {}
                                                                                                                                                           },
                                                                                                                                               "type" => "option"
                                                                                                                                             },
@@ -846,7 +846,7 @@ our %definition = (
                                                                                                                                                "type" => "integer"
                                                                                                                                              }
                                                                                                                              },
-                                                                                                      "LONG_TOGGLE_USE" => {
+                                                                                                      "long_toggle_use" => {
                                                                                                                              "conversion" => {
                                                                                                                                                "type" => "option_integer",
                                                                                                                                                "value_map" => {
@@ -872,11 +872,11 @@ our %definition = (
                                                                                                                                              },
                                                                                                                              "logical" => {
                                                                                                                                             "option" => {
-                                                                                                                                                          "DIRECT" => {},
-                                                                                                                                                          "DONT_USE" => {
+                                                                                                                                                          "direct" => {},
+                                                                                                                                                          "dont_use" => {
                                                                                                                                                                           "default" => true
                                                                                                                                                                         },
-                                                                                                                                                          "INVERTED" => {}
+                                                                                                                                                          "inverted" => {}
                                                                                                                                                         },
                                                                                                                                             "type" => "option"
                                                                                                                                           },
@@ -889,7 +889,7 @@ our %definition = (
                                                                                                                                              "type" => "integer"
                                                                                                                                            }
                                                                                                                            },
-                                                                                                      "SENSOR" => {
+                                                                                                      "sensor" => {
                                                                                                                     "hidden" => true,
                                                                                                                     "logical" => {
                                                                                                                                    "type" => "address"
@@ -914,13 +914,13 @@ our %definition = (
                                                                                                                                     }
                                                                                                                                   ]
                                                                                                                   },
-                                                                                                      "SHORT_ACTION_TYPE" => {
+                                                                                                      "short_action_type" => {
                                                                                                                                "logical" => {
                                                                                                                                               "option" => {
-                                                                                                                                                            "ACTIVE" => {
+                                                                                                                                                            "active" => {
                                                                                                                                                                           "default" => true
                                                                                                                                                                         },
-                                                                                                                                                            "INACTIVE" => {}
+                                                                                                                                                            "inactive" => {}
                                                                                                                                                           },
                                                                                                                                               "type" => "option"
                                                                                                                                             },
@@ -933,14 +933,14 @@ our %definition = (
                                                                                                                                                "type" => "integer"
                                                                                                                                              }
                                                                                                                              },
-                                                                                                      "SHORT_JT_OFF" => {
+                                                                                                      "short_jt_off" => {
                                                                                                                           "logical" => {
                                                                                                                                          "option" => {
-                                                                                                                                                       "NO_JUMP_IGNORE_COMMAND" => {},
-                                                                                                                                                       "OFF" => {},
-                                                                                                                                                       "OFFDELAY" => {},
-                                                                                                                                                       "ON" => {},
-                                                                                                                                                       "ONDELAY" => {
+                                                                                                                                                       "no_jump_ignore_command" => {},
+                                                                                                                                                       "off" => {},
+                                                                                                                                                       "offdelay" => {},
+                                                                                                                                                       "on" => {},
+                                                                                                                                                       "ondelay" => {
                                                                                                                                                                       "default" => true
                                                                                                                                                                     }
                                                                                                                                                      },
@@ -957,16 +957,16 @@ our %definition = (
                                                                                                                                           "type" => "integer"
                                                                                                                                         }
                                                                                                                         },
-                                                                                                      "SHORT_JT_OFFDELAY" => {
+                                                                                                      "short_jt_offdelay" => {
                                                                                                                                "logical" => {
                                                                                                                                               "option" => {
-                                                                                                                                                            "NO_JUMP_IGNORE_COMMAND" => {},
-                                                                                                                                                            "OFF" => {
+                                                                                                                                                            "no_jump_ignore_command" => {},
+                                                                                                                                                            "off" => {
                                                                                                                                                                        "default" => true
                                                                                                                                                                      },
-                                                                                                                                                            "OFFDELAY" => {},
-                                                                                                                                                            "ON" => {},
-                                                                                                                                                            "ONDELAY" => {}
+                                                                                                                                                            "offdelay" => {},
+                                                                                                                                                            "on" => {},
+                                                                                                                                                            "ondelay" => {}
                                                                                                                                                           },
                                                                                                                                               "type" => "option"
                                                                                                                                             },
@@ -981,16 +981,16 @@ our %definition = (
                                                                                                                                                "type" => "integer"
                                                                                                                                              }
                                                                                                                              },
-                                                                                                      "SHORT_JT_ON" => {
+                                                                                                      "short_jt_on" => {
                                                                                                                          "logical" => {
                                                                                                                                         "option" => {
-                                                                                                                                                      "NO_JUMP_IGNORE_COMMAND" => {},
-                                                                                                                                                      "OFF" => {},
-                                                                                                                                                      "OFFDELAY" => {
+                                                                                                                                                      "no_jump_ignore_command" => {},
+                                                                                                                                                      "off" => {},
+                                                                                                                                                      "offdelay" => {
                                                                                                                                                                       "default" => true
                                                                                                                                                                     },
-                                                                                                                                                      "ON" => {},
-                                                                                                                                                      "ONDELAY" => {}
+                                                                                                                                                      "on" => {},
+                                                                                                                                                      "ondelay" => {}
                                                                                                                                                     },
                                                                                                                                         "type" => "option"
                                                                                                                                       },
@@ -1005,16 +1005,16 @@ our %definition = (
                                                                                                                                          "type" => "integer"
                                                                                                                                        }
                                                                                                                        },
-                                                                                                      "SHORT_JT_ONDELAY" => {
+                                                                                                      "short_jt_ondelay" => {
                                                                                                                               "logical" => {
                                                                                                                                              "option" => {
-                                                                                                                                                           "NO_JUMP_IGNORE_COMMAND" => {},
-                                                                                                                                                           "OFF" => {},
-                                                                                                                                                           "OFFDELAY" => {},
-                                                                                                                                                           "ON" => {
+                                                                                                                                                           "no_jump_ignore_command" => {},
+                                                                                                                                                           "off" => {},
+                                                                                                                                                           "offdelay" => {},
+                                                                                                                                                           "on" => {
                                                                                                                                                                      "default" => true
                                                                                                                                                                    },
-                                                                                                                                                           "ONDELAY" => {}
+                                                                                                                                                           "ondelay" => {}
                                                                                                                                                          },
                                                                                                                                              "type" => "option"
                                                                                                                                            },
@@ -1029,7 +1029,7 @@ our %definition = (
                                                                                                                                               "type" => "integer"
                                                                                                                                             }
                                                                                                                             },
-                                                                                                      "SHORT_OFFDELAY_TIME" => {
+                                                                                                      "short_offdelay_time" => {
                                                                                                                                  "conversion" => {
                                                                                                                                                    1 => {
                                                                                                                                                           "factors" => "0.1,1,60,1000",
@@ -1062,7 +1062,7 @@ our %definition = (
                                                                                                                                                  "type" => "integer"
                                                                                                                                                }
                                                                                                                                },
-                                                                                                      "SHORT_OFF_TIME" => {
+                                                                                                      "short_off_time" => {
                                                                                                                             "conversion" => {
                                                                                                                                               1 => {
                                                                                                                                                      "factors" => "0.1,1,60,1000",
@@ -1083,7 +1083,7 @@ our %definition = (
                                                                                                                                            "max" => 982980.0,
                                                                                                                                            "min" => 0.0,
                                                                                                                                            "special_value" => {
-                                                                                                                                                                "id" => "NOT_USED",
+                                                                                                                                                                "id" => "not_used",
                                                                                                                                                                 "value" => 16383000
                                                                                                                                                               },
                                                                                                                                            "type" => "float",
@@ -1099,13 +1099,13 @@ our %definition = (
                                                                                                                                             "type" => "integer"
                                                                                                                                           }
                                                                                                                           },
-                                                                                                      "SHORT_OFF_TIME_MODE" => {
+                                                                                                      "short_off_time_mode" => {
                                                                                                                                  "logical" => {
                                                                                                                                                 "option" => {
-                                                                                                                                                              "ABSOLUTE" => {
+                                                                                                                                                              "absolute" => {
                                                                                                                                                                               "default" => true
                                                                                                                                                                             },
-                                                                                                                                                              "MINIMAL" => {}
+                                                                                                                                                              "minimal" => {}
                                                                                                                                                             },
                                                                                                                                                 "type" => "option"
                                                                                                                                               },
@@ -1118,7 +1118,7 @@ our %definition = (
                                                                                                                                                  "type" => "integer"
                                                                                                                                                }
                                                                                                                                },
-                                                                                                      "SHORT_ONDELAY_TIME" => {
+                                                                                                      "short_ondelay_time" => {
                                                                                                                                 "conversion" => {
                                                                                                                                                   1 => {
                                                                                                                                                          "factors" => "0.1,1,60,1000",
@@ -1151,7 +1151,7 @@ our %definition = (
                                                                                                                                                 "type" => "integer"
                                                                                                                                               }
                                                                                                                               },
-                                                                                                      "SHORT_ON_TIME" => {
+                                                                                                      "short_on_time" => {
                                                                                                                            "conversion" => {
                                                                                                                                              1 => {
                                                                                                                                                     "factors" => "0.1,1,60,1000",
@@ -1172,7 +1172,7 @@ our %definition = (
                                                                                                                                           "max" => 982980.0,
                                                                                                                                           "min" => 0.0,
                                                                                                                                           "special_value" => {
-                                                                                                                                                               "id" => "NOT_USED",
+                                                                                                                                                               "id" => "not_used",
                                                                                                                                                                "value" => 16383000
                                                                                                                                                              },
                                                                                                                                           "type" => "float",
@@ -1188,13 +1188,13 @@ our %definition = (
                                                                                                                                            "type" => "integer"
                                                                                                                                          }
                                                                                                                          },
-                                                                                                      "SHORT_ON_TIME_MODE" => {
+                                                                                                      "short_on_time_mode" => {
                                                                                                                                 "logical" => {
                                                                                                                                                "option" => {
-                                                                                                                                                             "ABSOLUTE" => {
+                                                                                                                                                             "absolute" => {
                                                                                                                                                                              "default" => true
                                                                                                                                                                            },
-                                                                                                                                                             "MINIMAL" => {}
+                                                                                                                                                             "minimal" => {}
                                                                                                                                                            },
                                                                                                                                                "type" => "option"
                                                                                                                                              },
@@ -1207,7 +1207,7 @@ our %definition = (
                                                                                                                                                 "type" => "integer"
                                                                                                                                               }
                                                                                                                               },
-                                                                                                      "SHORT_TOGGLE_USE" => {
+                                                                                                      "short_toggle_use" => {
                                                                                                                               "conversion" => {
                                                                                                                                                 "type" => "option_integer",
                                                                                                                                                 "value_map" => {
@@ -1233,11 +1233,11 @@ our %definition = (
                                                                                                                                               },
                                                                                                                               "logical" => {
                                                                                                                                              "option" => {
-                                                                                                                                                           "DIRECT" => {},
-                                                                                                                                                           "DONT_USE" => {
+                                                                                                                                                           "direct" => {},
+                                                                                                                                                           "dont_use" => {
                                                                                                                                                                            "default" => true
                                                                                                                                                                          },
-                                                                                                                                                           "INVERTED" => {}
+                                                                                                                                                           "inverted" => {}
                                                                                                                                                          },
                                                                                                                                              "type" => "option"
                                                                                                                                            },
@@ -1250,27 +1250,27 @@ our %definition = (
                                                                                                                                               "type" => "integer"
                                                                                                                                             }
                                                                                                                             },
-                                                                                                      "UI_HINT" => {
+                                                                                                      "ui_hint" => {
                                                                                                                      "logical" => {
                                                                                                                                     "default" => "",
                                                                                                                                     "type" => "string",
                                                                                                                                     "use_default_on_failure" => true
                                                                                                                                   },
                                                                                                                      "physical" => {
-                                                                                                                                     "id" => "UI_HINT",
+                                                                                                                                     "id" => "ui_hint",
                                                                                                                                      "interface" => "store",
                                                                                                                                      "save_on_change" => true,
                                                                                                                                      "type" => "string"
                                                                                                                                    }
                                                                                                                    }
                                                                                                     },
-                                                                                     "peer_param" => "SENSOR",
-                                                                                     "type" => "LINK"
+                                                                                     "peer_param" => "sensor",
+                                                                                     "type" => "link"
                                                                                    },
                                                            "hmw_switch_ch_values" => {
                                                                                        "parameter" => {
-                                                                                                        "INHIBIT" => {
-                                                                                                                       "control" => "NONE",
+                                                                                                        "inhibit" => {
+                                                                                                                       "control" => "none",
                                                                                                                        "logical" => {
                                                                                                                                       "default" => false,
                                                                                                                                       "type" => "boolean"
@@ -1280,16 +1280,16 @@ our %definition = (
                                                                                                                        "physical" => {
                                                                                                                                        "interface" => "command",
                                                                                                                                        "set" => {
-                                                                                                                                                  "request" => "SET_LOCK"
+                                                                                                                                                  "request" => "set_lock"
                                                                                                                                                 },
                                                                                                                                        "type" => "integer",
-                                                                                                                                       "value_id" => "INHIBIT"
+                                                                                                                                       "value_id" => "inhibit"
                                                                                                                                      }
                                                                                                                      },
-                                                                                                        "INSTALL_TEST" => {
+                                                                                                        "install_test" => {
                                                                                                                             "conversion" => {
                                                                                                                                               "type" => "toggle",
-                                                                                                                                              "value" => "STATE"
+                                                                                                                                              "value" => "state"
                                                                                                                                             },
                                                                                                                             "logical" => {
                                                                                                                                            "type" => "action"
@@ -1299,15 +1299,15 @@ our %definition = (
                                                                                                                                             "interface" => "command",
                                                                                                                                             "no_init" => true,
                                                                                                                                             "set" => {
-                                                                                                                                                       "request" => "TOGGLE_INSTALL_TEST"
+                                                                                                                                                       "request" => "toggle_install_test"
                                                                                                                                                      },
                                                                                                                                             "type" => "integer",
-                                                                                                                                            "value_id" => "TOGGLE_FLAG"
+                                                                                                                                            "value_id" => "toggle_flag"
                                                                                                                                           },
                                                                                                                             "ui_flags" => "internal"
                                                                                                                           },
-                                                                                                        "STATE" => {
-                                                                                                                     "control" => "SWITCH.STATE",
+                                                                                                        "state" => {
+                                                                                                                     "control" => "switch.state",
                                                                                                                      "conversion" => {
                                                                                                                                        "false" => 0,
                                                                                                                                        "threshold" => 1,
@@ -1321,21 +1321,21 @@ our %definition = (
                                                                                                                      "operations" => "read,write,event",
                                                                                                                      "physical" => {
                                                                                                                                      "event" => {
-                                                                                                                                                  "frame" => "INFO_LEVEL"
+                                                                                                                                                  "frame" => "info_level"
                                                                                                                                                 },
                                                                                                                                      "get" => {
-                                                                                                                                                "request" => "LEVEL_GET",
-                                                                                                                                                "response" => "INFO_LEVEL"
+                                                                                                                                                "request" => "level_get",
+                                                                                                                                                "response" => "info_level"
                                                                                                                                               },
                                                                                                                                      "interface" => "command",
                                                                                                                                      "set" => {
-                                                                                                                                                "request" => "LEVEL_SET"
+                                                                                                                                                "request" => "level_set"
                                                                                                                                               },
                                                                                                                                      "type" => "integer",
-                                                                                                                                     "value_id" => "STATE"
+                                                                                                                                     "value_id" => "state"
                                                                                                                                    }
                                                                                                                    },
-                                                                                                        "WORKING" => {
+                                                                                                        "working" => {
                                                                                                                        "conversion" => {
                                                                                                                                          "type" => "boolean_integer"
                                                                                                                                        },
@@ -1347,39 +1347,39 @@ our %definition = (
                                                                                                                        "physical" => {
                                                                                                                                        "event" => {
                                                                                                                                                     1 => {
-                                                                                                                                                           "frame" => "INFO_LEVEL"
+                                                                                                                                                           "frame" => "info_level"
                                                                                                                                                          },
                                                                                                                                                     2 => {
-                                                                                                                                                           "frame" => "ACK_STATUS"
+                                                                                                                                                           "frame" => "ack_status"
                                                                                                                                                          }
                                                                                                                                                   },
                                                                                                                                        "get" => {
-                                                                                                                                                  "request" => "LEVEL_GET",
-                                                                                                                                                  "response" => "INFO_LEVEL"
+                                                                                                                                                  "request" => "level_get",
+                                                                                                                                                  "response" => "info_level"
                                                                                                                                                 },
                                                                                                                                        "interface" => "command",
                                                                                                                                        "type" => "integer",
-                                                                                                                                       "value_id" => "STATE_FLAGS"
+                                                                                                                                       "value_id" => "state_flags"
                                                                                                                                      },
                                                                                                                        "ui_flags" => "internal"
                                                                                                                      }
                                                                                                       },
-                                                                                       "type" => "VALUES"
+                                                                                       "type" => "values"
                                                                                      }
                                                          }
                                          }
                         },
-      "MAINTENANCE" => {
+      "maintenance" => {
                          "class" => "maintenance",
                          "count" => 1,
                          "index" => 0,
                          "paramset" => {
                                          "maint_ch_master" => {
-                                                                "type" => "MASTER"
+                                                                "type" => "master"
                                                               },
                                          "maint_ch_values" => {
                                                                 "parameter" => {
-                                                                                 "CONFIG_PENDING" => {
+                                                                                 "config_pending" => {
                                                                                                        "logical" => {
                                                                                                                       "type" => "boolean"
                                                                                                                     },
@@ -1387,11 +1387,11 @@ our %definition = (
                                                                                                        "physical" => {
                                                                                                                        "interface" => "internal",
                                                                                                                        "type" => "integer",
-                                                                                                                       "value_id" => "CONFIG_PENDING"
+                                                                                                                       "value_id" => "config_pending"
                                                                                                                      },
                                                                                                        "ui_flags" => "service"
                                                                                                      },
-                                                                                 "STICKY_UNREACH" => {
+                                                                                 "sticky_unreach" => {
                                                                                                        "logical" => {
                                                                                                                       "type" => "boolean"
                                                                                                                     },
@@ -1399,11 +1399,11 @@ our %definition = (
                                                                                                        "physical" => {
                                                                                                                        "interface" => "internal",
                                                                                                                        "type" => "integer",
-                                                                                                                       "value_id" => "STICKY_UNREACH"
+                                                                                                                       "value_id" => "sticky_unreach"
                                                                                                                      },
                                                                                                        "ui_flags" => "service"
                                                                                                      },
-                                                                                 "UNREACH" => {
+                                                                                 "unreach" => {
                                                                                                 "logical" => {
                                                                                                                "type" => "boolean"
                                                                                                              },
@@ -1411,12 +1411,12 @@ our %definition = (
                                                                                                 "physical" => {
                                                                                                                 "interface" => "internal",
                                                                                                                 "type" => "integer",
-                                                                                                                "value_id" => "UNREACH"
+                                                                                                                "value_id" => "unreach"
                                                                                                               },
                                                                                                 "ui_flags" => "service"
                                                                                               }
                                                                                },
-                                                                "type" => "VALUES"
+                                                                "type" => "values"
                                                               }
                                        },
                          "ui_flags" => "internal"

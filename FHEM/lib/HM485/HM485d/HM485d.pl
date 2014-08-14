@@ -51,6 +51,7 @@ command to reset txen gpio pin
 =item B<-logfile>
 
 Logfile for logging. "-" for logging on STDIN
+If the logfile parameter given, the deamon starts in background
 
 =item B<-verbose>
 
@@ -62,7 +63,7 @@ verbose level
 
 This is the HM485 communication stack for raw communication via "stupid" serial
 interface devices for instance simple USB-RS485 or Network-RS485 adaptor.
-Contributed by Dirk Hoffmann 2013
+Contributed by Dirk Hoffmann 2012 - 2014
 
 Todo:
 	Discovery at LXCCU don't work at the moment
