@@ -768,7 +768,7 @@ sub HM485_SetChannelState($$$) {
 
 		my $frameType = 'level_set';
 		my $data = HM485::Device::buildFrame($hash, $frameType, $frameData);
-		HM485_SendCommand($hash, $hmwId, $data);
+		HM485_SendCommand($hash, $hmwId, $data) if length $data;
 	}
 
 	return $retVal;
