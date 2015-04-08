@@ -108,6 +108,7 @@ use File::Basename;
 use Getopt::Long;
 use Pod::Usage;
 use bytes;
+use Errno qw(:POSIX);
 
 use FindBin;
 use lib abs_path("$FindBin::Bin/..");
@@ -139,13 +140,16 @@ sub interfaceWrite($);
 sub interfaceSetGpio ($);
 sub interfaceInit($);
 sub checkResendQueueItems();
+sub FmtDateTime($);
+sub TimeNow();
+sub setReadingsVal($$$$);
 
 ##################################################
 # Constants:
 use constant {
 	HM485D_NAME      => 'HM485d',
 	INTERFACE_NAME   => 'HMW-SOFT-GW',
-	VERSION          => '0.2.1',
+	VERSION          => '0.2.2',
 	PROTOCOL_VERSION => 1,
 	SERIALNUMBER_DEF => 'SGW0123456',
 	CRLF             => "\r\n",
@@ -175,7 +179,7 @@ sub init() {
 	my $pathFHEM = $scriptPath . '../../../';
 
 	require $pathFHEM . 'ServerTools.pm';
-	
+
 	my $help = 0;
 	my $man = 0;
 	my $logFile = '-';
@@ -195,9 +199,16 @@ sub init() {
 		'help|?'         => \$help,
 		'man'            => \$man
 	);
-	
+
 	pod2usage(pod2usage(1)) if ($help);
 	pod2usage(-verbose => 2) if ($man);
+
+	#$gpioTxenInit = '/usr/local/bin/gpio export 18 out';
+	#$gpioTxenCmd0 = '/usr/local/bin/gpio write 1 0';
+	#$gpioTxenCmd1 = '/usr/local/bin/gpio write 1 1';
+	# or
+	#$gpioTxenCmd0 = 'echo 0 > /sys/class/gpio/gpio18/value';
+	#$gpioTxenCmd1 = 'echo 1 > /sys/class/gpio/gpio18/value';
 
 	my $res;
 	if (!defined($hmwId) || $hmwId !~ m/^[A-F0-9]{8}$/i || hex($hmwId) > 255 || hex($hmwId) < 1) {
@@ -220,7 +231,8 @@ sub init() {
 
 	# Init for GPIO usage (e.g. on Raspberry Pi)
 	if ($gpioTxenInit ne '') {
-		parseCommand($gpioTxenInit);
+		system($gpioTxenInit);
+		Log (2, 'cmd: ' . $gpioTxenInit);
 	}
 
 	$attr{global}{verbose} = $logVerbose;
@@ -415,9 +427,10 @@ sub interfaceWrite($) {
 sub interfaceSetGpio ($) {
 	my ($value) = @_;
 
-	if ($gpioTxenCmd0 ne '' && $gpioTxenCmd0 ne '') {
+	if ($gpioTxenCmd0 ne '' && $gpioTxenCmd1 ne '') {
 		my $cmd = ($value == 1) ? $gpioTxenCmd1 : $gpioTxenCmd0;
-		parseCommand($cmd);
+		system($cmd);
+		# print "cmd: $cmd\n";
 	}
 }
 
@@ -471,6 +484,22 @@ sub interfaceInit($) {
 sub checkResendQueueItems () {
 	$hm485Protocoll->checkResendQueueItems();
 }
+
+sub TimeNow() {
+	return FmtDateTime(time());
+}
+
+sub FmtDateTime($) {
+	my @t = localtime(shift);
+	return sprintf("%04d-%02d-%02d %02d:%02d:%02d", $t[5]+1900, $t[4]+1, $t[3], $t[2], $t[1], $t[0]);
+}
+
+sub setReadingsVal($$$$) {
+	my ($hash,$rname,$val,$ts) = @_;
+	$hash->{READINGS}{$rname}{VAL} = $val;
+	$hash->{READINGS}{$rname}{TIME} = $ts;
+}
+
 
 ################################################################################
 # HM485d initialization

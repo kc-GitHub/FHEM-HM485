@@ -1,9 +1,9 @@
 =head1
 	Util.pm
-
+	
 =head1 SYNOPSIS
 	Helper module for HomeMatic Wired (HM485) for FHEM
-	contributed by Dirk Hoffmann 2012 - 2014
+	contributed by Dirk Hoffmann 2012 - 2013
 	$Id$
 
 =head1 DESCRIPTION
@@ -18,12 +18,18 @@ package HM485::Util;
 use strict;
 use warnings;
 use Data::Dumper;
+use POSIX;
 
 ###############################################################################
 # Define prototypes
 ###############################################################################
 
 sub getHashKeyBySubkey($$$);
+
+my $Version = '0.5.132';
+sub HM485_Log($);
+my $Zeit = strftime( "%Y-%m-%d\x5f%H-%M-%S", localtime);
+my $LogOffen = undef;
 
 
 ###############################################################################
@@ -63,7 +69,7 @@ sub checkForAutocreate() {
 				-argument1 => string	$txt		Log text
 				-argument1 => hash		$dataHash	optional logdata
 =cut
-sub logger ($$$;$$) {
+sub logger($$$;$$) {
 	my ($tag, $level, $txt, $dataHash, $return) = @_;
 	my $logTxt = '';
 
@@ -261,7 +267,7 @@ sub getHmwIdAndChNrFromHash($) {
 	my ($hash) = @_;
 	
 	my $hmwId = $hash->{DEF};
-	my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : 0;
+	my $chNr  = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : 0;
 	
 	return ($hmwId, $chNr); 
 }
@@ -278,6 +284,21 @@ sub getHashKeyBySubkey($$$) {
 	}
 
 	return $retVal;
+}
+
+sub HM485_Log($){
+	my ( $LogText) = @_;
+	my $ZeitStr = strftime( "%Y-%m-%d\x5f%H:%M:%S", localtime);
+	my $LogName = "$main::attr{global}{modpath}/log/HM485-log" . $Zeit . ".log";	
+	if ( $LogOffen) {
+		print Datei "$ZeitStr $LogText\n";
+	} else {
+		open( Datei, ">$LogName") || die "Datei nicht gefunden\n";    # Datei zum Schreiben oeffnen
+		Datei->autoflush(1);
+		$LogOffen = "offen";
+		print Datei "aktuelle Version ist jetzt $Version\n";
+		print Datei "$ZeitStr $LogText\n";
+	}
 }
 
 1;
