@@ -1,5 +1,5 @@
 package HM485::Devicefile;
-# Version 0.5.132
+# Version 0.5.133
 
 use constant false => 0;
 use constant true => 1;
@@ -26,6 +26,7 @@ sub parseForEepromData($;$$);
 
 my %deviceDefinitions;
 my %models = ();
+our %optionRefs;
 
 =head2
 	Initialize all devices
@@ -99,6 +100,27 @@ sub initModels() {
 				}
 			}
 		}
+	}
+	my $optionRefFile = $main::attr{global}{modpath} . '/FHEM/lib/HM485/optionref.pm';
+	if(-r $optionRefFile) {
+		HM485::Util::logger(HM485::LOGTAG_HM485, 3, 'Loading Option-Referenz file: ' .  $optionRefFile);
+		my $includeResult = do $optionRefFile;
+		if($includeResult) {
+			foreach my $dev (keys %HM485::Devicefile::optionRef) {
+				$optionRefs{$dev} = $HM485::Devicefile::optionRef{$dev};
+			}
+		} else {
+			HM485::Util::logger(
+				HM485::LOGTAG_HM485, 3,
+				'HM485: Error in optionRef file: ' . $optionRefFile
+			);
+		}
+		%HM485::Devicefile::optionRef = ();
+	} else {
+		HM485::Util::logger(
+			HM485::LOGTAG_HM485, 1,
+			'HM485: Error loading optionRef file: ' .  $optionRefFile
+		);
 	}
 #	my $t = getModelName(getModelFromType(91));
 }
@@ -1224,7 +1246,10 @@ sub getRawEEpromData($;$$$$) {
 			# HM485::Util::HM485_Log( 'Device:getRawEEpromData Reading = nicht vorh.');
 		}
 
-		if (length($retVal) / 2 >= $len) {
+		#if (length($retVal) / 2 >= $len) {
+		#	last;
+		#}
+		if (length($retVal) / 2 >= $start - $blockStart * $blockLen + $len) {
 			last;
 		}
 	}

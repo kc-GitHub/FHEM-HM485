@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.5.132
+	Version 0.5.133
 	erste Ziffer
 	0 : nicht alle Module werden unterstuetzt
 	zweite Ziffer
@@ -67,7 +67,7 @@ sub HM485_CreateChannels($$);
 sub HM485_SetConfig($@);
 sub HM485_SetFrequency($@);
 sub HM485_SetChannelState($$$);
-sub HM485_ValidateSettings($$$);
+sub HM485_ValidateSettings($$$$);
 sub HM485_SetWebCmd($$);
 sub HM485_GetHashByHmwid ($);
 
@@ -816,6 +816,9 @@ sub HM485_SetConfig($@) {
 	shift(@values);
 
 	my $msg = '';
+	my ($hmwId1, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId1,0,8)};
+	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
 	if (@values > 1) {
 		# Split list of configurations
 		my $cc = 0;
@@ -853,7 +856,7 @@ sub HM485_SetConfig($@) {
 				my $configTypeHash = $configHash->{$setConfig};
 				# HM485::Util::logger( 'HM485_SetConfig', 3, 'name = ' . $name . ' Key = ' . $setConfig . ' Wert = ' . $setConfigHash->{$setConfig} . ' msg = ' . $msg);
 				$msg = HM485_ValidateSettings(
-					$configTypeHash, $setConfig, $setConfigHash->{$setConfig}
+					$configTypeHash, $setConfig, $setConfigHash->{$setConfig}, $deviceKey
 				);
 				# HM485_Log( 'HM485_SetConfig: name = ' . $name . ' Key = ' . $setConfig . ' Wert = ' . $setConfigHash->{$setConfig} . ' msg = ' . $msg);
 				HM485::Util::logger( 'HM485_SetConfig', 3, 'name = ' . $name . ' Key = ' . $setConfig . ' Wert = ' . $setConfigHash->{$setConfig} . ' msg = ' . $msg);
@@ -897,9 +900,7 @@ sub HM485_SetConfig($@) {
 				# InternalTimer( gettimeofday() + 5, 'HM485_GetConfig', $hash . ' ' . $hmwId, 0);		# deshalb muessen haertere Geschuetze aufgefahren werden
 																									# mit Zeitverzoegerung, damit die Daten erst geschrieben 
 																									# werden koennen
-				my ($hmwId1, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-				my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId1,0,8)};
-				my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
+				
 				my $data = '53';
 				my $channelBehaviour = HM485::Device::getChannelBehaviour($hash);
 				# HM485::Util::HM485_Log( 'HM485_SetConfig: deviceKey = ' . $deviceKey . ' name = ' . $name . ' channelBehaviour = ' . $channelBehaviour);
@@ -1270,8 +1271,8 @@ sub HM485_SetChannelState($$$) {
 	}
 }
 
-sub HM485_ValidateSettings($$$) {
-	my ($configHash, $cmdSet, $value) = @_;
+sub HM485_ValidateSettings($$$$) {
+	my ($configHash, $cmdSet, $value, $deviceKey) = @_;
 	my $msg = '';
 
 	# HM485::Util::HM485_Log( 'HM485_ValidateSettings cmdSet = ' . $cmdSet . ' value = ' . $value);
@@ -1299,7 +1300,7 @@ sub HM485_ValidateSettings($$$) {
 				}
 
 			} elsif ($logical->{type} eq 'option') {
-				my @optionValues = HM485::ConfigurationManager::optionHashToArray($logical->{option});
+				my @optionValues = HM485::ConfigurationManager::optionHashToArray($logical->{option}, $deviceKey);
 				if ( !(grep $_ eq $value, @optionValues) ) {
 					$msg = 'must be on of: ' . join(', ', @optionValues);					
 				} 
