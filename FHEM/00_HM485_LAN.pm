@@ -1,5 +1,5 @@
 =head1
-	00_HM485_LAN.pm
+	00_HM485_LAN.pm Version 23.03.2015
 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -142,9 +142,11 @@ sub HM485_LAN_Define($$) {
 	$hash->{msgCounter} = 0;
 	$hash->{STATE} = '';
 
-	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday()
-		. '"><script type="text/javascript" charset="UTF-8';
-
+	# $data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday() . '"><script type="text/javascript" charset="UTF-8';
+	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday();
+	# <script attr='' type="text/javascript" src="/fhem/pgm2/hm485.js?1424867797.1834"></script>"></script>
+	#<script src="quadrat.js" type="text/javascript"></script>
+	#<script attr='' type="text/javascript" src="/fhem/pgm2/hm485.js?1424801995.08059"><script type="text/javascript" charset="UTF-8"></script>
 	return $ret;
 }
 =head2
@@ -340,7 +342,7 @@ sub HM485_LAN_Write($$;$) {
 				data    => pack('H*', $data . 'FFFF'),
 			);
 
-			$sendDataLog = HM485::Util::logger($name, 3, 'TX: (' . $msgId . ')', \%RD, 1);
+			$sendDataLog = HM485::Util::logger($name, 4, 'TX: (' . $msgId . ')', \%RD, 1);
 			$sendData = pack('H*',
 				sprintf(
 					'%02X%02X%s%s%s%s%s', $msgId, $cmd, 'C8', $target, $ctrl, $source, $data
@@ -352,7 +354,7 @@ sub HM485_LAN_Write($$;$) {
 
 		} elsif ($cmd == HM485::CMD_KEEPALIVE) {
 			$sendData = pack('H*',sprintf('%02X%02X', $msgId, $cmd));
-			HM485::Util::logger($name, 4, 'keepalive msgNo: ' . $msgId);
+			# HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgId);
 
 		} elsif ($cmd == HM485::CMD_INITIALIZE) {
 			my $txtMsgId = unpack('H4', sprintf('%02X', $msgId));
@@ -363,6 +365,7 @@ sub HM485_LAN_Write($$;$) {
 		if ($sendData) {
 			if ($cmd == HM485::CMD_INITIALIZE) {
 				$sendData = chr(HM485::FRAME_START_LONG) . $sendData;
+				
 			} else {
 				$sendData = chr(HM485::FRAME_START_LONG) . chr(length($sendData)) . $sendData;
 				$sendData = HM485::Util::escapeMessage($sendData);
@@ -414,7 +417,7 @@ sub HM485_LAN_SendQueueNextItem($) {
 		
 		DevIo_SimpleWrite($hash, $sendData, 0);
 		if ($hash->{sendQueue}{$currentQueueId}{dataLog}) {
-			Log3 ($hash, 3, $hash->{sendQueue}{$currentQueueId}{dataLog});
+			Log3 ($hash, 4, $hash->{sendQueue}{$currentQueueId}{dataLog});
 		}
 		
 		my $checkResendQueueItemsDelay = 1;
@@ -783,7 +786,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $aliveStatus = substr($msgData, 0, 2);
-		HM485::Util::logger($name, 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
+		# HM485::Util::logger($name, 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
 		if ($aliveStatus == '00') {
 			# we got a response from keepalive
 			$hash->{keepalive}{ok}    = 1;
@@ -791,14 +794,23 @@ sub HM485_LAN_parseIncommingCommand($$) {
 		} else {
 			HM485_LAN_DispatchNack($hash, $currentQueueId);
 		}
-
+		# Es ist sinnvoll die channels abzufragen, die noch nicht definiert sind
+		# my $mhash = $modules{HM485}{defptr}{'0000A528_01'};
+		# HM485::Util::logger( 'HM485_LAN_parseIncommingCommand', 3, ' mhash = ' . $mhash);
+		#if (!$mhash) {
+		#	$mhash = $modules{HM485}{defptr}{'0000A528'};
+		#	HM485_GetInfos($mhash, '0000A528', 0b111);
+		#	# HM485::Util::logger( 'HM485_LAN_parseIncommingCommand', 3, ' mhash = ' . $mhash);
+		#}
+		
+		
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$canDispatch = 1;
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
-		HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ')');
+		# HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ')');
 
 		# Debug
-		HM485::Util::logger($name, 3, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
+		# HM485::Util::logger($name, 3, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
 
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
 		$canDispatch = 1;
@@ -1009,7 +1021,7 @@ sub HM485_LAN_checkAndCreateHM485d($) {
 	my $HM485dDevice = AttrVal($name, 'HM485d_device'   , undef);
 
 	if ($HM485dBind && $HM485dDevice) {
-		my (undef, $HM485dPort) = split(',', $hash->{DEF});
+		my (undef, $HM485dPort) = split(':', $hash->{DEF});
 		
 		my $HM485dSerialNumber = AttrVal($name, 'HM485d_serialNumber', SERIALNUMBER_DEF);
 		my $HM485dDetatch      = AttrVal($name, 'HM485d_detatch',      undef);
@@ -1073,7 +1085,8 @@ sub HM485_LAN_HM485dGetPid($$) {
 	my ($hash, $HM485dCommandLine) = @_;
 	my $retVal = 0;
 	
-	my $ps = 'ps axo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
+	# my $ps = 'ps axo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
+	my $ps = 'ps axwwo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
 	my @result = `$ps`;
 	foreach my $psResult (@result) {
 		$psResult =~ s/[\n\r]//g;

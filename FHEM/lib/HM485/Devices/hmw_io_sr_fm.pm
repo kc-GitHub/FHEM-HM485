@@ -1,14 +1,14 @@
 package HM485::Devicefile;
 our %definition = (
-	'HMW_LC_SW2_DR' => {
-		'version' => 	12,
+	'HMW_IO_SR_FM' => {
+		'version' => 	5,
 		'eep_size' => 	1024,
 		'supported_types' => 	{
-			"HMW_LC_Sw2_DR" => {
-				"name" => "RS485 switch actuator 2-channel (DIN rails)",
+			"HMW_IO_SR_FM" => {
+				"name" => "RS485 I/O SR",
 				"parameter" => {
 					"0" => {
-						"const_value" => 17,
+						"const_value" => 22,
 						"size" => 1
 					},
 					"1" => {
@@ -17,7 +17,7 @@ our %definition = (
 					},
 					"2" => {
 						"cond_op" => "GE",
-						"const_value" => 0x0303,
+						"const_value" => 0x0001,
 						"size" => 2
 					}
 				},
@@ -33,7 +33,7 @@ our %definition = (
 					"value" => true
 				}
 			},
-			"id" => "hmw-lc-sw2-dr_dev_master",
+			"id" => "hmw-io-sr-fm_dev_master",
 			"parameter" => {
 				"central_address" => {
 					"hidden" => true,
@@ -221,7 +221,7 @@ our %definition = (
 		},
 		'channels' => 	{
 			"key" => {
-				"count" => 2,
+				"count" => 6,
 				"index" => 1,
 				"link_roles" => {
 					"source" => {
@@ -230,10 +230,10 @@ our %definition = (
 				},
 				"paramset" => {
 					"link" => {
-						"address_start" => 0x357,
+						"address_start" => 0x34b,
 						"address_step" => 6,
 						"channel_param" => "channel",
-						"count" => 28,
+						"count" => 29,
 						"parameter" => {
 							"actuator" => {
 								"hidden" => true,
@@ -487,8 +487,8 @@ our %definition = (
 				"ui_flags" => "internal"
 			},
 			"switch" => {
-				"count" => 2,
-				"index" => 3,
+				"count" => 6,
+				"index" => 7,
 				"link_roles" => {
 					"target" => {
 						"name" => "switch"
@@ -496,10 +496,10 @@ our %definition = (
 				},
 				"paramset" => {
 					"link" => {
-						"address_start" => 0x0F,
+						"address_start" => 0x1F,
 						"address_step" => 28,
 						"channel_param" => "channel",
-						"count" => 30,
+						"count" => 29,
 						"parameter" => {
 							"channel" => {
 								"hidden" => true,
@@ -1248,7 +1248,7 @@ our %definition = (
 						"type" => "link"
 					},
 					"master" => {
-						"address_start" => 0x0B,
+						"address_start" => 0x13,
 						"address_step" => 2,
 						"parameter" => {
 							"logging" => {

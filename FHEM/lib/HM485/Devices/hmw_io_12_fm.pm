@@ -1,24 +1,19 @@
 package HM485::Devicefile;
 our %definition = (
-	'HMW_IO_4_FM' => {
-		'version' => 	11,
+	'HMW_IO_12_FM' => {
+		'version' => 	7,
 		'eep_size' => 	1024,
 		'supported_types' => 	{
-			"HMW_IO_4_FM" => {
-				"name" => "RS485 I/O module 4-channel (flush-mount)",
+			"HMW_IO_12_FM" => {
+				"name" => "RS485 I/O module 12-channel (flush-mount)",
 				"parameter" => {
 					"0" => {
-						"const_value" => 16,
+						"const_value" => 27,
 						"size" => 1
 					},
 					"1" => {
 						"const_value" => 0,
 						"size" => 1
-					},
-					"2" => {
-						"cond_op" => "GE",
-						"const_value" => 0x0303,
-						"size" => 2
 					}
 				},
 				"priority" => 2
@@ -33,7 +28,7 @@ our %definition = (
 					"value" => true
 				}
 			},
-			"id" => "hmw-io-4-fm_dev_master",
+			"id" => "hmw-io-12-fm_dev_master",
 			"parameter" => {
 				"central_address" => {
 					"hidden" => true,
@@ -221,7 +216,7 @@ our %definition = (
 		},
 		'channels' => 	{
 			"input_output" => {
-				"count" => 4,
+				"count" => 12,
 				"index" => 1,
 				"link_roles" => {
 					"source" => {
@@ -230,10 +225,10 @@ our %definition = (
 				},
 				"paramset" => {
 					"link" => {
-						"address_start" => 0x360,
+						"address_start" => 0x349,
 						"address_step" => 6,
 						"channel_param" => "channel",
-						"count" => 26,
+						"count" => 30,
 						"parameter" => {
 							"actuator" => {
 								"hidden" => true,
@@ -283,7 +278,7 @@ our %definition = (
 						"type" => "link"
 					},
 					"master" => {
-						"address_start" => 0x08,
+						"address_start" => 9,
 						"address_step" => 2,
 						"parameter" => {
 							"behaviour" => {
@@ -475,7 +470,7 @@ our %definition = (
 					},
 					"paramset" => {
 						"hmw_io_ch_master" => {
-							"address_start" => 0x10,
+							"address_start" => 33,
 							"address_step" => 2,
 							"parameter" => {
 								"behaviour" => {
@@ -518,10 +513,10 @@ our %definition = (
 							"type" => "master"
 						},
 						"hmw_switch_ch_link" => {
-							"address_start" => 0x18,
+							"address_start" => 0x39,
 							"address_step" => 28,
 							"channel_param" => "channel",
-							"count" => 30,
+							"count" => 28,
 							"parameter" => {
 								"channel" => {
 									"hidden" => true,

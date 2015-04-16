@@ -1,7 +1,7 @@
 package HM485::Devicefile;
 our %definition = (
-	'HMW_IO_4_FM' => {
-		'version' => 	11,
+	'HMW_IO_4_FM_V3_02' => {
+		'version' => 	7,
 		'eep_size' => 	1024,
 		'supported_types' => 	{
 			"HMW_IO_4_FM" => {
@@ -16,8 +16,7 @@ our %definition = (
 						"size" => 1
 					},
 					"2" => {
-						"cond_op" => "GE",
-						"const_value" => 0x0303,
+						"const_value" => 0x0302,
 						"size" => 2
 					}
 				},
@@ -73,7 +72,7 @@ our %definition = (
 					"logical" => {
 						"default" => 2.0,
 						"max" => 25.5,
-						"min" => 0.1,
+						"min" => 0.0,
 						"type" => "float",
 						"unit" => "s"
 					},
@@ -206,17 +205,6 @@ our %definition = (
 					"type" => "integer"
 				},
 				"type" => 0x6C
-			},
-			"toggle_install_test" => {
-				"channel_field" => 10,
-				"direction" => "to_device",
-				"parameter" => {
-					"index" => 11.0,
-					"param" => "toggle_flag",
-					"size" => 1.0,
-					"type" => "integer"
-				},
-				"type" => 0x78
 			}
 		},
 		'channels' => 	{
@@ -340,7 +328,7 @@ our %definition = (
 									"type" => "integer"
 								}
 							},
-							"long_press_time" => {
+							"longpress_time" => {
 								"conversion" => {
 									"1" => {
 										"factor" => 10,
@@ -377,26 +365,6 @@ our %definition = (
 					},
 					"values" => {
 						"parameter" => {
-							"install_test" => {
-								"logical" => {
-									"type" => "action"
-								},
-								"operations" => "event",
-								"physical" => {
-									"event" => {
-										"1" => {
-											"frame" => "key_event_short"
-										},
-										"2" => {
-											"frame" => "key_event_long"
-										}
-									},
-									"interface" => "command",
-									"type" => "integer",
-									"value_id" => "test_counter"
-								},
-								"ui_flags" => "internal"
-							},
 							"press_long" => {
 								"control" => "button.long",
 								"conversion" => {
@@ -408,7 +376,7 @@ our %definition = (
 									"type" => "action"
 								},
 								"loopback" => true,
-								"operations" => "event,write",
+								"operations" => "event,read,write",
 								"physical" => {
 									"event" => {
 										"frame" => "key_event_long"
@@ -432,7 +400,7 @@ our %definition = (
 									"type" => "action"
 								},
 								"loopback" => true,
-								"operations" => "event,write",
+								"operations" => "event,read,write",
 								"physical" => {
 									"event" => {
 										"frame" => "key_event_short"
@@ -475,10 +443,9 @@ our %definition = (
 					},
 					"paramset" => {
 						"hmw_io_ch_master" => {
-							"address_start" => 0x10,
-							"address_step" => 2,
 							"parameter" => {
 								"behaviour" => {
+									"id" => "behaviour",
 									"logical" => {
 										"option" => {
 											"input" => {
@@ -494,25 +461,6 @@ our %definition = (
 										"value_id" => "behaviour"
 									},
 									"ui_flags" => "transform"
-								},
-								"logging" => {
-									"logical" => {
-										"option" => {
-											"off" => {},
-											"on" => {
-												"default" => true
-											}
-										},
-										"type" => "option"
-									},
-									"physical" => {
-										"address" => {
-											"index" => 0
-										},
-										"interface" => "eeprom",
-										"size" => 0.1,
-										"type" => "integer"
-									}
 								}
 							},
 							"type" => "master"
@@ -553,7 +501,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 17.0
+											"index" => 7.0
 										},
 										"interface" => "eeprom",
 										"size" => 0.1,
@@ -663,7 +611,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 17.2
+											"index" => 7.2
 										},
 										"interface" => "eeprom",
 										"size" => 0.1,
@@ -752,7 +700,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 17.6
+											"index" => 7.6
 										},
 										"interface" => "eeprom",
 										"size" => 0.1,
@@ -841,7 +789,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 17.7
+											"index" => 7.7
 										},
 										"interface" => "eeprom",
 										"size" => 0.1,
@@ -884,7 +832,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 17.4
+											"index" => 7.4
 										},
 										"interface" => "eeprom",
 										"size" => 0.2,
@@ -950,7 +898,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 15.9
+											"index" => 16.9
 										},
 										"endian" => "little",
 										"interface" => "eeprom",
@@ -974,7 +922,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 15.6
+											"index" => 16.6
 										},
 										"endian" => "little",
 										"interface" => "eeprom",
@@ -998,7 +946,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 15.3
+											"index" => 16.3
 										},
 										"endian" => "little",
 										"interface" => "eeprom",
@@ -1022,7 +970,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 15.0
+											"index" => 16.0
 										},
 										"endian" => "little",
 										"interface" => "eeprom",
@@ -1056,7 +1004,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 11
+											"index" => 12
 										},
 										"endian" => "little",
 										"interface" => "eeprom",
@@ -1093,7 +1041,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 13
+											"index" => 14
 										},
 										"endian" => "little",
 										"interface" => "eeprom",
@@ -1145,7 +1093,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 7
+											"index" => 8
 										},
 										"endian" => "little",
 										"interface" => "eeprom",
@@ -1182,7 +1130,7 @@ our %definition = (
 									},
 									"physical" => {
 										"address" => {
-											"index" => 9
+											"index" => 10
 										},
 										"endian" => "little",
 										"interface" => "eeprom",
@@ -1288,28 +1236,7 @@ our %definition = (
 										"value_id" => "inhibit"
 									}
 								},
-								"install_test" => {
-									"conversion" => {
-										"type" => "toggle",
-										"value" => "state"
-									},
-									"logical" => {
-										"type" => "action"
-									},
-									"operations" => "write",
-									"physical" => {
-										"interface" => "command",
-										"no_init" => true,
-										"set" => {
-											"request" => "toggle_install_test"
-										},
-										"type" => "integer",
-										"value_id" => "toggle_flag"
-									},
-									"ui_flags" => "internal"
-								},
 								"state" => {
-									"control" => "switch.state",
 									"conversion" => {
 										"false" => 0,
 										"threshold" => 1,

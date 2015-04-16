@@ -72,6 +72,8 @@ use constant {
 	CMD_SEND             => 0x53,
 
 	### Commands from interface
+	# Todo: Check if CMD_ERROR is correkt
+#	CMD_ERROR            => 0x45,	# E (Error)
 	CMD_ALIVE            => 0x61,
 	CMD_DISCOVERY_END    => 0x63,
 	CMD_DISCOVERY_RESULT => 0x64,
