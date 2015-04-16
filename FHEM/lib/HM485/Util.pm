@@ -26,7 +26,7 @@ use POSIX;
 
 sub getHashKeyBySubkey($$$);
 
-my $Version = '0.5.133';
+my $Version = '0.5.134';
 sub HM485_Log($);
 my $Zeit = strftime( "%Y-%m-%d\x5f%H-%M-%S", localtime);
 my $LogOffen = undef;
@@ -69,7 +69,7 @@ sub checkForAutocreate() {
 				-argument1 => string	$txt		Log text
 				-argument1 => hash		$dataHash	optional logdata
 =cut
-sub logger($$$;$$) {
+sub logger ($$$;$$) {
 	my ($tag, $level, $txt, $dataHash, $return) = @_;
 	my $logTxt = '';
 
@@ -291,13 +291,13 @@ sub HM485_Log($){
 	my $ZeitStr = strftime( "%Y-%m-%d\x5f%H:%M:%S", localtime);
 	my $LogName = "$main::attr{global}{modpath}/log/HM485-log" . $Zeit . ".log";	
 	if ( $LogOffen) {
-		print Datei "$ZeitStr $LogText\n";
+#		print Datei "$ZeitStr $LogText\n";
 	} else {
-		open( Datei, ">$LogName") || die "Datei nicht gefunden\n";    # Datei zum Schreiben oeffnen
-		Datei->autoflush(1);
+#		open( Datei, ">$LogName") || die "Datei nicht gefunden\n";    # Datei zum Schreiben oeffnen
+#		Datei->autoflush(1);
 		$LogOffen = "offen";
-		print Datei "aktuelle Version ist jetzt $Version\n";
-		print Datei "$ZeitStr $LogText\n";
+#		print Datei "aktuelle Version ist jetzt $Version\n";
+#		print Datei "$ZeitStr $LogText\n";
 	}
 }
 

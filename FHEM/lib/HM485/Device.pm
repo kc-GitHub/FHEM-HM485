@@ -1,5 +1,5 @@
 package HM485::Devicefile;
-# Version 0.5.133
+# Version 0.5.134
 
 use constant false => 0;
 use constant true => 1;
@@ -280,7 +280,7 @@ sub getHwTypeList() {
 	
 	@return	mixed
 =cut
-sub getValueFromDefinitions ($) {
+sub getValueFromDefinitions($) {
 	my ($path) = @_;
 	my $retVal = undef;
 	my @pathParts = split('/', $path);
@@ -475,7 +475,7 @@ sub getValueFromEepromData($$$$;$) {
 		);
 		
 		my $eepromValue = 0;
-
+		my $default = undef;
 		my $adrStart = (($adrId * 10) - (int($adrId) * 10)) / 10;
 		$adrStart    = ($adrStart < 1 && !$wholeByte) ? $adrStart: 0;
 		$size        = ($size < 1 && $wholeByte) ? 1 : $size;
@@ -483,8 +483,16 @@ sub getValueFromEepromData($$$$;$) {
 		# HM485::Util::HM485_Log( 'Device:getValueFromEepromData: adrStart = ' . $adrStart . ' size = ' . $size);
 		$eepromValue = getValueFromHexData($data, $adrStart, $size);
 		# HM485::Util::logger( 'Device:getValueFromEepromData', 3, ' eepromValue = ' . $eepromValue);
-		
-		$retVal = dataConversion($eepromValue, $configHash->{conversion}, 'from_device');
+
+		# $retVal = dataConversion($eepromValue, $configHash->{conversion}, 'from_device');
+		if ($wholeByte == 0) {
+			$retVal = dataConversion($eepromValue, $configHash->{'conversion'}, 'from_device');
+			$default = $configHash->{'logical'}{'default'};
+		} else { 
+			#dataConversion bei mehreren gesetzten bits ist wohl sinnlos kommt null raus
+			#auch ein default Value bringt teilweise nur Unsinn in solchen Faellen richtig ???
+			$retVal = $eepromValue;
+		}
 		# HM485::Util::logger( 'Device:getValueFromEepromData', 3,' retVal = ' . $retVal);
 		if ( $retVal eq '') {
 			my $wert = $configHash->{logical}{'type'};
@@ -500,7 +508,7 @@ sub getValueFromEepromData($$$$;$) {
 			}
 			HM485::Util::logger( 'Device:getValueFromEepromData', 3, 'Option default = ' . $wert);
 		}
-		my $default = $configHash->{logical}{'default'};
+		# my $default = $configHash->{logical}{'default'};
 		if (defined($default)) {
 			if ($size == 1) {
 				$retVal = ($eepromValue != 0xFF) ? $retVal : $default;

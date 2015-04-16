@@ -1021,7 +1021,7 @@ sub HM485_LAN_checkAndCreateHM485d($) {
 	my $HM485dDevice = AttrVal($name, 'HM485d_device'   , undef);
 
 	if ($HM485dBind && $HM485dDevice) {
-		my (undef, $HM485dPort) = split(',', $hash->{DEF});
+		my (undef, $HM485dPort) = split(':', $hash->{DEF});
 		
 		my $HM485dSerialNumber = AttrVal($name, 'HM485d_serialNumber', SERIALNUMBER_DEF);
 		my $HM485dDetatch      = AttrVal($name, 'HM485d_detatch',      undef);

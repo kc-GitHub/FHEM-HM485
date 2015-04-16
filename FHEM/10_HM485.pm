@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.5.133
+	Version 0.5.134
 	erste Ziffer
 	0 : nicht alle Module werden unterstuetzt
 	zweite Ziffer
@@ -403,12 +403,24 @@ sub HM485_Set($@) {
 			my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
 			# HM485::Util::HM485_Log( 'HM485_Set: cmd = ' . $cmd);
 			if ( $cmd eq 'press_long' || $cmd eq 'press_short') {
+				
 				my $levelSets = HM485::Device::getValueFromDefinitions($deviceKey . '/frames/level_set/type');
 				# HM485_Log( 'HM485_Set: deviceKey = ' . $deviceKey . ' chNr = ' . $chNr);
+				#if ( $chNr % 2 ) {
+					# ungerade Channels
+					# Rollo hoch fahren 7802C8
+				#	my $levelValue = 
+					
+				#	 HM485::Util::logger( 'HM485_Set', 2, 'chNr = ' . $chNr . ' levelValue = ' . $levelValue);
+				#} else {
+					# gerade Channels
+				
+				#}
+				
 				if ( uc( $deviceKey) eq 'HMW_LC_BL1_DR') {
 					if ( $chNr == 1) {
 						# Rollo hoch fahren 7802C8
-						$state = 0xC8;
+						$state = 0xC8;  # = 200
 						$data  = sprintf('%02X02%02X', $levelSets, $state);
 					}
 					if ( $chNr == 2) {
@@ -435,7 +447,7 @@ sub HM485_Set($@) {
 			} elsif ( $cmd eq 'level') {
 				if ( uc( $deviceKey) eq 'HMW_LC_BL1_DR' or uc( $deviceKey) eq 'HMW_LC_DIM1L_DR') {
 					$value = $value / 100;
-					HM485::Util::logger( 'HM485_Set', 3, 'set ' . $name . ' level ' . $value);
+					#HM485::Util::logger( 'HM485_Set', 3, 'set ' . $name . ' level ' . $value);
 				}
 				$msg = HM485_SetChannelState($hash, $cmd, $value);
 			} elsif ( $cmd eq 'toggle') {
@@ -712,39 +724,18 @@ sub HM485_GetConfig($$) {
 		HM485_CreateChannels( $devHash, $deviceKey);
 		# HM485_Log( 'HM485_GetConfig: ' . 'deviceKey = ' . $deviceKey . ' hmwId = ' . $hmwId);
 		# State der Channels ermitteln
-		if ( $deviceKey eq 'HMW_LC_BL1_DR' or $deviceKey eq 'HMW_LC_DIM1L_DR') {
-			HM485_SendCommand( $devHash, $hmwId . '_03', '5302');
-		}
-		if ( $deviceKey eq 'HMW_LC_SW2_DR') {
-			for ( my $ch = 1; $ch < 5; $ch++){ 	# Schaltaktor 2- fach
-				$data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
-				HM485_SendCommand( $devHash, $hmwId . '_' . $ch, $data);
+		my $configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
+		foreach my $chType (keys %{$configHash}) {
+			if ( $chType ne "key" && $chType ne "maintenance") {
+				my $chStart = $configHash->{$chType}{index};
+				my $chCount = $configHash->{$chType}{count};
+				for ( my $ch = $chStart; $ch < $chStart + $chCount; $ch++){
+					$data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
+					HM485_SendCommand( $devHash, $hmwId . '_' . $ch, $data);
+				}
 			}
 		}
-		if ( $deviceKey eq 'HMW_SEN_SC_12_DR' || $deviceKey eq 'HMW_SEN_SC_12_FM') {
-			for ( my $ch = 1; $ch < 13; $ch++){ 	# Channel 1-12 sind vom Typ Sensor
-				$data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
-				HM485_SendCommand( $devHash, $hmwId . '_' . $ch, $data);
-			}
-		}
-		if ( $deviceKey eq 'HMW_IO12_SW7_DR') {
-			for ( my $ch = 13; $ch < 20; $ch++){ 	# Channel 1-12 sind vom Typ Key --> kein State oder Schalter?
-				$data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
-				HM485_SendCommand( $devHash, $hmwId . '_' . $ch, $data);
-			}
-		}
-		if ( $deviceKey eq 'HMW_IO12_SW14_DR') {
-			for ( my $ch = 1; $ch < 27; $ch++){ 
-				$data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
-				HM485_SendCommand( $devHash, $hmwId . '_' . $ch, $data);
-			}
-		}
-		if ( $deviceKey eq 'HMW_IO_12_FM') {
-			for ( my $ch = 1; $ch < 13; $ch++){ 
-				$data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
-				HM485_SendCommand( $devHash, $hmwId . '_' . $ch, $data);
-			}
-		}
+		
 		$devHash->{Reconfig} = undef;
 	}
 }
@@ -906,46 +897,18 @@ sub HM485_SetConfig($@) {
 				# HM485::Util::HM485_Log( 'HM485_SetConfig: deviceKey = ' . $deviceKey . ' name = ' . $name . ' channelBehaviour = ' . $channelBehaviour);
 				
 				if ( defined( $channelBehaviour) && $channelBehaviour) {
-					if ( uc( $deviceKey) eq 'HMW_IO12_SW14_DR') {
-						# HM485::Util::HM485_Log( 'HM485_SetConfig14: hmwId = ' . $hmwId1 . ' chNr = ' . $chNr);
-						my $oldReading = ReadingsVal($name, 'state', '???');
-						if ( $chNr > 6 && $chNr < 15) { # DIGITAL_ANALOG_OUTPUT
-							if ( $channelBehaviour eq 'digital_output'){
-								if ( $oldReading eq 'state') {
-									fhem("deletereading $name state");
-								}
-							} else {
-								fhem("deletereading $name value");
-							}
-						}
-						if ( $chNr > 14 && $chNr < 21) { # DIGITAL_INPUT
-							my $oldReading = ReadingsVal($name, 'state', '???');
-							if ( $oldReading eq '???') {
-								fhem("deletereading $name value"); 
-							} else {
-								fhem("deletereading $name state");
-							}
-						}
-						if ( $chNr > 20) {				# DIGITAL_ANALOG_INPUT
-							my $oldReading = ReadingsVal($name, 'state', '???');
-							if ( $oldReading eq '???') {
-								fhem("deletereading $name value"); 
-							} else {
-								fhem("deletereading $name state");
-							}
-						}
-					} elsif ( uc( $deviceKey) eq 'HMW_IO_12_FM') {
-						# HM485::Util::HM485_Log( 'HM485_SetConfig12: hmwId = ' . $hmwId1 . ' chNr = ' . $chNr);
-						if ( $channelBehaviour eq 'output'){
-							my $oldReading = ReadingsVal($name, 'state', '???');
-							if ( $oldReading eq '???') {
-								fhem("deletereading $name press_short"); 
-								fhem("deletereading $name press_long"); 
-							} else {
-								fhem("deletereading $name state");
-							}
-						}
+					if ( defined( ReadingsVal( $name, 'state', undef))) {
+						fhem( "deletereading $name state");
+					} elsif ( defined( ReadingsVal( $name, 'press_short', undef))) {
+						fhem( "deletereading $name press_short");
+					} elsif ( defined( ReadingsVal( $name, 'press_long', undef))) {
+						fhem( "deletereading $name press_long");
+					} elsif ( defined( ReadingsVal( $name, 'value', undef))) {
+						fhem( "deletereading $name value");
+					} else {
+						# kein reading zu loeschen
 					}
+				
 					$data = sprintf ('53%02X', $chNr-1);
 					InternalTimer( gettimeofday() + 1, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0);
 				}
@@ -1902,7 +1865,7 @@ sub HM485_ChannelDoUpdate($) {
 		
 		if (defined($value)) {
 			if ( ( $deviceKey eq 'HMW_LC_BL1_DR' || $deviceKey eq 'HMW_LC_DIM1L_DR') && $valueKey eq 'level') {
-				$value = $value * 100;
+				$value = $value * 100;	# Wert fuer Anzeige
 			}
 			# we trigger events only if necesary
 			# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: valueKey = ' . $valueKey . ' value = ' . $value . ' Alter Wert = ' . $chHash->{READINGS}{$valueKey}{VAL});
