@@ -2,16 +2,35 @@ HM585 - Modul for Homematic Wired (HM485) communication
 =======================================================
 Von Dirk Hoffmann <dirk@FHEM_Forum (forum.fhem.de)>
 
-V 0.0.3
+V 0.5.135
 
-HM485 ist ein Modul für FHEM um mit den Homemaic Wired Modulen komunizieren zu können.
+HM485 ist ein Modul für FHEM um mit den Homemaitc Wired Modulen komunizieren zu können.
 Homematic Wired bassiert auf der RS485 Schnittstelle.
+
+	
+	
+Fragen, Meinungen und Hinweise bitte im Forum
+http://forum.fhem.de/index.php?topic=10607.new;topicseen#new
+posten
+
+
 
 History:
 -----------
-V0.0.1 - Initiale Version
-V0.0.2 - Überarbeitete Version mit eigenem Prozess
-V0.0.3 - Angepasste Verzeichnissstruktur für bessere Integration in FHEM
+
+V0.5.135 - Weitere Optimierung auch fuer unbekannte Module
+
+Erklaerung aktuelle Verionsbezeichnung
+	erste Ziffer
+	0 : nicht alle Module werden unterstuetzt
+	zweite Ziffer
+	1 : 1. Modul wird voll unterstuetzt : HMW_LC_Bl1
+	2 : 2. Modul wird voll unterstuetzt : HMW_Sen_SC_12
+	3 : 3. Modul wird voll unterstuetzt : HMW_LC_Dim1L
+	4 : 4. Modul wird voll unterstuetzt : HMW_IO_12_Sw7
+	5 : 5. Modul wird voll unterstuetzt : HMW_IO_12_FM
+	dritte Ziffer
+	13x : Nummer der aktuellen Testversion
 
 RS485 Hardware:
 --------------
@@ -20,7 +39,6 @@ Derzeit benutzte und getestete RS485 Adapter:
   http://www.reichelt.de/USB-Konverter/DIGITUS-DA-70157/3//index.html?ARTICLE=122187
 
 - Wiznet - WIZ108SR Compact RS422/RS485-to-Ethernet module
-  http://tigal.at/product/2276
   http://forum.fhem.de/index.php/topic,14096.msg88557.html#msg88557
 
 - HMW-LAN-GW
@@ -43,7 +61,6 @@ Installation:
 
 - FHEM-Interface-Modul (00_HM485_LAN.pm)
 	- discovery nur ausführen wenn das Interface verbunden ist
-	- Timeout nach dem der Discovery-Mode automatisch abgebrochen wird.
 	
 	- ctrl-byte richtig setzen
 	- txState für Line richtig setzen bzw. interpretieren

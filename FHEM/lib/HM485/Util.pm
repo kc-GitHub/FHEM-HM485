@@ -26,7 +26,7 @@ use POSIX;
 
 sub getHashKeyBySubkey($$$);
 
-my $Version = '0.5.134';
+my $Version = '0.5.135';
 sub HM485_Log($);
 my $Zeit = strftime( "%Y-%m-%d\x5f%H-%M-%S", localtime);
 my $LogOffen = undef;

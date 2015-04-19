@@ -1,5 +1,5 @@
 package HM485::Devicefile;
-# Version 0.5.134
+# Version 0.5.135
 
 use constant false => 0;
 use constant true => 1;
@@ -675,7 +675,7 @@ sub convertFrameDataToValue($$$) {
 		foreach my $valId (keys %{$frameData->{params}}) {
 			# HM485::Util::HM485_Log( 'Device:convertFrameDataToValue valId = ' . $valId);
 			my $valueMap = getChannelValueMap($hash, $deviceKey, $frameData, $valId);
-			HM485::Util::HM485_Log( 'Device:convertFrameDataToValue valId = ' . $valId . ' value = ' . $frameData->{params}{$valId}{val});
+			HM485::Util::HM485_Log( 'Device:convertFrameDataToValue deviceKey = ' . $deviceKey . ' valId = ' . $valId . ' value = ' . $frameData->{params}{$valId}{val});
 			if ($valueMap) {
 				$frameData->{params}{$valId}{val} = dataConversion(
 					$frameData->{params}{$valId}{val},					
@@ -725,27 +725,39 @@ sub convertFrameDataToValue($$$) {
 =cut
 sub valueToControl($$) {
 	my ($paramHash, $value) = @_;
+	# Transformieren des Modulwertebereichs in den FHEM Wertebereich
 	my $retVal = $value;
 
 	my $control = undef;
 	if ( defined( $paramHash->{control}) && $paramHash->{control}) {
-		$control = uc( $paramHash->{control});
+		$control = $paramHash->{control};
 	}
-	my $valName = uc( $paramHash->{name});
-
+	my $valName = $paramHash->{name};
+	HM485::Util::HM485_Log( 'Device:valueToControl: valName = ' . $valName . ' = ' . $value);
 	if ($control) {
-		if ($control eq 'switch.state') {
+		if ( $control eq 'switch.state') {
 			my $threshold = $paramHash->{conversion}{threshold};
 			$threshold = $threshold ? int($threshold) : 1;
 			$retVal = ($value > $threshold) ? 'on' : 'off';
 
-		} elsif ($control eq 'dimmer.level') {
+		} elsif ($control eq 'dimmer.level' || $control eq 'blind.level') {
+			if ( exists $paramHash->{'logical'}{'unit'} && $paramHash->{'logical'}{'unit'} eq '100%') {
+				$value = $value * 100;
+			}
 			$retVal = $value;
 
 		} elsif (index($control, 'button.') > -1) {
 			$retVal = $valName . ' ' . $value;
 			# HM485::Util::HM485_Log( 'Device:valueToControl: retVal = ' . $retVal);
 
+		} elsif ($control eq 'door_sensor.state') {	# hmw_sen_sc_12_dr
+			if ( isNumber($value)) {
+				if ( $value == 0) {
+					$retVal = 'off';
+				} else {
+					$retVal = 'on';
+				}
+			}
 		} else {
 			$retVal = $value;
 		}
@@ -781,9 +793,18 @@ sub onOffToState($$) {
 
 sub valueToState($$$$) {
 	my ($chType, $valueHash, $valueKey, $value) = @_;
+	# Transformieren des FHEM- Wertebereichs in den Modulwertebereich
 	my $state = undef;
+	
 	if ( defined( $value)) {
-		my $factor = $valueHash->{conversion}{factor} ? int($valueHash->{conversion}{factor}) : 1;
+	
+		if ( exists $valueHash->{'logical'}{'unit'} && $valueHash->{'logical'}{'unit'} eq '100%') {
+			# Da wir in FHEM einen State von 0 - 100 anzeigen lassen,
+			# muß der an das Modul gesendete Wert in den Bereich von 0 - 1 
+			# transferiert werden
+			$value = $value / 100;
+		}
+		my $factor = $valueHash->{conversion}{factor} ? $valueHash->{conversion}{factor} : 1;
 	
 		$state = int($value * $factor);
 	}

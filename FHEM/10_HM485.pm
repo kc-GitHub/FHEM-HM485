@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.5.134
+	Version 0.5.135
 	erste Ziffer
 	0 : nicht alle Module werden unterstuetzt
 	zweite Ziffer
@@ -41,6 +41,7 @@ use lib::HM485::Device;
 use lib::HM485::Util;
 use lib::HM485::FhemWebHelper;
 use lib::HM485::ConfigurationManager;
+#use lib::HM485::PeeringManager;
 #use lib::HM485::Command;
 
 use Scalar::Util qw(looks_like_number);
@@ -445,10 +446,10 @@ sub HM485_Set($@) {
 					$msg = 'set ' . $name . ' ' . $cmd . ' not yet implemented'; 
 				}
 			} elsif ( $cmd eq 'level') {
-				if ( uc( $deviceKey) eq 'HMW_LC_BL1_DR' or uc( $deviceKey) eq 'HMW_LC_DIM1L_DR') {
-					$value = $value / 100;
+				#if ( uc( $deviceKey) eq 'HMW_LC_BL1_DR' or uc( $deviceKey) eq 'HMW_LC_DIM1L_DR') {
+				#	$value = $value / 100;
 					#HM485::Util::logger( 'HM485_Set', 3, 'set ' . $name . ' level ' . $value);
-				}
+				#}
 				$msg = HM485_SetChannelState($hash, $cmd, $value);
 			} elsif ( $cmd eq 'toggle') {
 				my $state = lc( ReadingsVal( $name, 'state', 'off'));
@@ -477,8 +478,12 @@ sub HM485_Set($@) {
 				$msg = HM485_SetConfig($hash, @params);
 
 			} else {
+				$hash->{STATE}                 = 'set_'.$value;
+				$hash->{READINGS}{$cmd}{TIME} = TimeNow();
+				$hash->{READINGS}{$cmd}{VAL}  = 'set_'.$value;
+				setReadingsVal($hash,$cmd,'set_'.$value,TimeNow());
+				
 				$msg = HM485_SetChannelState($hash, $cmd, $value);
-
 			}
 		}
 	}
@@ -636,6 +641,7 @@ sub HM485_FhemwebShowConfig($$$) {
 
 	# Todo: make ready
 	my $peerHash = $hash->{PEERINGS};
+	#my $peerHash = HM485::PeeringManager::getPeeringFromDevice($hash, $chNr);
 
 	my $content = HM485::FhemWebHelper::showConfig($hash, $configHash, $peerHash);
 
@@ -1855,7 +1861,6 @@ sub HM485_ChannelDoUpdate($) {
 	my $name      = $chHash->{NAME};
 	my $doTrigger = $params->{doTrigger} ? 1 : 0;
 
-	my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($chHash));
 	HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: name = ' . $name);
 	readingsBeginUpdate($chHash);
 #	print Dumper($valueHash);
@@ -1864,29 +1869,26 @@ sub HM485_ChannelDoUpdate($) {
 		my $value = $valueHash->{$valueKey};
 		
 		if (defined($value)) {
-			if ( ( $deviceKey eq 'HMW_LC_BL1_DR' || $deviceKey eq 'HMW_LC_DIM1L_DR') && $valueKey eq 'level') {
-				$value = $value * 100;	# Wert fuer Anzeige
-			}
 			# we trigger events only if necesary
 			# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: valueKey = ' . $valueKey . ' value = ' . $value . ' Alter Wert = ' . $chHash->{READINGS}{$valueKey}{VAL});
 			if (!defined($chHash->{READINGS}{$valueKey}{VAL}) ||
 			    $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
 
-				if ( $valueKey eq 'state'  || $valueKey eq 'sensor') {
-					if ( HM485::Device::isNumber($value)) {
-						if ( $value == 0) {
-							readingsBulkUpdate($chHash, $valueKey, 'off');
-						} else {
-							readingsBulkUpdate($chHash, $valueKey, 'on');
-						}
-					} else {
-						readingsBulkUpdate($chHash, $valueKey, lc( $value));
-						# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen Reading1 fuer ' . $valueKey . ' auf ' . lc( $value));
-					}
-				} else {
+			#	if ( $valueKey eq 'state'  || $valueKey eq 'sensor') {
+			#		if ( HM485::Device::isNumber($value)) {
+			#			if ( $value == 0) {
+			#				readingsBulkUpdate($chHash, $valueKey, 'off');
+			#			} else {
+			#				readingsBulkUpdate($chHash, $valueKey, 'on');
+			#			}
+			#		} else {
+			#			readingsBulkUpdate($chHash, $valueKey, lc( $value));
+			#			# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen Reading1 fuer ' . $valueKey . ' auf ' . lc( $value));
+			#		}
+			#	} else {
 					readingsBulkUpdate( $chHash, $valueKey, $value);
-					# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen Reading2 fuer ' . $valueKey . ' auf ' . lc( $value));
-				}
+			#		# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen Reading2 fuer ' . $valueKey . ' auf ' . lc( $value));
+			#	}
 				
 				HM485::Util::logger(
 					HM485::LOGTAG_HM485, 4, $name . ': ' . $valueKey . ' -> ' . $value
@@ -1895,16 +1897,16 @@ sub HM485_ChannelDoUpdate($) {
 				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: name = ' . $name . ' alter State = ' . $chHash->{STATE} . ' valueKey = ' . $valueKey . ' value = ' . $value);
 				if ( defined( $chHash->{STATE}) && $chHash->{STATE}) {
 					if ( $valueKey eq 'state' || $valueKey eq 'sensor') {
-						if ( HM485::Device::isNumber($value)) {
-							if ( $value == 0) {
-								$chHash->{STATE} = 'off'; 
-							} else {
-								$chHash->{STATE} = 'on';
-							}
-						} else {
+			#			if ( HM485::Device::isNumber($value)) {
+			#				if ( $value == 0) {
+			#					$chHash->{STATE} = 'off'; 
+			#				} else {
+			#					$chHash->{STATE} = 'on';
+			#				}
+			#			} else {
 							$chHash->{STATE} = lc( $value);
-							# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen STATE auf ' . lc( $value));
-						}
+			#				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen STATE auf ' . lc( $value));
+			#			}
 					} else {
 						$chHash->{STATE} = $valueKey . '_' . $value;
 					}
