@@ -1,5 +1,5 @@
 package HM485::Devicefile;
-# Version 0.5.135
+# Version 0.5.136
 
 use constant false => 0;
 use constant true => 1;
@@ -218,6 +218,7 @@ sub getModelList() {
 sub getChannelBehaviour($) {
 	my ($hash) = @_;
 	my $retVal = undef;
+	my $bool = 0; #false
 	
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
@@ -225,34 +226,79 @@ sub getChannelBehaviour($) {
 		my $deviceKey = getDeviceKeyFromHash($hash);
 		if ($deviceKey) {
 			my $chType         = HM485::Device::getChannelType($deviceKey, $chNr); # digital_analog_input
+			my $channelConfig  = getValueFromDefinitions( $deviceKey . '/channels/' . $chType);
+			
+			if ( $channelConfig->{'special_parameter'}{'behaviour'}) {
+			   
+		#	if ($channelConfig->{'special_parameter'}{'id'} &&
+		#	   ($channelConfig->{'special_parameter'}{'id'} eq 'behaviour') &&
+		#	   $channelConfig->{'special_parameter'}{'physical'}{'address'}{'index'}) {
+
+				my $chConfig = HM485::ConfigurationManager::getConfigFromDevice( $hash, $chNr);										
+				$bool = $chConfig->{'behaviour'}{'value'};
+				# my @posibleValuesArray = split(',', $chConfig->{behaviour}{posibleValues});
+				
+				# Trim all items in the array
+				# @posibleValuesArray = grep(s/^\s*(.*)\s*$/$1/, @posibleValuesArray);
+
+				# den aktuell eingestellten Channeltyp finden
+				# my $value = $chConfig->{behaviour}{value};
+				# HM485::Util::HM485_Log( 'Device:getChannelBehaviour: value = ' . $value);
+				# $retVal = $posibleValuesArray[$value];
+				$retVal = HM485::ConfigurationManager::convertValueToOption( $chConfig->{behaviour}{posibleValues}, $chConfig->{behaviour}{value});
+				
+			}
+		}
+	}
+	
+	return ($retVal, $bool);
+}
+
+
+sub getBehaviourCommand($) {
+	my ($hash) = @_;
+	my $retVal = undef;
+	
+	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+
+	if ( defined($chNr)) {
+		my $deviceKey = getDeviceKeyFromHash($hash);
+		
+		if ($deviceKey) {
+			my $chType = HM485::Device::getChannelType($deviceKey, $chNr); #key
 			my $channelConfig  = getValueFromDefinitions(
 				$deviceKey . '/channels/' . $chType
 			);
 			
-			if ( $channelConfig->{'special_parameter'}{'behaviour'}) {
-			   
-			#if ($channelConfig->{'special_parameter'}{'id'} &&
-			#   ($channelConfig->{'special_parameter'}{'id'} eq 'behaviour') &&
-			#   $channelConfig->{'special_parameter'}{'physical'}{'address'}{'index'}) {
-
-				my $chConfig = HM485::ConfigurationManager::getConfigFromDevice( $hash, $chNr);										
+			if ( exists( $channelConfig->{'special_parameter'}{'behaviour'}) &&
+				$channelConfig->{'special_parameter'}{'behaviour'}{'physical'}{'address'}{'index'}) {
 				
-				my @posibleValuesArray = split(',', $chConfig->{behaviour}{posibleValues});
-				
-				# Trim all items in the array
-				@posibleValuesArray = grep(s/^\s*(.*)\s*$/$1/, @posibleValuesArray);
+				my $chConfig = HM485::ConfigurationManager::getConfigFromDevice(
+					$hash, $chNr
+				);
 
-				# den aktuell eingestellten Channeltyp finden
-				my $value = $chConfig->{behaviour}{value};
-				# HM485::Util::HM485_Log( 'Device:getChannelBehaviour: value = ' . $value);
-				$retVal = $posibleValuesArray[$value];
+				if ($chConfig->{'behaviour'}{'value'} eq '1') {
+					my $search  = getValueFromDefinitions(
+						$deviceKey . '/channels/' . $chType .'/subconfig/paramset/'
+					);
+					if (ref($search) eq 'HASH') {
+						#leider kann getValueFromDefinitions nicht tiefer suchen
+						foreach my $valueHash (keys %{$search}) {
+							my $item = $search->{$valueHash};
+							foreach my $found (keys %{$item}) {
+								if ($found eq 'type' && $search->{$valueHash}{$found} eq 'values') {
+									$retVal = $search->{$valueHash}{'parameter'};
+								}
+							}
+						}
+					}
+				}				
 			}
 		}
 	}
 	
 	return $retVal;
 }
-
 
 
 ### we should rework below this ###
@@ -361,36 +407,16 @@ sub getChannelType($$) {
 sub parseFrameData($$$) {
 	my ($hash, $data, $actionType) = @_;	# hash, 690E03FF, response
 
-	my $evTyp		= substr( $data, 0, 2);
-	my $event 		= undef;
-	if ( $evTyp eq '4B' || $evTyp eq '69') {
-		$event = 1;
-	}
-	my $deviceKey	= HM485::Device::getDeviceKeyFromHash($hash);
-	my $chtyp = '';
-	my $channelBehaviour = undef;
-	if ( uc( $deviceKey) eq 'HMW_IO12_SW14_DR') {
-		my $chNr		= sprintf ('%02d' , hex( substr( $data, 2, 2)) + 1);
-		$chtyp	 		= getChannelType( $deviceKey, $chNr);
-		$event 			= 1;
-		my $hmwId 		= $hash->{DEF};
-		my $chHash 		= $main::modules{HM485}{defptr}{$hmwId . '_' . $chNr};
-		$channelBehaviour = HM485::Device::getChannelBehaviour( $chHash);
-		#HM485::Util::HM485_Log( 'Device:parseFrameData channelBehaviour = ' . $channelBehaviour . ' hmwId = ' . $hmwId . ' chtyp = ' . $chtyp);
-		if ( defined( $channelBehaviour) && $channelBehaviour && ( $chtyp eq 'digital_analog_output' || $chtyp eq 'digital_analog_input')) {
-			$event = 3;
-		}
-		if ( defined( $channelBehaviour) && $channelBehaviour eq 'digital_input' && $chtyp eq 'digital_input') {
-			$event = 3;
-		}
-		if ( $chtyp eq 'digital_output') {
-			$event = 3;
-		}
-	}
-	my $frameData = getFrameInfos($deviceKey, $data, $event, 'from_device');
-					
-#	print Dumper($frameData);
-	my $retVal    = convertFrameDataToValue($hash, $deviceKey, $frameData);
+	my $behaviour 			= undef;
+	my $deviceKey			= HM485::Device::getDeviceKeyFromHash($hash);
+	my $channel           	= sprintf("%02d",hex (substr($data, 2, 2)) +1);
+	my $hmwId              	= $hash->{'DEF'};
+	my $chHash             	= $main::modules{'HM485'}{'defptr'}{$hmwId . '_' . $channel};
+	($behaviour, undef) 	= getChannelBehaviour($chHash);
+#	if ( defined( $behaviour) && $behaviour) {
+		my $frameData       = getFrameInfos($deviceKey, $data, 1, $behaviour, 'from_device');
+		my $retVal          = convertFrameDataToValue($hash, $deviceKey, $frameData);
+#	}
 	
 	return $retVal;
 }
@@ -403,22 +429,26 @@ sub parseFrameData($$$) {
 	@param	boolean	optinal value identify the frame as event 
 	@param	string	optional frame direction (from or to device)
 =cut
-sub getFrameInfos($$;$$) {
-	my ($deviceKey, $data, $event, $dir) = @_;
+sub getFrameInfos($$;$$$) {
+	my ($deviceKey, $data, $event, $behaviour, $dir) = @_;
 	
 	my $frameType = hex( substr( $data, 0, 2));	# 69
 	my %retVal;
-	my $framt = '';
-	if ( $event && $event == 3) {
-		$framt = 'INFO_frequency';
-		$event = 1;
-	}
-	#HM485::Util::HM485_Log( 'Device:getFrameInfos: event = ' . $event . ' data = ' . $data);
+	my $chNr			=  hex( substr( $data, 2, 2)) + 1;
+	my $chTyp         	= HM485::Device::getChannelType( $deviceKey, $chNr);
+	my $frameTypeName  	= getValueFromDefinitions( $deviceKey . '/channels/' . $chTyp . '/paramset/values/parameter/frequency/physical/get/response');
+	$frameTypeName		= $frameTypeName ? $frameTypeName : 'info_level';
 	
 	my $frames = getValueFromDefinitions($deviceKey . '/frames/');
 	if ($frames) {
 		foreach my $frame (keys %{$frames}) {
-			if ( $framt ne $frame) {
+			if ( $frameTypeName eq $frame) {
+				if ($frames->{$frame}{'parameter'}{'index'}) {
+					# Todo we rewrite the new configuration to the old one
+					my $replace = convertFrameIndexToHash ($frames->{$frame}{'parameter'});
+					delete ($frames->{$frame}{'parameter'});
+					$frames->{$frame}{'parameter'} = $replace;
+				}
 				my $fType  = $frames->{$frame}{type};
 				my $fEvent = $frames->{$frame}{event} ? $frames->{$frame}{event} : 0;
 				my $fDir   = $frames->{$frame}{direction} ? $frames->{$frame}{direction} : 0;
@@ -428,29 +458,27 @@ sub getFrameInfos($$;$$) {
 					(!defined($event) || $event == $fEvent) &&
 					(!defined($event) || $dir eq $fDir) ) {
 
-					my $chField = ($frames->{$frame}{channel_field} - 9) * 2;
-					my $params = translateFrameDataToValue($data, $frame, $frames->{$frame}{parameter});
+					my $parameter = translateFrameDataToValue($data, $frame, $frames->{$frame}{parameter});
 					# HM485::Util::HM485_Log( 'Device:getFrameInfos: chField = ' . $chField . ' deviceKey = ' . $deviceKey . ' frameType = ' . $frameType . ' frame = ' . $frame);
-					if (defined($params)) {
-						#foreach my $par (keys %{$params}) {
-						#	HM485::Util::HM485_Log( 'Device:getFrameInfos: par = ' . $par);
-						#	if ( ref( $params->{$par}) eq 'HASH') {
-						#		my $pa   = $params->{$par};
-						#		foreach my $p (keys %{$pa}) {
-						#			HM485::Util::HM485_Log( 'Device:getFrameInfos: p = ' . $p . ' value = ' . $pa->{val});
-						#		}
-						#	}
-						#}
-					
+					if (defined($parameter)) { #Daten umstrukturieren
+						foreach my $pindex (keys %{$parameter}) {
+							my $replace = $parameter->{$pindex}{'param'};
+							$parameter->{$replace} = delete $parameter->{$pindex};
+							delete $parameter->{$replace}{'param'};
+						}
+					}
+				
+					if (defined($parameter)) {
 						%retVal = (
-							ch     => sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1),
-							params => $params, 	# $params->{STATE}{val} = $value
-							type   => $fType,	# 69
+							ch     => sprintf ('%02d' , $chNr),
+							params => $parameter,
+							type   => $fType,
 							event  => $fEvent,
-							id     => $frame	# INFO_LEVEL
+							id     => $frame
 						);
 						last;
 					}
+					
 				} 
 			}
 		}
@@ -459,12 +487,25 @@ sub getFrameInfos($$;$$) {
 	return \%retVal;
 }
 
+sub convertFrameIndexToHash($) {
+	my ($configSettings) = @_;
+	
+	my $ConvertHash; # = {};
+	my $index = sprintf("%.1f",$configSettings->{'index'});
+	
+	if ($index) {
+		$ConvertHash->{$index} = $configSettings;
+		delete $ConvertHash->{$index}{'index'};
+	}
+	
+	return $ConvertHash;
+}
+
 sub getValueFromEepromData($$$$;$) {
 	my ($hash, $configHash, $adressStart, $adressStep, $wholeByte) = @_;
 
 	$wholeByte = $wholeByte ? 1 : 0;
 
-	# my $adressStep = $configHash->{address_step} ? $configHash->{address_step}  : 1;						# = 1
 	my ($adrId, $size, $littleEndian) = getPhysicalAdress($hash, $configHash, $adressStart, $adressStep);
 	# HM485::Util::HM485_Log( 'Device:getValueFromEepromData adressStep = ' . $adressStep . ' adrId = ' . $adrId . ' size = ' . $size);
 
@@ -494,20 +535,20 @@ sub getValueFromEepromData($$$$;$) {
 			$retVal = $eepromValue;
 		}
 		# HM485::Util::logger( 'Device:getValueFromEepromData', 3,' retVal = ' . $retVal);
-		if ( $retVal eq '') {
-			my $wert = $configHash->{logical}{'type'};
-			if ( defined($wert) && $wert eq 'option') {
-				my $wertHash = $configHash->{logical}{'option'};
-				foreach my $w (keys %{$wertHash}) {
-					my $df = $wertHash->{$w}{'default'};
-					if ( defined($df) && ($df eq 'true')) {
-						$wert = $w;
-						last;
-					}
-				}
-			}
-			HM485::Util::logger( 'Device:getValueFromEepromData', 3, 'Option default = ' . $wert);
-		}
+#		if ( $retVal eq '') {
+#			my $wert = $configHash->{logical}{'type'};
+#			if ( defined($wert) && $wert eq 'option') {
+#				my $wertHash = $configHash->{logical}{'option'};
+#				foreach my $w (keys %{$wertHash}) {
+#					my $df = $wertHash->{$w}{'default'};
+#					if ( defined($df) && ($df eq 'true')) {
+#						$wert = $w;
+#						last;
+#					}
+#				}
+#			}
+#			HM485::Util::logger( 'Device:getValueFromEepromData', 3, 'Option default = ' . $wert);
+#		}
 		# my $default = $configHash->{logical}{'default'};
 		if (defined($default)) {
 			if ($size == 1) {
@@ -530,7 +571,7 @@ sub getPhysicalAdress($$$$) { 		# 8.0 0.1
 	
 	my $adrId = 0;
 	my $size  = 0;
-
+	my $littleEndian   = 0;
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
 	# HM485::Util::logger('Device:getPhysicalAdress', 3, 'hmwId = ' . $hmwId . ' chNr = ' . $chNr  . ' adressStart = ' . $adressStart  . ' adressStep = ' . $adressStep);
@@ -546,39 +587,42 @@ sub getPhysicalAdress($$$$) { 		# 8.0 0.1
 	my $chCount = $chConfig->{count};
 	# HM485::Util::logger('Device:getPhysicalAdress', 3, 'chId = ' . $chId);
 		
-	# we must check if spechial params exists.
-	# Then adress_id and step retreve from spechial params 
-	my $valId = $configHash->{physical}{value_id} ? $configHash->{physical}{value_id} : undef;	# behaviour	
-	
-	if ($valId) {
-		# HM485::Util::HM485_Log('Device:getPhysicalAdress: valId = ' . $valId);
-		my $spConfig = $chConfig->{special_parameter};
-		if ( $spConfig->{id} eq $valId) {
-			$adressStep  = $spConfig->{physical}{address}{step} ? 	$spConfig->{physical}{address}{step}  : 0;
-			$size        = $spConfig->{physical}{size} ? 			$spConfig->{physical}{size} : 1;
-			$adrId       = $spConfig->{physical}{address}{index} ? 	$spConfig->{physical}{address}{index} : 0;
-			if ( $chCount < 9) {
-				$adrId   = $adrId + ($chId * $adressStep * ceil($size));
-			} else {
-				# HM485::Util::HM485_Log( 'Device:getPhysicalAdress: chId = ' . $chId);
-				if ( $chId < 8) {
-					$adrId   = $adrId + ($chId * $adressStep * ceil($size));
+	# we must check if special params exists.
+	# Then address_id and step retreve from special params
+	# also the new Configuration has the address step here
+	if (exists $configHash->{'physical'}{'interface'}) {
+		if ($configHash->{'physical'}{'interface'} eq 'internal') {
+			my $spConfig  = HM485::Device::getValueFromDefinitions(
+				$deviceKey . '/channels/' . $chType .'/special_parameter/'
+			);
+			if ($spConfig->{'id'} eq $configHash->{'physical'}{'value_id'}) {
+				$adressStep   = $spConfig->{'physical'}{'address'}{'step'} ? $spConfig->{'physical'}{'address'}{'step'}  : 0;
+				$size         = $spConfig->{'physical'}{'size'} ? $spConfig->{'physical'}{'size'} : 1;
+				$adrId        = $spConfig->{'physical'}{'address'}{'index'} ? $spConfig->{'physical'}{'address'}{'index'} : 0;
+				if ( $chCount < 9) {
+					$adrId   = $adrId + ( $chId * $adressStep * ceil($size));
 				} else {
-					$adrId   = $adrId + 1;
-					$adrId   = $adrId + ( ( $chId - 8) * $adressStep * ceil($size));
+					# HM485::Util::HM485_Log( 'Device:getPhysicalAdress: chId = ' . $chId);
+					if ( $chId < 8) {
+						$adrId   = $adrId + ( $chId * $adressStep * ceil($size));
+					} else {
+						$adrId   = $adrId + 1;
+						$adrId   = $adrId + ( ( $chId - 8) * $adressStep * ceil($size));
+					}
 				}
+				#$adrId        = $adrId + ($chId * $addressStep * ceil($size));
+			}			
+		} else { ##eeprom
+			if (exists $configHash->{'physical'}{'address'}{'index'}){
+				my $valId     = $configHash->{'physical'}{'address'}{'index'};
+				$size         = $configHash->{'physical'}{'size'} ? $configHash->{'physical'}{'size'} : 1;
+				$adressStep   = $configHash->{'physical'}{'address'}{'step'} ? $configHash->{'physical'}{'address'}{'step'} : $adressStep;
+				$adrId        = $configHash->{'physical'}{'address'}{'index'} ? $configHash->{'physical'}{'address'}{'index'} : 0;
+				$adrId        = $adrId + $adressStart + ($chId * $adressStep);
+				$littleEndian = ($configHash->{'physical'}{'endian'} && $configHash->{'physical'}{'endian'} eq 'little') ? 1 : 0;
 			}
 		}
-		# HM485::Util::HM485_Log( 'Device:getPhysicalAdress: deviceKey = ' . $deviceKey . ' chNr = ' . $chNr . ' adrId = ' . $adrId);
-	} else {
-		$size       = $configHash->{physical}{size} ? $configHash->{physical}{size} : 1;
-		$adrId      = $configHash->{physical}{address}{index} ? $configHash->{physical}{address}{index} : 0;
-		# $adrId      = $adrId + $adressStart + ($chId * $adressStep * ceil($size));
-		$adrId      = $adrId + $adressStart + ( $chId * $adressStep);
 	}
-	
-	my $littleEndian = ($configHash->{physical}{endian} && $configHash->{physical}{endian} eq 'little') ? 1 : 0;
-
 	# HM485::Util::HM485_Log( 'Device:getPhysicalAdress- return adrId = ' . $adrId . ' size = ' . $size);
 	return ($adrId, $size, $littleEndian);
 }
@@ -586,58 +630,26 @@ sub getPhysicalAdress($$$$) { 		# 8.0 0.1
 sub translateFrameDataToValue($$$) {
 	my ($data, $frameName, $params) = @_;		# 690E03FF, INFO_LEVEL, frames/INFO_LEVEL/parameter
 	$data = pack('H*', $data);
-
-	my $index = 0;
-	my $par	  = undef;
 	my $dataValid = 1;
 	my %retVal;
-	my $size	= 1;
+		
 	if ($params) {
 		foreach my $param (keys %{$params}) {	# params = INFO_LEVEL/parameter
-#			$param = lc($param);
-			# HM485::Util::HM485_Log( 'Device:translateFrameDataToValue: param = ' . $param);	# 12.0
-			if ( ref( $params->{$param}) eq 'HASH') {
-				$par   = $params->{$param};	# 12.0
-				$index = $param - 9;
-				$size  = ($params->{$param}{size});
-				# HM485::Util::HM485_Log( 'Device:translateFrameDataToValue: index1 = ' . $index . ' size1 = ' . $size);
-				
-				my $value = getValueFromHexData($data, $index, $size);
-
-				my $constValue = $params->{$param}{const_value};
-				
-				# HM485::Util::HM485_Log( 'Device:translateFrameDataToValue: constValue = ' . $constValue . ' value = ' . $value);
-				if ( !defined($constValue) || $constValue eq $value) {
-					if ( defined( $par) && $par && defined( $par->{param})) {
-						my $p = $par->{param};
-						if ( defined( $p) && $p) {
-							$retVal{ $p}{val} = $value;
-							# HM485::Util::HM485_Log( 'Device:translateFrameDataToValue: p = ' . $p . ' value = ' . $value);
-						}
-					} else {
-						$retVal{$param}{val} = $value;
-						# HM485::Util::HM485_Log( 'Device:translateFrameDataToValue: param = ' . $param . ' value = ' . $value);
-					}
+			my $index = $param - 9;
+			my $size  = ($params->{$param}{size});
+			my $value = getValueFromHexData($data, $index, $size);
+			my $constValue = $params->{$param}{const_value};
+			if ( !defined($constValue) || $constValue eq $value) {
+				$retVal{$param}{val} = $value;
+				if ($constValue) {
+					$retVal{$param}{param} = 'const_value';
 				} else {
-					$dataValid = 0;
-					# HM485::Util::HM485_Log( 'Device:translateFrameDataToValue: keine gueltigen Daten');
-					last;
+					$retVal{$param}{param} = $params->{$param}{param};
 				}
 			} else {
-				# $index 	= ($params->{$param}{index} - 9); ######################
-				$index 	= ($params->{index} - 9);		# 11.0-9=2
-				$size  	= ($params->{size});			# 3
-				# HM485::Util::HM485_Log( 'Device:translateFrameDataToValue: index2 = ' . $index . ' size2 = ' . $size);
-				my $value 	= getValueFromHexData($data, $index, $size);	# 690E03FF, 2, 3
-				if ( defined( $params->{param})) {
-					$retVal{$params->{param}}{val} = $value;	# $retval->{STATE}{val} = $value
-				} else {
-					$retVal{$frameName}{val} = $value;			# $retval->{INFO_LEVEL}{val} = $value
-				}
-				last;
+				$dataValid = 0;
+				last
 			}
-			# my $size  	= ($params->{$param}{size});
-			
 		}
 	}
 	
@@ -682,13 +694,13 @@ sub convertFrameDataToValue($$$) {
 					$valueMap->{conversion},
 					'from_device'
 				);
-				if ( $valueMap->{cal} && $valueMap->{cal} > -128 && $valueMap->{cal} < 128) {
-					$frameData->{params}{$valId}{val} = $frameData->{params}{$valId}{val} + $valueMap->{cal};
-					if ( $frameData->{params}{$valId}{val} < 0) {
-						$frameData->{params}{$valId}{val} = 0;
-					}
-				}
-				HM485::Util::HM485_Log( 'Device:convertFrameDataToValue End value = ' . $frameData->{params}{$valId}{val});
+			#	if ( $valueMap->{cal} && $valueMap->{cal} > -128 && $valueMap->{cal} < 128) {
+			#		$frameData->{params}{$valId}{val} = $frameData->{params}{$valId}{val} + $valueMap->{cal};
+			#		if ( $frameData->{params}{$valId}{val} < 0) {
+			#			$frameData->{params}{$valId}{val} = 0;
+			#		}
+			#	}
+			#	HM485::Util::HM485_Log( 'Device:convertFrameDataToValue End value = ' . $frameData->{params}{$valId}{val});
 				# $frameData->{value}{$valueMap->{name}} = valueToControl(	# $frameData->{value}{STATE} = on
 				$frameData->{value}{$valueMap->{name}} = valueToControl(
 					$valueMap,
@@ -699,17 +711,6 @@ sub convertFrameDataToValue($$$) {
 				delete $frameData->{params}{$valId};
 			}
 		}
-		#foreach my $par (keys %{$frameData->{params}}) {
-		#	HM485::Util::HM485_Log( 'Device:convertFrameDataToValue param = ' . $par);
-		#	if ( ref( $frameData->{params}{$par}) eq 'HASH') {
-		#		my $pa   = $frameData->{params}{$par};
-		#		foreach my $p (keys %{$pa}) {
-		#			HM485::Util::HM485_Log( 'Device:convertFrameDataToValue p = ' . $p . ' value = ' . $pa->{val});
-		#		}
-		#	} else {
-		#		HM485::Util::HM485_Log( 'Device:convertFrameDataToValue wert = ' . $frameData->{params}{$par});
-		#	}
-		#}
 	}
 
 	return $frameData;
@@ -740,11 +741,20 @@ sub valueToControl($$) {
 			$threshold = $threshold ? int($threshold) : 1;
 			$retVal = ($value > $threshold) ? 'on' : 'off';
 
-		} elsif ($control eq 'dimmer.level' || $control eq 'blind.level') {
+		} elsif ($control eq 'dimmer.level' || $control eq 'blind.level' || $control eq 'valve.level') {
 			if ( exists $paramHash->{'logical'}{'unit'} && $paramHash->{'logical'}{'unit'} eq '100%') {
-				$value = $value * 100;
+				$retVal = $value * 100;
+#				if ( exists $paramHash->{'logical'}{'max'}) {
+#					if ( $value >= $paramHash->{'logical'}{'max'}) {
+#						$retVal = 'on';
+#					}
+#				}
+#				if ( exists $paramHash->{'logical'}{'min'}) {
+#					if ($value <= $paramHash->{'logical'}{'min'}) {
+#						$retVal = 'off';
+#					}
+#				}
 			}
-			$retVal = $value;
 
 		} elsif (index($control, 'button.') > -1) {
 			$retVal = $valName . ' ' . $value;
@@ -763,7 +773,13 @@ sub valueToControl($$) {
 		}
 
 	} else {
-		$retVal = $value;
+		#digital_analog_input - digital input has no control
+		if (exists $paramHash->{'logical'}{'type'} && $paramHash->{'logical'}{'type'} eq 'boolean' ) {
+			$retVal = $value ? 'yes' : 'no';
+			#$retVal = $value ? 'on' : 'off';
+		} else {
+			$retVal = $value;
+		}
 	}
 	
 	return $retVal;
@@ -775,19 +791,24 @@ sub onOffToState($$) {
 	my $state = undef;
 	my $conversionHash = $stateHash->{conversion};
 	my $logicalHash	   = $stateHash->{logical};
+	#Todo es gaebe auch: long_[on,off]_level short_[on,off]_level, wäre dann aus dem eeprom zu holen
 	
-	if ( lc( $cmd) eq 'on' && defined($conversionHash->{true})) {
-		$state = $conversionHash->{true};
-	} elsif ( lc( $cmd) eq 'off' && defined($conversionHash->{false})) {
-		$state = $conversionHash->{false};
-	}
-	if ( !$state) {
-		if ( lc( $cmd) eq 'on' && defined($conversionHash->{factor}) && defined($logicalHash->{max})) {
-			$state = $conversionHash->{factor} * $logicalHash->{max};
-		} elsif ( lc( $cmd) eq 'off' && defined($conversionHash->{factor}) && defined($logicalHash->{min})) {
-			$state = $conversionHash->{factor} * $logicalHash->{min};
+	if ( $cmd eq 'on') {
+		if ( $logicalHash->{'type'} eq 'boolean') {
+			$state = $conversionHash->{true};
+		} elsif ( $logicalHash->{'type'} eq 'float') {
+			$state = $conversionHash->{'factor'} * $logicalHash->{'max'};
 		}
+		#$state = 1;
+	} elsif ( $cmd eq 'off') {
+		if ( $logicalHash->{'type'} eq 'boolean') {
+			$state = $conversionHash->{false};
+		} elsif ( $logicalHash->{'type'} eq 'float') {
+			$state = $conversionHash->{'factor'} * $logicalHash->{'min'};
+		}
+		#$state = 0;
 	}
+
 	return $state;
 }
 
@@ -800,7 +821,7 @@ sub valueToState($$$$) {
 	
 		if ( exists $valueHash->{'logical'}{'unit'} && $valueHash->{'logical'}{'unit'} eq '100%') {
 			# Da wir in FHEM einen State von 0 - 100 anzeigen lassen,
-			# muß der an das Modul gesendete Wert in den Bereich von 0 - 1 
+			# muss der an das Modul gesendete Wert in den Bereich von 0 - 1 
 			# transferiert werden
 			$value = $value / 100;
 		}
@@ -830,17 +851,20 @@ sub buildFrame($$$$) {
 		foreach my $key (keys %{$frameData}) {
 			my $valueId = $frameData->{$key}{physical}{value_id};	# inhibit
 			
-			if ($valueId && $valueId eq $valueKey && defined( $frameData->{$key}{value})) {
-				my $paramLen = $frameHash->{parameter}{size} ? int($frameHash->{parameter}{size}) : 1;
-				$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key}{value});
-			} elsif ( $valueId && $valueId eq 'dummy' && $frameHash->{parameter}{const_value}) {
-				# stop
-				my $paramLen = $frameHash->{parameter}{size} ? int($frameHash->{parameter}{size}) : 1;
-				$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameHash->{parameter}{const_value});
-			} elsif ($valueId && $valueId eq $valueKey && !defined( $frameData->{$key}{value})) {
-				# inhibit ( lock), toggle_install_test
-				#my $paramLen = $frameHash->{parameter}{size} ? int($frameHash->{parameter}{size}) : 1;
-				#$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameHash->{parameter}{const_value});
+			if ( exists( $frameHash->{parameter}{param}) || exists( $frameHash->{parameter}{const_value})) {
+				if ( $valueId && ( $valueId eq $valueKey || $valueId eq 'dummy') && defined( $frameData->{$key}{value})) {
+					my $paramLen = $frameHash->{parameter}{size} ? int($frameHash->{parameter}{size}) : 1;
+					$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key}{value});
+				}
+			} else {
+				if ( $valueId && $valueId eq $valueKey && defined( $frameData->{$key}{value})) {
+					foreach my $parameter (keys %{$frameHash->{parameter}}) {
+						if ( $frameHash->{parameter}{$parameter}{param} eq $valueKey) {
+							my $paramLen = $frameHash->{parameter}{$parameter}{size} ? int($frameHash->{parameter}{$parameter}{size}) : 1;
+							$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key}{value});
+						}
+					}
+				}
 			}
 		}
 	}
@@ -859,108 +883,84 @@ sub buildFrame($$$$) {
 =cut
 sub dataConversion($$;$) {
 	my ($value, $convertConfig, $dir) = @_;   # 0, channels/paramset/master/INPUT_LOCKED/conversion, to_device
-				
-#	print Dumper($convertConfig);
-	my $retVal = $value;
-	# HM485::Util::logger('Device:dataConversion', 3, 'retVal = ' . $retVal . ' convertConfig = ' . $convertConfig);
-	if (ref($convertConfig) eq 'HASH') {
-		$dir = ($dir && $dir eq 'to_device') ? 'to_device' : 'from_device';
-		
-		my $type = $convertConfig->{type};	# boolean_integer
-		
-		# ------------
-		if ( !defined( $type) && $convertConfig->{1}) {
-			# HM485::Util::HM485_Log('Device:dataConversion: conversion/1/ ist definiert');
-			$convertConfig = $convertConfig->{1};
-			$type = $convertConfig->{type};
-		}
-		# -----------
-		
-		# HM485::Util::logger('Device:dataConversion', 3, 'dir = ' . $dir . ' type = ' . $type);
-		
-		if (ref($convertConfig->{value_map}) eq 'HASH' && $convertConfig->{value_map}{type}) {
-			foreach my $key (keys %{$convertConfig->{value_map}}) {
-				my $valueMap = $convertConfig->{value_map}{$key};
-				if (ref($valueMap) eq 'HASH') {
-
-					if ($convertConfig->{value_map}{type} eq 'integer_integer_map') {
-						my $valParam  = $valueMap->{parameter_value} ? $valueMap->{parameter_value} : 0;
-						my $valDevice = $valueMap->{device_value} ? $valueMap->{device_value} : 0;
 	
-						if ($dir eq 'to_device' && $valueMap->{to_device}) {
-							$retVal = ($value == $valParam) ? $valDevice : $retVal;
-						} elsif ($dir eq 'from_device' && $valueMap->{from_device}) {
-							$retVal = ($value == $valDevice) ? $valParam : $retVal;
-						}
-					}
+	my $retVal = $value;
+	if (ref($convertConfig) eq 'HASH') {
+		
+		$dir     = ($dir && $dir eq 'to_device') ? 'to_device' : 'from_device';
+		my $type = $convertConfig->{'type'};
+		
+		if ($type) {
+			$retVal = dataConvertValue( $value, $convertConfig, $dir);
+		} else {
+			# try in reverse order
+			my $countKeys = keys $convertConfig;
+			for (my $i = $countKeys; $i >= 1; $i--) {
+				$type = $convertConfig->{$i}{'type'};
+				if ($type) {
+					my $tmpConvertConfig = $convertConfig->{$i};
+				
+					$retVal = dataConvertValue( $retVal, $tmpConvertConfig, $dir);	
 				}
 			}
 		}
+	}
+	HM485::Util::logger('HM485:Device:dataConversion', 5, 'retVal = ' . $retVal);
+	return $retVal;
+}
 
-#		if ( !defined( $type)) {
-#			foreach my $key ( keys %{$convertConfig}) {
-#				my $valueMap = $convertConfig->{$key};
-#				if ( ref($valueMap) eq 'HASH') {
-#
-#					if ($convertConfig->{$key}{type} eq 'integer_integer_map') {
-#						my $valParam  = $valueMap->{value_map}{parameter_value} ? $valueMap->{value_map}{parameter_value} : 0;
-#						my $valDevice = $valueMap->{value_map}{device_value} ? $valueMap->{value_map}{device_value} : 0;
-#	
-#						if ($dir eq 'to_device' && $valueMap->{value_map}{to_device}) {
-#							$retVal = ($value == $valParam) ? $valDevice : $retVal;
-#						} elsif ($dir eq 'from_device' && $valueMap->{value_map}{from_device}) {
-#							$retVal = ($value == $valDevice) ? $valParam : $retVal;
-#						}
-#						return $retVal;
-#					} else {
-#						$type = $convertConfig->{type};
-#					}
-#				}
-#			}
-#		}
-
-
-		if ($type eq 'float_integer_scale' || $type eq 'integer_integer_scale') {
-			my $factor = $convertConfig->{factor} ? $convertConfig->{factor} : 1;
-			my $offset = $convertConfig->{offset} ? $convertConfig->{offset} : 0;
-			$factor = ($type eq 'float_integer_scale') ? $factor : 1;
-#my $t = $retVal;
-			if ($dir eq 'to_device') {
-				$retVal = $retVal + $offset;
-				$retVal = int($retVal * $factor); 
-			} else {
-#				$retVal = $retVal / $factor;
-				$retVal = sprintf("%.2f", $retVal / $factor);
-				$retVal = $retVal - $offset;
+sub dataConvertValue($$$) {
+	my ($value, $convertConfig, $dir) = @_;
+		
+	my $retVal = $value;
+	my $type   = $convertConfig->{'type'};
+	
+	if (ref($convertConfig->{'value_map'}) eq 'HASH' && $convertConfig->{'type'}) {
+		if (ref($convertConfig->{'value_map'}) eq 'HASH') {
+			if ($convertConfig->{'type'} eq 'integer_integer_map') {
+				my $valParam  = $convertConfig->{'value_map'}{'parameter_value'} ? 
+								$convertConfig->{'value_map'}{'parameter_value'} : 0;
+				my $valDevice = $convertConfig->{'value_map'}{'device_value'} ?
+								$convertConfig->{'value_map'}{'device_value'} : 0;
+				if ($dir eq 'to_device' && $convertConfig->{'value_map'}{'to_device'}) {
+					$retVal = ($value == $valParam) ? $valDevice : $retVal;
+				} elsif ($dir eq 'from_device' && $convertConfig->{'value_map'}{'from_device'}) {
+					$retVal = ($value == $valDevice) ? $valParam : $retVal;
+				}
 			}
-#print Dumper($retVal, $factor, $t);
-
-		} elsif ($type eq 'boolean_integer') {
-			my $threshold = $convertConfig->{threshold} ? $convertConfig->{threshold} : 1;
-			my $invert    = $convertConfig->{invert} ? 1 : 0;
-			my $false     = $convertConfig->{false} ? $convertConfig->{false} : 0;
-			my $true      = $convertConfig->{true} ? $convertConfig->{true} : 1;
-
-			if ($dir eq 'to_device') {
-				$retVal = ($retVal >= $threshold) ? 1 : 0;
-				$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
-			} else {
-				$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
-				$retVal = ($retVal >= $threshold) ? $true : $false;
-			}
-
-		# Todo float_configtime from 
-		#} elsif ($config eq 'float_configtime') {
-		#	$valueMap = 'IntInt';
-
-		#} elsif ($config eq 'option_integer') {
-		#	$valueMap = 'value';
-
 		}
-	} else {
-		# HM485::Util::HM485_Log('Device:dataConversion: kein conversions- Hash vorhanden');
 	}
 	
+	if ($type eq 'float_integer_scale' || $type eq 'integer_integer_scale') {
+		my $factor = $convertConfig->{factor} ? $convertConfig->{factor} : 1;
+		my $offset = $convertConfig->{offset} ? $convertConfig->{offset} : 0;
+		$factor = ($type eq 'float_integer_scale') ? $factor : 1;
+
+		if ($dir eq 'to_device') {
+			$retVal = $retVal + $offset;
+			$retVal = int($retVal * $factor); 
+		} else {
+			if ($retVal ne "off" || $retVal ne "on") {
+				$retVal = $retVal / $factor;
+				$retVal = sprintf("%.2f", $retVal - $offset);
+			}
+		}
+
+	} elsif ($type eq 'boolean_integer') {
+		my $threshold = $convertConfig->{threshold} ? $convertConfig->{threshold} : 1;
+		my $invert    = $convertConfig->{invert} ? 1 : 0;
+		my $false     = $convertConfig->{false} ? $convertConfig->{false} : 0;
+		my $true      = $convertConfig->{true} ? $convertConfig->{true} : 1;
+
+		if ($dir eq 'from_device') {
+			$retVal = ($value >= $threshold) ? 1 : 0;
+			$retVal = (($invert && $retVal) || (!$invert && !$retVal)) ? 0 : 1; 
+		} else {
+			$retVal = (($invert && $value) || (!$invert && !$retVal)) ? 0 : 1;
+			$retVal = ($retVal >= $threshold) ? $true : $false;
+		}
+		
+	} 
 	return $retVal;
 }
 
@@ -969,228 +969,46 @@ sub getChannelValueMap($$$$) {
 	
 	my $channel = $frameData->{ch};
 	my $chType = getChannelType($deviceKey, $channel);
-
 	my $hmwId = $hash->{DEF}; 
 	my $chHash = $main::modules{HM485}{defptr}{$hmwId . '_' . $channel};
-
 	my $values;
-	my $channelBehaviour = HM485::Device::getChannelBehaviour($chHash);
+	my ($channelBehaviour,$bool) = HM485::Device::getChannelBehaviour($chHash);
 	
-	# HM485::Util::HM485_Log( 'Device:getChannelValueMap: deviceKey = ' . $deviceKey . ' frameData->{id} = ' . $frameData->{id} . ' valId = ' . $valId . ' chType = ' . $chType); 
-
-	my $valuePrafix = '';
-	if ( defined( $channelBehaviour) && $channelBehaviour) {
-		# HM485::Util::HM485_Log( 'Device:getChannelValueMap: channelBehaviour = ' . $channelBehaviour);
-		$valuePrafix = $channelBehaviour;
-	}
+	my $valuePrafix = $bool ? '/subconfig/paramset/hmw_'. $channelBehaviour. 
+		'_values/parameter' : '/paramset/values/parameter/';
 	
-	#################################################
-	$values  = getValueFromDefinitions(
-		$deviceKey . '/channels/' . $chType . '/paramset/values/parameter/'
+	$values = getValueFromDefinitions(
+		$deviceKey . '/channels/' . $chType . $valuePrafix
 	);
-	
+		
 	my $retVal = undef;
-	if ( defined( $values)) {
-		#----------------------------------------------
-		if ( uc( $deviceKey) eq 'HMW_IO12_SW14_DR') {
-			if ( $valuePrafix eq 'analog_input' && $chType eq 'digital_analog_input') {
-				# digital_analog_input.analog_input
-				$values = $values->{value};
-				if ( defined( $values->{physical}{value_id}) && 
-					( $values->{physical}{value_id} eq $valId) # || $values->{physical}{value_id} eq "STATE")
-					# STATE eq STATE
-					) {
-					if ( defined($values->{physical}{event}{frame}) && $values->{physical}{event}{frame} eq $frameData->{id}) {
-						$retVal = $values;
-						# $retVal->{name} = $valId;
-						$retVal->{name} = $values->{id};
-						HM485::Util::HM485_Log( 'Device:getChannelValueMap1 valueName = ' . $retVal->{name});
-						# Calibration beruecksichtigen bei analog_input
-						my $calibHash  = HM485::ConfigurationManager::getConfigFromDevice( $chHash, $channel);
-						$retVal->{cal} = $calibHash->{calibration}{value};
-						$retVal->{min} = $calibHash->{calibration}{min};
-						$retVal->{max} = $calibHash->{calibration}{max};
-						HM485::Util::HM485_Log( 'Device:getChannelValueMap1 retVal->{cal} = ' . $retVal->{cal});
+	if (defined($values)) {
+		if (exists ($values->{'id'})) {
+			# oh wie ich diese id's hasse :-(
+			if ($values->{'physical'}{'value_id'} eq $valId) {
+				if (!defined($values->{'physical'}{'event'}{'frame'}) ||
+					$values->{'physical'}{'event'}{'frame'} eq $frameData->{'id'}) {
 						
+					my $id = $values->{'id'};
+					$retVal = $values;
+					$retVal->{'name'} = $id;
 					}
-				}	
-			}
-									
-			if ( $valuePrafix eq 'digital_input' && $chType eq 'digital_analog_input') {
-				# digital_analog_input.digital_input
-				$values  = getValueFromDefinitions( $deviceKey . '/channels/' . $chType . '/subconfig/paramset/');
-				if ( defined( $values)) {
-					foreach my $value (keys %{$values}) {	# hmw_digital_output_values
-						if ( $values->{$value}{type} eq "values"){
-							my $p = $values->{$value}{parameter};
-							foreach my $k (keys %{$p}) {	# state
-								my $Key = $k;
-								my $h	=  $p->{$k};
-								if ( defined( $h->{physical}{value_id}) && $h->{physical}{value_id} eq $valId) {
-									if ( defined( $h->{physical}{event}{frame}) && $h->{physical}{event}{frame} eq $frameData->{id}) {		
-										# INFO_LEVEL eq INFO_LEVEL ?
-										$retVal = $h;
-										$retVal->{name} = $Key;
-										HM485::Util::HM485_Log( 'Device:getChannelValueMap2 valueName = ' . $retVal->{name});
-									}
-								}
-							}
-							last;
-						}
-					}
-				}
-			}
-			
-			if ( $valuePrafix eq 'frequency' && $chType eq 'digital_analog_output') {
-				# digital_analog_output.frequency
-				$values = $values->{frequency};
-				if ( defined( $values->{physical}{value_id}) && 
-					( $values->{physical}{value_id} eq $valId) # || $values->{physical}{value_id} eq "STATE")
-					# STATE eq STATE
-					) {
-					if ( defined($values->{physical}{event}{frame}) && $values->{physical}{event}{frame} eq $frameData->{id}) {
-						$retVal = $values;
-						# $retVal->{name} = $valId;
-						$retVal->{name} = $values->{id};
-						HM485::Util::HM485_Log( 'Device:getChannelValueMap3 valueName = ' . $retVal->{name});
-						# pulsetime beruecksichtigen bei analog_input
-						my $calibHash  = HM485::ConfigurationManager::getConfigFromDevice( $chHash, $channel);
-						$retVal->{pul} = $calibHash->{pulsetime}{value};
-						$retVal->{min} = $calibHash->{pulsetime}{min};
-						$retVal->{max} = $calibHash->{pulsetime}{max};
-						HM485::Util::HM485_Log( 'Device:getChannelValueMap3 retVal->{pul} = ' . $retVal->{pul});
-						
-					}
-				}
-			}
-			
-			if ( $valuePrafix eq 'digital_output' && $chType eq 'digital_analog_output') {
-				# digital_analog_output.digital_output
-				$values  = getValueFromDefinitions( $deviceKey . '/channels/' . $chType . '/subconfig/paramset/');
-				if ( defined( $values)) {
-					foreach my $value (keys %{$values}) {	# hmw_digital_output_values
-						if ( $values->{$value}{type} eq "values"){
-							my $p = $values->{$value}{parameter};
-							my $Key = $p->{state}{id};		# state
-							my $v	= $p->{state};
-							if ( defined( $v->{physical}{value_id}) && $v->{physical}{value_id} eq $valId) {
-								if ( defined( $v->{physical}{event}{frame}) && $v->{physical}{event}{frame} eq $frameData->{id}) {		
-									# INFO_LEVEL eq INFO_LEVEL ?
-									$retVal = $v;
-									$retVal->{name} = $v->{id};
-									HM485::Util::HM485_Log( 'Device:getChannelValueMap4 value = ' . $retVal->{name});
-									last;
-								}
-							} 
-						}
-					}
-				}
-			}
-			
-			if ( $valuePrafix eq 'digital_input' && $chType eq 'digital_input') {
-				# digital_input
-				$values  = getValueFromDefinitions( $deviceKey . '/channels/' . $chType . '/subconfig/paramset/');
-				if ( defined( $values)) {
-					foreach my $value (keys %{$values}) {	# hmw_digital_input_values
-						if ( $values->{$value}{type} eq "values"){
-							my $p = $values->{$value}{parameter};
-							my $Key = $p->{state}{id};		# state
-							my $v	= $p->{state};
-							# if ( defined( $v->{physical}{value_id}) && $v->{physical}{value_id} eq $valId) {
-								if ( defined( $v->{physical}{event}{frame}) && $v->{physical}{event}{frame} eq $frameData->{id}) {		
-									# INFO_LEVEL eq INFO_LEVEL ?
-									$retVal = $v;
-									$retVal->{name} = $v->{id};
-									HM485::Util::HM485_Log( 'Device:getChannelValueMap5: value = ' . $retVal->{name});
-									last;
-								}
-							# } 
-						}
-					}
-				}
-			}
-			
-			if ( $valuePrafix eq 'frequency_input' && $chType eq 'digital_input') {
-				foreach my $value (keys %{$values}) {
-					# frequency
-					if ( defined( $values->{$value}{physical}{value_id}) && 
-					   ( $values->{physical}{value_id} eq $valId || $values->{physical}{value_id} eq "state")) {
-						# STATE eq INFO_LEVEL
-						if ( defined($values->{$value}{physical}{event}{frame}) && $values->{$value}{physical}{event}{frame} eq $frameData->{id}) {		
-							# INFO_frequency eq INFO_frequency ?
-							$retVal = $values->{$value};
-							$retVal->{name} = $value;
-							HM485::Util::HM485_Log( 'Device:getChannelValueMap6 value = ' . $retVal->{name});
-							last;
-						}
-					}
-				}
-			}
-			
-			if ( $chType eq 'digital_output'){	
-				# digital_output
-				my $v	= $values->{state};
-				my $Key = $v->{id};
-				if ( defined( $v->{physical}{value_id}) && $v->{physical}{value_id} eq $valId) {
-					# STATE eq STATE
-					if ( defined($v->{physical}{event}{frame}) && $v->{physical}{event}{frame} eq $frameData->{id}) {
-						# INFO_LEVEL eq INFO_LEVEL
-						$retVal = $v;
-						$retVal->{name} = $v->{id};
-						HM485::Util::HM485_Log( 'Device:getChannelValueMap7: valueName = ' . $retVal->{name});
-					}	
-				}
-			}
-			
-		} elsif ( uc( $deviceKey) eq 'HMW_IO_12_FM') {
-			# HM485::Util::HM485_Log( 'Device:getChannelValueMap6: valuePrafix = ' . $valuePrafix); # OUTPUT
-			if ( $valuePrafix eq 'output'){
-				$values  = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/' . $chType . '/subconfig/paramset/');
-				if ( defined( $values)) {
-					foreach my $val (keys %{$values}) {	# hmw_switch_ch_values
-						if ( $values->{$val}{type} eq "values"){
-							my $valueHash = $values->{$val}{parameter}{state};
-							# HM485::Util::HM485_Log( 'Device:getChannelValueMap6: frameTyp = ' . $valueHash->{physical}{event}{frame} . ' frameData->{id} = ' . $frameData->{id});
-							if ( defined( $valueHash->{physical}{event}{frame}) && $valueHash->{physical}{event}{frame} eq $frameData->{id}) {	
-								$retVal = $valueHash;
-								$retVal->{name} = $valueHash->{physical}{value_id};
-								HM485::Util::HM485_Log( 'Device:getChannelValueMap8: value = ' . $retVal->{name});
-								last;
-							}
-						
-						}
-					}
-				}
-			} else {
-				if ( defined( $values)) {
-					foreach my $val (keys %{$values}) {	# PRESS_SHORT
-						my $valueHash = $values->{$val};
-						if ( defined( $valueHash->{physical}{value_id}) && $valueHash->{physical}{value_id} eq $valId) {
-							if ( defined( $valueHash->{physical}{event}{frame}) && $valueHash->{physical}{event}{frame} eq $frameData->{id}){
-								$retVal = $valueHash;
-								$retVal->{name} = $val;
-								HM485::Util::HM485_Log( 'Device:getChannelValueMap9: value = ' . $retVal->{name});
-								last;
-							}
-						}
-					}
-				}
-			}
+				}		
 		} else {
-			#----------------------------------------------
+			
 			foreach my $value (keys %{$values}) {
 				if ( defined( $values->{$value}{physical}{value_id}) && $values->{$value}{physical}{value_id} eq $valId) {
-					if ( defined($values->{$value}{physical}{event}{frame}) && $values->{$value}{physical}{event}{frame} eq $frameData->{id}) {
+					if ( !defined($values->{$value}{physical}{event}{frame}) || $values->{$value}{physical}{event}{frame} eq $frameData->{id}) {
 						$retVal = $values->{$value};
 						$retVal->{name} = $value;
-						# HM485::Util::HM485_Log( 'Device:getChannelValueMap10: valueName = ' . $value . ' Wert = ' . $values->{$value});
 						last;
 					}
 				} 
 			}
 		}
 	}
-	
+	HM485::Util::logger('HM485:Device:getChannelValueMap', 5, 'retVal = ' . $retVal->{name} . ' bool = ' . $bool . ' chtype = ' . $chType);
+		
 	return $retVal;
 }
 
@@ -1199,8 +1017,6 @@ sub getEmptyEEpromMap($) {
 
 	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
 	my $eepromAddrs = parseForEepromData( getValueFromDefinitions( $deviceKey));  # Device- Informationen einlesen und aus diesen die EEpromadressen extrahieren
-	
-	# HM485::Util::HM485_Log( 'Device:getEmptyEEpromMap: leere EEpromMap fuer ' . $deviceKey);
 	
 	my $eepromMap = {};
 	my $blockLen = 16;
@@ -1212,7 +1028,6 @@ sub getEmptyEEpromMap($) {
 	for ($blockCount = 0; $blockCount < ($addrMax / $blockLen); $blockCount++) {
 		my $blockStart = $blockCount * $blockLen;  # 16
 		foreach my $adrStart (keys %{$eepromAddrs}) {
-			# HM485::Util::logger('Device:getEmptyEEpromMap', 3, 'adrStart = ' . $adrStart . '->' . $eepromAddrs->{$adrStart});
 			my $len = $adrStart + $eepromAddrs->{$adrStart};
 			if (($adrStart >= $blockStart && $adrStart < ($blockStart + $blockLen)) || ($len >= $blockStart)) {
 
@@ -1275,9 +1090,6 @@ sub getRawEEpromData($;$$$$) {
 			# HM485::Util::HM485_Log( 'Device:getRawEEpromData Reading = nicht vorh.');
 		}
 
-		#if (length($retVal) / 2 >= $len) {
-		#	last;
-		#}
 		if (length($retVal) / 2 >= $start - $blockStart * $blockLen + $len) {
 			last;
 		}
@@ -1289,9 +1101,6 @@ sub getRawEEpromData($;$$$$) {
 	$retVal = $littleEndian ? reverse($retVal) : $retVal;
 	$retVal = $hex ? unpack('H*', $retVal) : $retVal;
 	
-#print Dumper("+++++++ \n", unpack ('H*',$retVal), $start, $len, "\n -------");		
-	
-	# HM485::Util::HM485_Log( 'Device:getRawEEpromData retVal = ' . $retVal . ' start = ' . $start . ' len = ' . $len);
 	return $retVal;
 }
 
@@ -1423,8 +1232,27 @@ sub getEEpromData($$) {
 		$adrStart = sprintf ('%04d' , $adrStart);
 		$retVal->{$adrStart} = $adrStep * $count;
 
+	} elsif ($params->{'address'}{'step'}) {
+		# alternate Configuration
+		my $adrStart  = 0;
+		my $adrStep   = $paramHash->{'address'}{'step'} ? $paramHash->{'address'}{'step'} : 1;
+		
+		$adrStart = sprintf ('%04d' , $adrStart);
+		$retVal->{$adrStart} = $adrStep * $count;
+
 	} else {
-		if ( $paramHash->{physical}{address} && $paramHash->{physical}{address}{index}) {
+		if ($paramHash->{'physical'}{'address_id'}) {
+			my $adrStart =  $paramHash->{'physical'}{'address_id'};
+			$adrStart = sprintf ('%04d' , $adrStart);
+
+			my $size = $paramHash->{'physical'}{'size'};
+			$size = $size * $count;
+			$size = isInt($paramHash->{'physical'}{'size'}) ? $size : ceil(($size / 0.8));
+			
+			$retVal->{$adrStart} = $size;
+		}
+		
+		if ( $paramHash->{physical}{address}{index}) {
 			my $adrStart = $paramHash->{physical}{address}{index};
 			$adrStart = sprintf ('%04d' , $adrStart);
 
@@ -1474,13 +1302,6 @@ sub subBit ($$$) {
 }
 
 
-
-
-
-
-
-
-
 sub internalUpdateEEpromData($$) {
 	my ($devHash, $requestData) = @_;
 
@@ -1527,83 +1348,86 @@ sub parseFirmwareVersion($) {
 
 sub getAllowedSets($) {
 	my ($hash) = @_;
-
-	my $name   = $hash->{NAME};
-	my $model  = $hash->{MODEL};
-	my $onOff  = 'on:noArg off:noArg toggle:noArg on-for-timer:textField ';
-	my $keys   = 'press_short:noArg press_long:noArg ';
-
+	
+	my $name   = $hash->{'NAME'};
+	my $model  = $hash->{'MODEL'};
+	my $onOff  = 'on:noArg off:noArg ';
+	my $keys   = 'press_short:noArg press_long:noArg';
+	
+	my %cmdOverwrite = (
+		'switch.state'	=> "on:noArg off:noArg"
+	);
+		
+	my %cmdArgs = (
+		'none'			=> "noArg",
+   		'blind.level'	=> "slider,0,1,100 on:noArg off:noArg",
+   		'blind.stop'	=> "noArg",
+   		'dimmer.level' 	=> "slider,0,1,100 on:noArg off:noArg",
+   		'valve.level' 	=> "slider,0,1,100 on:noArg off:noArg",
+   		'button.long'	=> "noArg",
+   		'button.short'	=> "noArg",
+   		'digital_analog_output.frequency' => "slider,0,1,50000 frequency2:textField",
+   		'door_sensor.state' => "need some feedback"
+	);
+	
+	my @cmdlist;
 	my $retVal = undef;
-	# HM485::Util::HM485_Log( 'Device:getAllowedSets name = ' . $name . ' model = ' . $model);
-	if ( defined( $model) && $model) {
+
+	if (defined($model) && $model) {
 		
 		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
-		# HM485::Util::HM485_Log( 'Device:getAllowedSets: chNr = ' . $chNr);
-		
-		if ( $chNr > 0) {
-			my $channelBehaviour = getChannelBehaviour($hash);
-			if ($channelBehaviour) {
-				$hash->{behaviour} = $channelBehaviour;
-				# HM485::Util::HM485_Log( 'Device:getAllowedSets channelBehaviour = ' . $channelBehaviour);	# analog_input  ==> Spannung 0..10V
-				if ($channelBehaviour eq 'output' || $channelBehaviour eq 'digital_output') {
-					$retVal = $onOff;
-
-				} elsif ($channelBehaviour eq 'analog_output') {
-					$retVal = 'frequency:textField';
-
-#				} elsif ($channelBehaviour eq 'INPUT' || $channelBehaviour eq 'digital_input') {
-#					$retVal = $keys;
-
-				} elsif ($channelBehaviour eq 'frequency_input') {
-					$retVal = 'frequency:slider,0,1,100 frequency2:textField';
-				}
-				# analog_input  ==> Spannung 0..10V
-				# kein zusätzliches Set erforderlich --> nur Messeingang
-			} else {
-				my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
-				my $chType    = getChannelType($deviceKey, $chNr);
-
-				# HM485::Util::HM485_Log( 'Device:getAllowedSets: deviceKey = ' . $deviceKey . ' chType = ' . $chType);
+		if (defined($chNr)) {
+			
+			my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
+			my $chType    = getChannelType($deviceKey, $chNr);
+			
+			if ($chType) {
+				my $commands  = getValueFromDefinitions(
+					$deviceKey . '/channels/' . $chType .'/paramset/values/parameter'
+				);
+			
 				
-				if ($chType eq 'key') {
-					$retVal = $keys;
-		
-				} elsif ($chType eq 'switch' || $chType eq 'digital_output') {
-					$retVal = $onOff;
+				my $bahaviour = getBehaviourCommand($hash);
+				if ($bahaviour) {
+					$commands = $bahaviour;
+				}
+				
+#				if (exists ($commands->{'id'})) {
+#					#Todo sch.. id's
+#					$commands = HM485::Util::convertIdToHash($commands);
+#				}
+				foreach my $command (sort (keys %{$commands})) {
+				
+					if ($commands->{$command}{'operations'}) {
+						my @values = split(',', $commands->{$command}{'operations'});
+  						foreach my $val (@values) {
+    					
+    						if ( $val eq 'write' && 
+    							$commands->{$command}{'physical'}{'interface'} eq 'command') {
+								
+								if ($commands->{$command}{'control'}) {
+									my $ctrl = $commands->{$command}{'control'};
+									
+									if ($cmdOverwrite{$ctrl}) {
+										push @cmdlist, $cmdOverwrite{$ctrl};
+									}
+							
+									if($cmdArgs{$ctrl}) {
+										push @cmdlist, "$command:$cmdArgs{$ctrl}";	
+									}
+								} else {
+									push @cmdlist, "$command";
+								}
+							}
+    					}
+					}
+				}
+			}
+		}
+	}
 	
-				} elsif ($chType eq 'dimmer' || $chType eq 'blind') {
-					$retVal = $onOff . getDeviceSets( $deviceKey, $chType);
-				}
-			}
-		}
-		# HM485::Util::HM485_Log( 'Device:getAllowedSets retVal = ' . $retVal);
-	} else {
-		# HM485::Util::HM485_Log( 'Device:getAllowedSets kein model definiert');
-	}
-
-	return $retVal;
-}
-
-sub getDeviceSets($$) {
-	my ($deviceKey, $chType ) = @_;
-
-	my $retVal = '';
-	my $values  = getValueFromDefinitions( $deviceKey . '/channels/' . $chType . '/paramset/values/parameter/');
-	foreach my $val (keys %{$values}) {
-		my $valueHash = $values->{$val};
-		if ( defined( $valueHash->{operations})) {
-			my $op = $valueHash->{operations};
-			# HM485::Util::logger( 'Device:getDeviceSets', 3, 'val = ' . $val . ' operations = ' . $op . ' index = ' . index( $op, 'write'));
-			if ( index( $op, 'write') > -1) {
-				if ( $val eq 'level') {
-					$retVal .= $val . ':slider,0,1,100 ';
-				} else {
-					$retVal .= $val . ':noArg ';
-				}
-			}
-		}
-	}
+	$retVal = join(" ",@cmdlist);
 	return $retVal;
 }
 

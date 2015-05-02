@@ -2,7 +2,7 @@ HM585 - Modul for Homematic Wired (HM485) communication
 =======================================================
 Von Dirk Hoffmann <dirk@FHEM_Forum (forum.fhem.de)>
 
-V 0.5.135
+V 0.5.136
 
 HM485 ist ein Modul für FHEM um mit den Homemaitc Wired Modulen komunizieren zu können.
 Homematic Wired bassiert auf der RS485 Schnittstelle.
@@ -19,6 +19,10 @@ History:
 -----------
 
 V0.5.135 - Weitere Optimierung auch fuer unbekannte Module
+V0.5.136 - Bereinigung Hardcodierung, 
+		- Verbesserung Unterstuetzung fuer HMW_IO12_SW14_DR
+		- Verbesserung Einlesen Optionen aus Config
+		- Vereinfachung Programmcode
 
 Erklaerung aktuelle Verionsbezeichnung
 	erste Ziffer

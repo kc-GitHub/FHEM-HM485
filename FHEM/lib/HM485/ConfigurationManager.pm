@@ -1,6 +1,6 @@
 package HM485::ConfigurationManager;
 
-# Version 0.5.135 für neues Config
+# Version 0.5.136 für neues Config
 
 use strict;
 use warnings;
@@ -24,43 +24,10 @@ sub getConfigFromDevice($$) {
 
 		my $adressStart = $configHash->{address_start} ? $configHash->{address_start} : 0;	# = 0
 		my $adressStep  = $configHash->{address_step}  ? $configHash->{address_step}  : 1;	# = 1
-		
+				
 		$configHash = $configHash->{parameter};			# HMW_LC_BL1_DR/channels/KEY/paramset/master/parameter/
 		$configHash = getConfigSetting( $configHash);  	# Hash's mit dem Attribut hidden werden geloescht 
 					   
-		if ( $configHash->{id}) {
-			# nur ein Confighash vorhanden --> Name = id
-			my $type  = $configHash->{logical}{type} ? $configHash->{logical}{type} : undef;			# option
-			my $unit  = $configHash->{logical}{unit} ? $configHash->{logical}{unit} : '';				# ''
-			my $min   = defined($configHash->{logical}{min})  ? $configHash->{logical}{min}  : undef;
-			my $max   = defined($configHash->{logical}{max})  ? $configHash->{logical}{max}  : undef;
-			my $config = $configHash->{id};
-			
-			$retVal->{$config}{type}  = $type;
-			$retVal->{$config}{unit}  = $unit;
-
-			$retVal->{$config}{value} = HM485::Device::getValueFromEepromData(
-					$hash, $configHash, $adressStart, $adressStep
-			);
-				
-			$retVal->{$config}{physical} = $configHash->{physical};
-							
-			if ($type && $type ne 'option') {
-				$retVal->{$config}{min} = $min;
-				$retVal->{$config}{max} = $max;
-			} else {
-				my $oConfig = $configHash->{logical}{option};
-				my $opt = ''; 
-				if (ref($oConfig) eq 'HASH') {
-					$opt = join( ",", optionHashToArray($oConfig, $deviceKey));
-					$retVal->{$config}{posibleValues} = $opt;
-					# HM485::Util::logger( 'ConfigurationManager:getConfigFromDevice', 3,' posibleValues = ' . $opt);
-				} else {
-					$retVal->{$config}{posibleValues} = $configHash->{logical}{option};
-				}
-			}
-			
-		} else {
 		foreach my $config (keys %{$configHash}) {	# 'BEHAVIOUR'		# CALIBRATION
 			my $dataConfig = $configHash->{$config};
 			# HM485::Util::HM485_Log( 'ConfigurationsManager:getConfigFromDevice config = ' . $config);
@@ -72,78 +39,88 @@ sub getConfigFromDevice($$) {
 
 				$retVal->{$config}{type}  = $type;
 				$retVal->{$config}{unit}  = $unit;
-
-				$retVal->{$config}{value} = HM485::Device::getValueFromEepromData(
-					$hash, $dataConfig, $adressStart, $adressStep
-				);
-				
-				### debug	
-				
-				my ($adrId, $size) = HM485::Device::getPhysicalAdress(
-					$hash, $dataConfig, $adressStart, $adressStep
-				);
-
-				$retVal->{$config}{physical} = $dataConfig->{physical};
-				$retVal->{$config}{physical}{'.adrId'} = $adrId;
-				$retVal->{$config}{physical}{'.size'} = $size;
-				$retVal->{$config}{physical}{'.address_start'} = $adressStart;
-				$retVal->{$config}{physical}{'.address_step'} = $adressStep;
-				###
-				
-				if ($type && $type ne 'option') {
-					$retVal->{$config}{min} = $min;
-					$retVal->{$config}{max} = $max;
+	
+				if ( $type && $type ne 'option') {
+					if ($type ne 'boolean') {
+						$retVal->{$config}{min} = $min;
+						$retVal->{$config}{max} = $max;
+					}
 				} else {
 					my $oConfig = $dataConfig->{logical}{option};
 					my $opt = ''; 
-					if (ref($oConfig) eq 'HASH') {
-						$opt = join( ",", optionHashToArray($oConfig, $deviceKey));
-						$retVal->{$config}{posibleValues} = $opt;
-						# HM485::Util::logger( 'ConfigurationManager:getConfigFromDevice', 3,' posibleValues = ' . $opt);
-					} else {
-						$retVal->{$config}{posibleValues} = $dataConfig->{logical}{option};
-					}
+					$opt = join( ",", optionHashToArray($oConfig));
+					$retVal->{$config}{posibleValues} = $opt;
+					# HM485::Util::logger( 'ConfigurationManager:getConfigFromDevice', 3,' posibleValues = ' . $opt);
 				}
+				
+				my $addrStep = $adressStep;
+				if ( $dataConfig->{'physical'}{'address'}{'step'}) {
+					$addrStep = $dataConfig->{'physical'}{'address'}{'step'};
+				} 
+	
+				$retVal->{$config}{value} = HM485::Device::getValueFromEepromData(
+					$hash, $dataConfig, $adressStart, $addrStep
+				);		
 			}
 		}
-		}
 	}
-#print Dumper($retVal);
+	if (keys $retVal) {
+		$hash->{'.configManager'} = 1;
+	}
 	return $retVal;
 }
 
-sub optionHashToArray($$) {
-	my ($optionHash, $deviceKey) = @_;
+sub optionHashToArray($) {
+	my ($optionHash) = @_;
 
-	my $OptionRef = %HM485::Device::optionRefs->{$deviceKey};
+	# my $OptionRef = %HM485::Device::optionRefs->{$deviceKey};
 	my $opt = ''; 
 	my @retval = ();
-	if (ref($optionHash) eq 'HASH') {
-		foreach my $oC (keys %{$optionHash}) {
-			if ( defined( %{$OptionRef}->{$oC})) {
-				$retval[$OptionRef->{$oC}] = $oC;
+	my $count = 0;
+	if ( ref( $optionHash) eq 'HASH') {
+		foreach my $oC ( keys %{$optionHash}) {
+			if ( defined( $optionHash->{$oC}{default})) {
+				my $default = $optionHash->{$oC}{default};
+				$retval[ $default] = $oC;
+				if ( $count == $default) {
+					$count++;
+				}
 			} else {
-				if ( $opt eq '') {
-					$opt = $oC;
-				} else {
-					$opt .= ',' . $oC;
+				$retval[ $count] = $oC;
+				$count++;
+				if ( defined( $retval[ $count])) {
+					$count++;
 				}
 			}
 		}
 	}
-	if ( $opt eq '') {
-		#return map( s/ //g, @retval );
-		return @retval;
-	} else {
-		return map {s/ //g; $_; } split(',', $opt);
-	}
+		
+		
+#			if ( defined( %{$OptionRef}->{$oC})) {
+#				$retval[$OptionRef->{$oC}] = $oC;
+#			} else {
+#				if ( $opt eq '') {
+#					$opt = $oC;
+#				} else {
+#					$opt .= ',' . $oC;
+#				}
+#			}
+#		}
+#	}
+#	if ( $opt eq '') {
+#		#return map( s/ //g, @retval );
+#		return @retval;
+#	} else {
+#		return map {s/ //g; $_; } split(',', $opt);
+#	}
+	return @retval;
 }
 
-sub convertOptionToValue($$$) {
-	my ($optionList, $option, $deviceKey) = @_;
+sub convertOptionToValue($$) {
+	my ($optionList, $option) = @_;
 
 	my $retVal = 0;
-	my @optionValues = optionHashToArray($optionList, $deviceKey);
+	my @optionValues = split( ',', $optionList);
 	my $i = 0;
 	foreach my $optionValue (@optionValues) {
 		if ($optionValue eq $option) {
@@ -156,11 +133,11 @@ sub convertOptionToValue($$$) {
 	return $retVal;
 }
 
-sub convertValueToOption($$$) {
-	my ($optionList, $value, $deviceKey) = @_;
+sub convertValueToOption($$) {
+	my ($optionList, $value) = @_;
 	
 	my $opt = '';
-	my @optionValues = optionHashToArray($optionList, $deviceKey);
+	my @optionValues = split( ',', $optionList);
 	my $cc = 0;
 	foreach my $oKey (@optionValues) {
 		if ( $oKey eq $value || $cc eq $value) {
@@ -219,8 +196,6 @@ sub getConfigSetting($) {
 
 sub convertSettingsToEepromData($$) {
 	my ($hash, $configData) = @_;
-#	print Dumper($configData);
-#	die;	
 
 	my $adressStart = 0;
 	my $adressStep  = 0;
@@ -236,15 +211,14 @@ sub convertSettingsToEepromData($$) {
 		$masterConfig = HM485::Device::getValueFromDefinitions(
 			$deviceKey . '/channels/' . $subType . '/paramset/master/'
 		);
+		$adressStart = $masterConfig->{address_start} ? $masterConfig->{address_start} : 0;
+		$adressStep  = $masterConfig->{address_step}  ? $masterConfig->{address_step}  : 1;
+		$adressOffset = $adressStart + ($chNr - 1) * $adressStep;
 	} else {
+		#im channel 0 gibt es nur address index kein address_start oder address_step
 		$masterConfig = HM485::Device::getValueFromDefinitions( $deviceKey . '/paramset/');
 	}
-	$adressStart = $masterConfig->{address_start} ? $masterConfig->{address_start} : 0;
-	$adressStep  = $masterConfig->{address_step}  ? $masterConfig->{address_step}  : 1;
-		
-	if ($chNr > 0) {
-		$adressOffset = $adressStart + ($chNr - 1) * $adressStep;
-	}
+	
 	# HM485::Util::HM485_Log( 'ConfigurationsManager.convertSettingsToEepromData deviceKey = ' . $deviceKey . ' adressStart = ' . $adressStart . ' adressStep = ' . $adressStep . ' adressOffset = ' . $adressOffset);
 	
 	
@@ -268,7 +242,7 @@ sub convertSettingsToEepromData($$) {
 		if ($configData->{$config}{config}{logical}{type} eq 'option') {
 			#$value = HM485::ConfigurationManager::convertOptionToValue(
 			$value = convertOptionToValue(
-				$configData->{$config}{config}{logical}{option}, $value, $deviceKey
+				$configData->{$config}{config}{logical}{option}, $value
 			);
 			# HM485::Util::HM485_Log( 'ConfigurationsManager.convertSettingsToEepromData value = ' . $value . ' type = option');
 		} else {
@@ -398,6 +372,25 @@ sub convertSettingsToEepromData($$) {
 	
 #	print Dumper($addressData);
 	return $addressData;
+}
+
+sub configToSateFormat ($) {
+	my ($validatedConfig) = @_;
+	
+	my $retVal = {};
+	
+	if ($validatedConfig->{'behaviour'}) {
+		#Todo nach defaultWert suchen
+		if ($validatedConfig->{'behaviour'}{'value'} == 1) {
+			$retVal->{'stateFormat'} = "state";
+			$retVal->{'webCmd'} = "on:off";
+		} else {
+			$retVal->{'stateFormat'} = "frequency";
+			$retVal->{'webCmd'} = "frequency";
+		}
+	}
+	
+	return $retVal;
 }
 
 1;
