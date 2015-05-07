@@ -1,6 +1,6 @@
 package HM485::ConfigurationManager;
 
-# Version 0.5.136 für neues Config
+# Version 0.5.137 für neues Config
 
 use strict;
 use warnings;
