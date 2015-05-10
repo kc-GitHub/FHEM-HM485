@@ -1,5 +1,5 @@
 package HM485::Devicefile;
-# Version 0.5.137
+# Version 0.5.138
 
 use constant false => 0;
 use constant true => 1;
@@ -208,22 +208,10 @@ sub getChannelBehaviour($) {
 			my $channelConfig  = getValueFromDefinitions( $deviceKey . '/channels/' . $chType);
 			
 			if ( $channelConfig->{'special_parameter'}{'behaviour'}) {
-			   
-		#	if ($channelConfig->{'special_parameter'}{'id'} &&
-		#	   ($channelConfig->{'special_parameter'}{'id'} eq 'behaviour') &&
-		#	   $channelConfig->{'special_parameter'}{'physical'}{'address'}{'index'}) {
-
+			
 				my $chConfig = HM485::ConfigurationManager::getConfigFromDevice( $hash, $chNr);										
 				$bool = $chConfig->{'behaviour'}{'value'};
-				# my @posibleValuesArray = split(',', $chConfig->{behaviour}{posibleValues});
 				
-				# Trim all items in the array
-				# @posibleValuesArray = grep(s/^\s*(.*)\s*$/$1/, @posibleValuesArray);
-
-				# den aktuell eingestellten Channeltyp finden
-				# my $value = $chConfig->{behaviour}{value};
-				# HM485::Util::HM485_Log( 'Device:getChannelBehaviour: value = ' . $value);
-				# $retVal = $posibleValuesArray[$value];
 				$retVal = HM485::ConfigurationManager::convertValueToOption( $chConfig->{behaviour}{posibleValues}, $chConfig->{behaviour}{value});
 				
 			}
@@ -341,9 +329,6 @@ sub getValueFromDefinitions($) {
 		$retVal = {%definitionPart};
 	}
 
-	# if (defined($retVal)) {
-	#	HM485::Util::logger( 'Device:getValueFromDefinitions', 3, 'retVal = ' . $retVal);
-	# }
 	return $retVal
 }
 
@@ -760,9 +745,9 @@ sub valueToControl($$) {
 		} elsif ($control eq 'door_sensor.state') {	# hmw_sen_sc_12_dr
 			if ( isNumber($value)) {
 				if ( $value == 0) {
-					$retVal = 'off';
-				} else {
 					$retVal = 'on';
+				} else {
+					$retVal = 'off';
 				}
 			}
 		} else {
@@ -980,18 +965,6 @@ sub getChannelValueMap($$$$) {
 		
 	my $retVal = undef;
 	if (defined($values)) {
-#		if (exists ($values->{'id'})) {
-#			# oh wie ich diese id's hasse :-(
-#			if ($values->{'physical'}{'value_id'} eq $valId) {
-#				if (!defined($values->{'physical'}{'event'}{'frame'}) ||
-#					$values->{'physical'}{'event'}{'frame'} eq $frameData->{'id'}) {
-#						
-#					my $id = $values->{'id'};
-#					$retVal = $values;
-#					$retVal->{'name'} = $id;
-#					}
-#				}		
-#		} else {
 			
 			foreach my $value (keys %{$values}) {
 				if ( defined( $values->{$value}{physical}{value_id}) && $values->{$value}{physical}{value_id} eq $valId) {
@@ -1002,7 +975,7 @@ sub getChannelValueMap($$$$) {
 					}
 				} 
 			}
-#		}
+
 	}
 	if ( defined( $retVal)) {
 		HM485::Util::logger('HM485:Device:getChannelValueMap', 5, 'retVal = ' . $retVal->{name} . ' bool = ' . $bool . ' chtype = ' . $chType);
@@ -1248,9 +1221,7 @@ sub getEEpromData($$) {
 			$size = isInt($paramHash->{'physical'}{'size'}) ? $size : ceil(($size / 0.8));
 			
 			$retVal->{$adrStart} = $size;
-		}
-		
-		if ( $paramHash->{physical}{address}{index}) {
+		} elsif ( $paramHash->{physical}{address}{index}) {
 			my $adrStart = $paramHash->{physical}{address}{index};
 			$adrStart = sprintf ('%04d' , $adrStart);
 
@@ -1320,7 +1291,7 @@ sub parseModuleType($) {
 	if ( $retVal) {
 		$retVal =~ s/-/_/g;
 	}
-	
+		
 	return $retVal;
 }
 
@@ -1385,16 +1356,11 @@ sub getAllowedSets($) {
 					$deviceKey . '/channels/' . $chType .'/paramset/values/parameter'
 				);
 			
-				
 				my $bahaviour = getBehaviourCommand($hash);
 				if ($bahaviour) {
 					$commands = $bahaviour;
 				}
 				
-#				if (exists ($commands->{'id'})) {
-#					#Todo sch.. id's
-#					$commands = HM485::Util::convertIdToHash($commands);
-#				}
 				foreach my $command (sort (keys %{$commands})) {
 				
 					if ($commands->{$command}{'operations'}) {

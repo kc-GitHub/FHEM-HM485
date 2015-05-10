@@ -1,6 +1,6 @@
 package HM485::ConfigurationManager;
 
-# Version 0.5.137 für neues Config
+# Version 0.5.138 für neues Config
 
 use strict;
 use warnings;
@@ -117,10 +117,10 @@ sub optionHashToArray($) {
 }
 
 sub convertOptionToValue($$) {
-	my ($optionList, $option) = @_;
+	my ($optionHash, $option) = @_;
 
 	my $retVal = 0;
-	my @optionValues = split( ',', $optionList);
+	my @optionValues = optionHashToArray( $optionHash);
 	my $i = 0;
 	foreach my $optionValue (@optionValues) {
 		if ($optionValue eq $option) {

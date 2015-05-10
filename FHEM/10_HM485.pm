@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.5.137
+	Version 0.5.138
 	erste Ziffer
 	0 : nicht alle Module werden unterstuetzt
 	zweite Ziffer
@@ -55,6 +55,7 @@ sub HM485_Initialize($);
 sub HM485_Define($$);
 sub HM485_Undefine($$);
 sub HM485_Rename($$);
+sub HM485_WaitForConfig($);
 sub HM485_Parse($$);
 sub HM485_Set($@);
 sub HM485_Get($@);
@@ -79,8 +80,8 @@ sub HM485_SetStateAck($$$);
 sub HM485_SetAttributeFromResponse($$$);
 sub HM485_ProcessEvent($$);
 sub HM485_CheckForAutocreate($$;$$);
-sub HM485_SendCommand($$$);
-sub HM485_SendCommandState($);
+sub HM485_SendCommand($$$;$);
+#sub HM485_SendCommandState($);
 sub HM485_DoSendCommand($);
 sub HM485_ProcessChannelState($$$$);
 sub HM485_ChannelUpdate($$);
@@ -140,7 +141,7 @@ sub HM485_Initialize($) {
 	$hash->{AttrList}       = 'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
 	                          'model:' . HM485::Device::getModelList() . ' ' .
-	                          'subType stateFormat firmwareVersion setList event-min-interval';
+	                          'subType firmwareVersion setList event-min-interval';
 
 	#@attrListRO = ('serialNr', 'firmware', 'hardwareType', 'model' , 'modelName');
 	@attrListRO = ('serialNr', 'firmware');
@@ -231,10 +232,13 @@ sub HM485_Define($$) {
 				} else {
 					# Todo: Maybe we must queue "auto get info" if IODev not opened yet 
 					# Moduldaten aus Eeprom holen, nach 4 Sec, um HM485_LAN vorher in den State opened zu bringen
-					InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_GetInfos', $hash . ' ' . $addr . ' 7', 0);
+					#InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_GetInfos', $hash . ' ' . $addr . ' 7', 0);
 					# Konfiguration des Moduls in Speicher übernehmen und Channels anlegen und einlesen
-					InternalTimer( gettimeofday() + $defStart + 4 + $defWait, 'HM485_GetConfig', $hash . ' ' . $addr, 0);
+					#InternalTimer( gettimeofday() + $defStart + 4 + $defWait, 'HM485_GetConfig', $hash . ' ' . $addr, 0);
 					# ++++++++++++++++++++++
+					$hash->{'.waitforConfig'}{'hmwId'} 		= $addr;
+					$hash->{'.waitforConfig'}{'counter'}	= 10;
+					HM485_WaitForConfig($hash);
 				}
 				$defWait++;
 			}
@@ -303,6 +307,38 @@ sub HM485_Rename($$) {
 			my $chnHash = $defs{ $hash->{$devName}};
 			$chnHash->{device} = $name;
 		} 
+	}
+}
+
+sub HM485_WaitForConfig($) {
+	my ($hash) = @_;
+	
+	my $hmwId = $hash->{'.waitforConfig'}{'hmwId'};
+	my $counter = $hash->{'.waitforConfig'}{'counter'};
+	
+	if (defined($hash->{'IODev'}{'STATE'})) {
+		if ($hash->{'IODev'}{'STATE'} eq 'open') {
+			if ($hmwId) {
+				# Moduldaten aus Eeprom holen, nach 4 Sec, um HM485_LAN vorher in den State opened zu bringen
+				InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_GetInfos', $hash . ' ' . $hmwId . ' 7', 0);
+				# Konfiguration des Moduls in Speicher übernehmen und Channels anlegen und einlesen
+				InternalTimer( gettimeofday() + $defStart + 4 + $defWait, 'HM485_GetConfig', $hash . ' ' . $hmwId, 0);
+				#HM485_GetInfos($hash, $hmwId, 0b111);
+				#HM485_GetConfig($hash, $hmwId);
+				delete $hash->{'.waitforConfig'};
+				RemoveInternalTimer($hash);
+				HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Initialisierung von Modul ' . $hmwId);
+			}
+		} else {
+			HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Warte auf Initialisierung Gateway');
+			if ($counter >= 0) {
+				$hash->{'.waitforConfig'}{'counter'} = $counter--;
+				InternalTimer (gettimeofday() + $defStart, 'HM485_WaitForConfig', $hash, 0);
+			} else {
+				delete $hash->{'.waitforConfig'};
+				RemoveInternalTimer($hash);
+			}
+		}
 	}
 }
 
@@ -742,6 +778,12 @@ sub HM485_GetConfig($$) {
 		}
 		
 		$devHash->{Reconfig} = undef;
+	} else {
+		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Initialisierungsfehler ' . substr( $hmwId, 0, 8));
+		$devHash->{Reconfig} = undef;
+		$devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
+		$devHash->{'.waitforConfig'}{'counter'}	= 10;
+		HM485_WaitForConfig($devHash);
 	}
 }
 
@@ -871,11 +913,11 @@ sub HM485_SetConfig($@) {
 
 				my $stateFormat = HM485::ConfigurationManager::configToSateFormat($validatedConfig);
 				
-				if (ref $stateFormat eq 'HASH') {
-					CommandAttr(undef, "$hash->{NAME} stateFormat ". $stateFormat->{'stateFormat'});
-					$hash->{STATE} = '???';
-					CommandAttr(undef, "$hash->{NAME} webCmd ". $stateFormat->{'webCmd'});
-				}
+			#	if (ref $stateFormat eq 'HASH') {
+			#		CommandAttr(undef, "$hash->{NAME} stateFormat ". $stateFormat->{'stateFormat'});
+			#		$hash->{STATE} = '???';
+			#		CommandAttr(undef, "$hash->{NAME} webCmd ". $stateFormat->{'webCmd'});
+			#	}
 				
 				foreach my $adr (keys %{$convertetSettings}) {
 					HM485::Util::logger(
@@ -958,10 +1000,17 @@ sub HM485_SetChannelState($$$) {
 		if ( $valueKey eq 'state' || $valueKey eq 'level' || $valueKey eq 'frequency') {	# $valueKey eq $cmd || 
 			# HM485::Util::HM485_Log( 'HM485_SetChannelState10: hmwId = ' . $hmwId . ' valueKey = ' . $valueKey . ' chNr = ' . $chNr . ' cmd = ' . $cmd);
 			
-			my $valueHash = $values->{$valueKey} ? $values->{$valueKey} : '';
+			my $valueHash 	= $values->{$valueKey} ? $values->{$valueKey} : '';
+			my $control 	= $valueHash->{control} ? $valueHash->{control} : '';
+			my $onlyAck 	= 0;
+			
+			if ( $control eq 'digital_analog_output.frequency')	{
+				#we need a only_ack bit or somthing else for this control
+				$onlyAck = 1;				
+			}
 			
 			if ( $cmd eq 'on' || $cmd eq 'off') {
-				my $control = $valueHash->{control} ? $valueHash->{control} : '';
+				
 				# HM485::Util::HM485_Log( 'HM485_SetChannelState10: control = ' . $control . ' valueKey = ' . $valueKey . ' cmd = ' . $cmd);
 				if ( $control eq 'switch.state' || $control eq 'dimmer.level' || $control eq 'blind.level' || $control eq 'valve.level') {
 					$frameValue = HM485::Device::onOffToState( $valueHash, $cmd);
@@ -990,25 +1039,8 @@ sub HM485_SetChannelState($$$) {
 				my $data = HM485::Device::buildFrame( $hash, $frameType, $valueKey, $frameData);
 		
 				# HM485::Util::logger( 'HM485_SetChannelState10', 3, ' data = ' . $data);
-				HM485_SendCommand($hash, $hmwId, $data);
+				HM485_SendCommand($hash, $hmwId, $data, $onlyAck);
 			}
-			
-#			if ( defined( $frameValue) && $frameValue) {
-#				if ( $valueKey eq 'STATE') {
-#					if ( $frameValue == 0) {
-#						$hash->{STATE} = 'off'; 
-#						readingsSingleUpdate($hash, $valueKey, 'off', 'off');
-#					} else {
-#						$hash->{STATE} = 'on';
-#						readingsSingleUpdate($hash, $valueKey, 'on', 'on');
-#					}
-#				} else {
-#					if ( defined( $value) && $value) {
-#						$hash->{STATE} = $valueKey . '_' . $value;
-#						readingsSingleUpdate($hash, $valueKey, $value, 0);
-#					}
-#				}
-#			}
 		}
 	}
 
@@ -1068,7 +1100,7 @@ sub HM485_SetWebCmd($$) {
 	if ($webCmdList) {
 		my @list;
 		my @Values = split(' ', $webCmdList);
-				
+		#my $stateFormat;
 		foreach my $val (@Values) {
 			my ($cmd, $arg) = split(':',$val);
 			if ($cmd ne 'inhibit' && $cmd ne 'install_test' && $cmd ne 'frequency2' && $cmd ne 'on'  && $cmd ne 'off' && $cmd ne 'direction') {
@@ -1116,7 +1148,7 @@ sub HM485_ProcessResponse($$$) {
 	my ($ioHash, $msgId, $msgData) = @_;
 	my $data = '';
 	
-	# HM485::Util::HM485_Log( 'HM485_ProcessResponse: msgData = ' . $msgData);
+	# HM485::Util::logger( 'HM485_ProcessResponse', 3, 'msgData = ' . $msgData);
 	
 	if ($ioHash->{'.waitForResponse'}{$msgId}{hmwId}) {
 		my $requestType = $ioHash->{'.waitForResponse'}{$msgId}{requestType};
@@ -1163,7 +1195,8 @@ sub HM485_ProcessResponse($$$) {
 								# if ( $level ne '00' && $level ne 'C8') {
 									# kontinuierliche Levelabfrage starten, wenn sich Rollo bewegt, 
 									# es nicht ganz zu ist (und nicht ganz geöffnet ist)
-									InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommandState', \%params, 0); 
+									#InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommandState', \%params, 0); 
+									InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0); 
 								#}
 							}
 						}
@@ -1193,7 +1226,7 @@ sub HM485_ProcessResponse($$$) {
 						$data = '5302';									# Channel 03 Level abfragen
 						my %params = (hash => $hash, hmwId => $hmwId, data => $data);
 						if ( $bewegung ne '00') {
-							InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommandState', \%params, 0);
+							InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0);
 						}
 					}
 				} elsif ( $deviceKey eq 'HMW_IO12_SW14_DR') {
@@ -1263,6 +1296,9 @@ sub HM485_SetStateNack($$) {
 	readingsSingleUpdate($devHash, 'state', $txt, 1);
 
 	HM485::Util::logger(HM485::LOGTAG_HM485, 3, $txt . ' for ' . $hmwId);
+	$devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
+	$devHash->{'.waitforConfig'}{'counter'}	= 10;
+	HM485_WaitForConfig($devHash);
 }
 
 =head2
@@ -1356,9 +1392,9 @@ sub HM485_ProcessEvent($$) {
 
 				if ( uc( $deviceKey) eq 'HMW_LC_BL1_DR') { # or $deviceKey eq 'HMW_LC_DIM1L_DR') {
 					my $data = '5302';
-					my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
+					#my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
 					# kontinuierliche Abfrage des Levels starten
-					InternalTimer( gettimeofday() + 2, 'HM485_SendCommandState', \%params, 0); 
+					InternalTimer( gettimeofday() + 2, 'HM485_SendCommand', $devHash . ' ' . $hmwId . ' ' . $data, 0); 
 				}
 			}
 			# Bei Channels vom Typ KEY das Reading PRESS_SHORT oder PRESS_LONG loeschen
@@ -1445,13 +1481,14 @@ sub HM485_CheckForAutocreate($$;$$) {
 	@param	string  the HMW id
 	@param	string  the data to send
 =cut
-sub HM485_SendCommand($$$) {
-	my ($hash, $hmwId, $data) = @_;
+sub HM485_SendCommand($$$;$) {
+	my ($hash, $hmwId, $data, $onlyAck) = @_;
 	if ( !$hmwId) {
 		my @param = split(' ', $hash);
 		$hash     = $param[0];
 		$hmwId    = $param[1];
 		$data     = $param[2];
+		$onlyAck  = $param[3] ? $param[3] : 0;
 	}
 	$hmwId = substr($hmwId, 0, 8);
 	
@@ -1465,36 +1502,38 @@ sub HM485_SendCommand($$$) {
 			};
 		}
 	
-		my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
+		$onlyAck = $onlyAck ? $onlyAck : 0;
+		
+		my %params = (hash => $devHash, hmwId => $hmwId, data => $data, ack => $onlyAck);
 		InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
 	}
 } 
 
-sub HM485_SendCommandState($) {
-	my ($paramsHash) = @_;
-	
-	my $hash  = $paramsHash->{hash};
-	my $hmwId = $paramsHash->{hmwId};
-	my $data  = $paramsHash->{data};
-	
-	$hmwId = substr($hmwId, 0, 8);
-	
-	if ( $data && length( $data) > 1) {
-		# HM485::Util::logger( 'HM485_SendCommandState', 3, 'hash = ' . $hash . ' hmwId = .' . $hmwId . '. data = ' . $data);
-
-		# on send need the hash of the main device
-		my $devHash = $modules{HM485}{defptr}{$hmwId};
-		if (!$devHash) {
-			$devHash = {
-				IODev => $hash,
-				NAME  => '.tmp',
-			};
-		}
-
-		my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
-		InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
-	}
-} 
+#sub HM485_SendCommandState($) {
+#	my ($paramsHash) = @_;
+#	
+#	my $hash  = $paramsHash->{hash};
+#	my $hmwId = $paramsHash->{hmwId};
+#	my $data  = $paramsHash->{data};
+#	
+#	$hmwId = substr($hmwId, 0, 8);
+#	
+#	if ( $data && length( $data) > 1) {
+#		# HM485::Util::logger( 'HM485_SendCommandState', 3, 'hash = ' . $hash . ' hmwId = .' . $hmwId . '. data = ' . $data);
+#
+#		# on send need the hash of the main device
+#		my $devHash = $modules{HM485}{defptr}{$hmwId};
+#		if (!$devHash) {
+#			$devHash = {
+#				IODev => $hash,
+#				NAME  => '.tmp',
+#			};
+#		}
+#
+#		my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
+#		InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
+#	}
+#} 
 
 =head2
 	Send a command to device
@@ -1509,6 +1548,7 @@ sub HM485_DoSendCommand($) {
 	my $requestType = substr( $data, 0, 2);  # z.B.: 53
 	my $hash        = $paramsHash->{hash};
 	my $ioHash      = $hash->{IODev};
+	my $onlyAck		= $paramsHash->{'ack'};
 
 	my %params      = (target => $hmwId, data   => $data);
 
@@ -1523,7 +1563,7 @@ sub HM485_DoSendCommand($) {
 	# frame types which must be acked only
 	my @waitForAckTypes   = ('21', '43', '57', '67', '6C', '73');
 
-	if ($requestId && grep $_ eq $requestType, @validRequestTypes) {
+	if ($requestId && !$onlyAck && grep $_ eq $requestType, @validRequestTypes) {
 		$ioHash->{'.waitForResponse'}{$requestId}{requestType} = $requestType;
 		$ioHash->{'.waitForResponse'}{$requestId}{hmwId}       = $hmwId;
 		$ioHash->{'.waitForResponse'}{$requestId}{requestData} = substr($data, 2);

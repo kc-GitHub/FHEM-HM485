@@ -26,7 +26,13 @@ V0.5.136 - Bereinigung Hardcodierung,
 V0.5.137 - toggle für Schalter ( SubType = switch) wieder eingeführt
 		- fehlerhafte Anzeige der Readigs bereinigt
 		- Fehler in Device:getFrameInfos beseitigt press_long und press_short loesen wieder Event aus
-		- event-min-interval fuer jeden Kanal separat
+		- event-min-interval fuer jeden Kanal separat eingefuehrt
+V0.5.138 - Fuer HMW-Sen-SC-12-DR on und off getauscht
+		- Beseitigung Fehler bei Config- Optionen
+		- Ansteuerung HMW_IO12_SW14_DR.frequency uebernommen
+		- Verbesserung Autostart
+		- Entfernen von stateFormat
+
 		
 
 Erklaerung aktuelle Verionsbezeichnung
