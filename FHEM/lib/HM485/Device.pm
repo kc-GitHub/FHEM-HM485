@@ -1,5 +1,5 @@
 package HM485::Devicefile;
-# Version 0.5.138
+# Version 0.5.140
 
 use constant false => 0;
 use constant true => 1;
@@ -876,7 +876,7 @@ sub dataConversion($$;$) {
 			$retVal = dataConvertValue( $value, $convertConfig, $dir);
 		} else {
 			# try in reverse order
-			my $countKeys = keys $convertConfig;
+			my $countKeys = keys %{$convertConfig};
 			for (my $i = $countKeys; $i >= 1; $i--) {
 				$type = $convertConfig->{$i}{'type'};
 				if ($type) {
@@ -942,7 +942,14 @@ sub dataConvertValue($$$) {
 			$retVal = ($retVal >= $threshold) ? $true : $false;
 		}
 		
-	} 
+#	} elsif ($type eq 'float_configtime') {
+#		my $valSize = $convertConfig->{'value_size'} ? $convertConfig->{'value_size'} : 0;
+#		# i only need the first 2 bits
+#		my $factor  = $mask >> ($valSize * 10 - 2);
+#		my @factors = split (',', $convertConfig->{'factors'});
+#		
+#		$retVal = ($value  - $mask) * $factors[$factor];
+	}
 	return $retVal;
 }
 
@@ -1078,15 +1085,19 @@ sub getRawEEpromData($;$$$$) {
 sub setRawEEpromData($$$$) {
 	my ($hash, $start, $len, $data) = @_;
 
-	$data = substr($data, 0, ($len*2));
-	$len = length($data);
+#	HM485::Util::logger( 'Device:setRawEEpromData', 3, 'start = ' . $start . ' len = ' . $len . ' data = ' . $data);
+#	$data = substr( $data, 0, ($len * 2));
+#	$len  = length( $data);
+#	HM485::Util::logger( 'Device:setRawEEpromData', 3, 'len = ' . $len . ' data = ' . $data);
+	$len = $len * 2;
+	$data = substr($data, 0, $len);
 	my $blockLen = 16;
 	my $addrMax = 1024;
 	my $blockStart = 0;
 	my $blockCount = 0;
 	
 	if (hex($start) > 0) {
-		$blockStart = int((hex($start) * 2) / ($blockLen*2));
+		$blockStart = int((hex($start) * 2) / ($blockLen * 2));
 	}
 
 	for ($blockCount = $blockStart; $blockCount < (ceil($addrMax / $blockLen)); $blockCount++) {
@@ -1274,9 +1285,9 @@ sub subBit ($$$) {
 sub internalUpdateEEpromData($$) {
 	my ($devHash, $requestData) = @_;
 
-	my $start = substr($requestData, 0,4);
-	my $len   = substr($requestData, 4,2);
-	my $data  = substr($requestData, 6);
+	my $start = substr( $requestData, 0, 4);
+	my $len   = substr( $requestData, 4, 2);
+	my $data  = substr( $requestData, 6);
 
 	setRawEEpromData($devHash, $start, $len, $data);
 }

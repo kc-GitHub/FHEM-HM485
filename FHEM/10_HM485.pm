@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.5.138
+	Version 0.5.140
 	erste Ziffer
 	0 : nicht alle Module werden unterstuetzt
 	zweite Ziffer
@@ -318,7 +318,7 @@ sub HM485_WaitForConfig($) {
 	
 	if (defined($hash->{'IODev'}{'STATE'})) {
 		if ($hash->{'IODev'}{'STATE'} eq 'open') {
-			if ($hmwId) {
+			if ( $hmwId) {
 				# Moduldaten aus Eeprom holen, nach 4 Sec, um HM485_LAN vorher in den State opened zu bringen
 				InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_GetInfos', $hash . ' ' . $hmwId . ' 7', 0);
 				# Konfiguration des Moduls in Speicher übernehmen und Channels anlegen und einlesen
@@ -368,12 +368,14 @@ sub HM485_Parse($$) {
 		my $requestType = $ioHash->{'.waitForResponse'}{$msgId}{requestType};
 		my $hmwId = substr( $msgData, 2, 8);
 		my $devHash = HM485_GetHashByHmwid( $hmwId);
-		if ( $requestType && $requestType eq '52' && !defined( $devHash->{Reconfig})) {
-			# Konfiguration des Moduls erneut abfragen in Speicher uebernehmen und Channels anlegen und einlesen
-			InternalTimer( gettimeofday() + 17, 'HM485_GetInfos', $devHash . ' ' . $hmwId . ' 7', 0);
-			InternalTimer( gettimeofday() + 20, 'HM485_GetConfig', $devHash . ' ' . $hmwId, 0);
-			$devHash->{Reconfig} = 1;
-			HM485::Util::HM485_Log( 'HM485_Parse: fuer Modul = ' . $hmwId . ' wird Configuration erneut abgefragt');
+		if ( $requestType && $requestType eq '52') {
+			if ( !exists( $devHash->{'.waitforConfig'}{'counter'})) {
+				# Konfiguration des Moduls erneut abfragen in Speicher uebernehmen und Channels anlegen und einlesen
+				InternalTimer( gettimeofday() + 17, 'HM485_GetInfos', $devHash . ' ' . $hmwId . ' 7', 0);
+				InternalTimer( gettimeofday() + 20, 'HM485_GetConfig', $devHash . ' ' . $hmwId, 0);
+			#	$devHash->{'.Reconfig'} = 1;
+				HM485::Util::HM485_Log( 'HM485_Parse: fuer Modul = ' . $hmwId . ' wird Configuration erneut abgefragt');
+			}
 		}
 	}
 	
@@ -647,7 +649,11 @@ sub HM485_Attr($$$$) {
 						foreach my $chName (grep(/^channel_/, keys %{$hash})) {
 							my $devName = $hash->{$chName};
 							# HM485::Util::HM485_Log( 'HM485_Attr : devName = ' . $devName . ' attrName = ' . $attrName . ' val = ' . $val);
-							CommandAttr(undef, $devName . ' ' . $attrName . ' ' . $val);
+							my $cval= AttrVal($devName, $attrName, undef);
+							# Bereits definierte Attr werden nicht ueberschrieben
+							if ( !defined( $cval)) {
+								CommandAttr(undef, $devName . ' ' . $attrName . ' ' . $val);
+							}
 						} 
 					}
 				}
@@ -743,12 +749,9 @@ sub HM485_GetConfig($$) {
 	my $data;
 	my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
 
-	HM485::Util::logger(
-		HM485::LOGTAG_HM485, 3, 'Request config for device ' . substr($hmwId,0,8)
-	);
-
 	# here we query eeprom data with device settings
 	if ($devHash->{MODEL}) {
+		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Request config for device ' . substr($hmwId, 0, 8));
 		my $eepromMap = HM485::Device::getEmptyEEpromMap($devHash);
 		
 		# write eeprom map to readings
@@ -756,18 +759,21 @@ sub HM485_GetConfig($$) {
 			setReadingsVal($devHash, '.eeprom_' . $adrStart, $eepromMap->{$adrStart}, TimeNow());
 		}
 
+		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Lese Eeprom ' . substr($hmwId, 0, 8));
 		foreach my $adrStart (sort keys %{$eepromMap}) {
 			# (R) request eeprom data
 			HM485_SendCommand($devHash, $hmwId, '52' . $adrStart . '10'); 
 		}
 		# Channels anlegen
 		my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($devHash));
+		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Channels initialisieren ' . substr($hmwId, 0, 8));
 		HM485_CreateChannels( $devHash);
 		# HM485_Log( 'HM485_GetConfig: ' . 'deviceKey = ' . $deviceKey . ' hmwId = ' . $hmwId);
 		# State der Channels ermitteln
 		my $configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
+		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'State der Channels ermitteln ' . substr($hmwId, 0, 8));
 		foreach my $chType (keys %{$configHash}) {
-			if ( $chType ne "key" && $chType ne "maintenance") {
+			if ( $chType && $chType ne "key" && $chType ne "maintenance") {
 				my $chStart = $configHash->{$chType}{index};
 				my $chCount = $configHash->{$chType}{count};
 				for ( my $ch = $chStart; $ch < $chStart + $chCount; $ch++){
@@ -777,13 +783,14 @@ sub HM485_GetConfig($$) {
 			}
 		}
 		
-		$devHash->{Reconfig} = undef;
+	#	delete( $devHash->{'.Reconfig'});
 	} else {
-		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Initialisierungsfehler ' . substr( $hmwId, 0, 8));
-		$devHash->{Reconfig} = undef;
-		$devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
-		$devHash->{'.waitforConfig'}{'counter'}	= 10;
-		HM485_WaitForConfig($devHash);
+		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Initialisierungsfehler ' . substr( $hmwId, 0, 8) . ' ModelName noch nicht vorhanden');
+		if ( !exists( $devHash->{'.waitforConfig'}{'counter'})) {
+			$devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
+			$devHash->{'.waitforConfig'}{'counter'}	= 10;
+			HM485_WaitForConfig($devHash);
+		}
 	}
 }
 
@@ -806,7 +813,7 @@ sub HM485_CreateChannels($) {
 	
 	if (ref($subTypes) eq 'HASH') {
 		foreach my $subType (sort keys %{$subTypes}) {
-			if ( uc( $subType) ne 'MAINTENANCE') {
+			if ( $subType && uc( $subType) ne 'MAINTENANCE') {
 				# HM485::Util::HM485_Log('HM485_CreateChannels deviceKey = ' . $deviceKey . ' subType = ' . $subType);
 				if ( defined($subTypes->{$subType}{count}) && $subTypes->{$subType}{count} > 0) {
 					my $chStart = $subTypes->{$subType}{index};
@@ -835,8 +842,12 @@ sub HM485_CreateChannels($) {
 						# copy definded attributes to channel
 						foreach my $attrBindCh (@attrListBindCh) {
 							my $val = AttrVal($name, $attrBindCh, undef);
-							if (defined($val) && $val) {
-								CommandAttr(undef, $devName . ' ' . $attrBindCh . ' ' . $val);
+							my $cval= AttrVal($devName, $attrBindCh, undef);
+							# Bereits definierte Attr weren nicht ueberschrieben
+							if ( !defined( $cval)) {
+								if (defined($val) && $val) {
+									CommandAttr(undef, $devName . ' ' . $attrBindCh . ' ' . $val);
+								}
 							}
 						}
 					} 
@@ -911,7 +922,7 @@ sub HM485_SetConfig($@) {
 			if (scalar (keys %{$convertetSettings})) {
 			 	my $hmwId = $hash->{DEF};
 
-				my $stateFormat = HM485::ConfigurationManager::configToSateFormat($validatedConfig);
+			#	my $stateFormat = HM485::ConfigurationManager::configToSateFormat($validatedConfig);
 				
 			#	if (ref $stateFormat eq 'HASH') {
 			#		CommandAttr(undef, "$hash->{NAME} stateFormat ". $stateFormat->{'stateFormat'});
@@ -1268,7 +1279,7 @@ sub HM485_ProcessResponse($$$) {
 		if($hash->{DEF} eq $hmwId) {
 			if ($requestType eq '57') {                                     # W (ACK written Eeprom Data)
 				# ACK for write EEprom data
-				my $devHash = HM485_GetHashByHmwid(substr($hmwId, 0,8));
+				my $devHash = HM485_GetHashByHmwid( substr( $hmwId, 0, 8));
 				HM485::Device::internalUpdateEEpromData($devHash, $requestData);
 			}
 		}
@@ -1296,9 +1307,11 @@ sub HM485_SetStateNack($$) {
 	readingsSingleUpdate($devHash, 'state', $txt, 1);
 
 	HM485::Util::logger(HM485::LOGTAG_HM485, 3, $txt . ' for ' . $hmwId);
-	$devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
-	$devHash->{'.waitforConfig'}{'counter'}	= 10;
-	HM485_WaitForConfig($devHash);
+	if ( !exists( $devHash->{'.waitforConfig'}{'counter'})) {
+		$devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
+		$devHash->{'.waitforConfig'}{'counter'}	= 10;
+		InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_WaitForConfig', $devHash, 0);
+	}
 }
 
 =head2
