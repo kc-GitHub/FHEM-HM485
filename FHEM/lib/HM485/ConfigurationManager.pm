@@ -1,6 +1,6 @@
 package HM485::ConfigurationManager;
 
-# Version 0.5.139 für neues Config
+# Version 0.5.141 für neues Config
 
 use strict;
 use warnings;
@@ -14,7 +14,7 @@ sub getConfigFromDevice($$) {
 
 	my $retVal = {};
 	my ($hmwId1, $chNr1) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId1,0,8)};
+	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId1, 0, 8)};
 	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
 	
 	my $configHash = getConfigSettings($hash);	# Felder von HMW_LC_BL1_DR/paramset/
@@ -28,7 +28,7 @@ sub getConfigFromDevice($$) {
 		$configHash = $configHash->{parameter};			# HMW_LC_BL1_DR/channels/KEY/paramset/master/parameter/
 		$configHash = getConfigSetting( $configHash);  	# Hash's mit dem Attribut hidden werden geloescht 
 					   
-		foreach my $config (keys %{$configHash}) {	# 'BEHAVIOUR'		# CALIBRATION
+		foreach my $config (keys %{$configHash}) {	# 'behaviour'		# pulsetime
 			my $dataConfig = $configHash->{$config};
 			# HM485::Util::HM485_Log( 'ConfigurationsManager:getConfigFromDevice config = ' . $config);
 			if (ref($dataConfig) eq 'HASH') {
@@ -374,23 +374,23 @@ sub convertSettingsToEepromData($$) {
 	return $addressData;
 }
 
-sub configToSateFormat ($) {
-	my ($validatedConfig) = @_;
-	
-	my $retVal = {};
-	
-	if ($validatedConfig->{'behaviour'}) {
-		#Todo nach defaultWert suchen
-		if ($validatedConfig->{'behaviour'}{'value'} == 1) {
-			$retVal->{'stateFormat'} = "state";
-			$retVal->{'webCmd'} = "on:off";
-		} else {
-			$retVal->{'stateFormat'} = "frequency";
-			$retVal->{'webCmd'} = "frequency";
-		}
-	}
-	
-	return $retVal;
-}
+#sub configToSateFormat($) {
+#	my ($validatedConfig) = @_;
+#	
+#	my $retVal = {};
+#	
+#	if ($validatedConfig->{'behaviour'}) {
+#		#Todo nach defaultWert suchen
+#		if ($validatedConfig->{'behaviour'}{'value'} == 1) {
+#			$retVal->{'stateFormat'} = "state";
+#			$retVal->{'webCmd'} = "on:off";
+#		} else {
+#			$retVal->{'stateFormat'} = "frequency";
+#			$retVal->{'webCmd'} = "frequency";
+#		}
+#	}
+#	
+#	return $retVal;
+#}
 
 1;

@@ -39,6 +39,12 @@ V0.5.139 - Attribute werden bei der automatischen Erkennung nur noch gesetzt, we
 		- Initialisierungsvorgang optimiert
 V0.5.140 - Initialisierungsvorgang weiter optimiert
 		- allgemeine Fehler in Device.pm und 10_HM485.pm beseitigt
+V0.5.141 - event-on-change-reading eingefuehrt, Beispiel: attr <name des Channels> event-on-change-reading press_long
+		- Fehler beim Einlesen der Config bei konfigurierbaren Ein-/Ausgaengen beseitigt
+		- on-for-timer fuer Channels vom Typ switch hinzugefuegt
+		- Fehler bei State Anzeige von HMW_IO12_SW14_DR Channel 15-20 und 21-26 beseitigt
+		
+
 
 
 Erklaerung aktuelle Verionsbezeichnung

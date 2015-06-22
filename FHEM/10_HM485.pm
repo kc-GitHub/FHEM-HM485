@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.5.140
+	Version 0.5.141
 	erste Ziffer
 	0 : nicht alle Module werden unterstuetzt
 	zweite Ziffer
@@ -112,7 +112,7 @@ my %getsCh = ('state' => 'noArg');
 
 # Bei vielen Modulen ist eine Wartezeit beim Define erforderlich
 my $defWait  = 0;
-my $defStart = 4;
+my $defStart = 5;
 
 ###############################################################################
 # Interface related functions
@@ -141,7 +141,8 @@ sub HM485_Initialize($) {
 	$hash->{AttrList}       = 'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
 	                          'model:' . HM485::Device::getModelList() . ' ' .
-	                          'subType firmwareVersion setList event-min-interval';
+	                          'subType firmwareVersion setList event-min-interval ' .
+							  'event-on-change-reading';
 
 	#@attrListRO = ('serialNr', 'firmware', 'hardwareType', 'model' , 'modelName');
 	@attrListRO = ('serialNr', 'firmware');
@@ -1710,15 +1711,37 @@ sub HM485_ChannelDoUpdate($) {
 					$doTrigger 	 = ( $interval - $inter) > 0 ? 1 : 0;
 				}
 				
+				my @onChangeArr = ();
+				my $onChange = AttrVal( $name, 'event-on-change-reading', '');
+				if ( index( $onChange, " ") == 0 && length( $onChange) > 0) {
+					$onChangeArr[0] = $onChange;
+				} elsif ( length( $onChange) > 0) {
+					@onChangeArr = split( ' ', $onChange);
+				}
+				foreach (@onChangeArr){
+					if ( $valueKey eq "$_"){
+						# HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'valueKey = ' . $valueKey . ' value = ' . $value . ' onChange ' . $_);
+						if ( $valueKey eq 'press_long') {
+							if ( defined( $chHash->{'.press_long'}) && $chHash->{'.press_long'}{VAL} eq $value) {
+								$doTrigger = 0;
+								# HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'doTrigger = 0');
+							} else {
+								$chHash->{'.press_long'}{VAL} = $value;
+							}
+						}
+					}
+				}
+				
 #				$chHash->{'READINGS'}{'state'}{'VAL'} = $value;
 #			    $chHash->{'READINGS'}{'state'}{'NAME'} = $name;
 #			    $chHash->{'READINGS'}{'state'}{'TIME'} = TimeNow();
-				
-				readingsBulkUpdate( $chHash, $valueKey, $value);
+				if ( ( $onChange && $doTrigger) || length( $onChange) == 0) {
+					readingsBulkUpdate( $chHash, $valueKey, $value);
 			
-				HM485::Util::logger(
-					HM485::LOGTAG_HM485, 3, $name . ': ' . $valueKey . ' -> ' . $value
-				);
+					HM485::Util::logger(
+						HM485::LOGTAG_HM485, 3, $name . ': ' . $valueKey . ' -> ' . $value
+					);
+				}
 				# State noch aktuallisieren
 				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: name = ' . $name . ' alter State = ' . $chHash->{STATE} . ' valueKey = ' . $valueKey . ' value = ' . $value);
 				if ( defined( $chHash->{STATE}) && $chHash->{STATE}) {

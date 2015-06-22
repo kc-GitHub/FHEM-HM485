@@ -1,5 +1,5 @@
 package HM485::Devicefile;
-# Version 0.5.140
+# Version 0.5.141
 
 use constant false => 0;
 use constant true => 1;
@@ -204,14 +204,14 @@ sub getChannelBehaviour($) {
 	if ( $chNr > 0) {
 		my $deviceKey = getDeviceKeyFromHash($hash);
 		if ($deviceKey) {
-			my $chType         = HM485::Device::getChannelType($deviceKey, $chNr); # digital_analog_input
+			my $chType         = HM485::Device::getChannelType($deviceKey, $chNr); # digital_input
 			my $channelConfig  = getValueFromDefinitions( $deviceKey . '/channels/' . $chType);
 			
 			if ( $channelConfig->{'special_parameter'}{'behaviour'}) {
 			
 				my $chConfig = HM485::ConfigurationManager::getConfigFromDevice( $hash, $chNr);										
 				$bool = $chConfig->{'behaviour'}{'value'};
-				
+				# HM485::Util::logger( 'Device:getChannelBehaviour', 3, 'chNr = ' . $chNr . ' bool = ' . $bool);
 				$retVal = HM485::ConfigurationManager::convertValueToOption( $chConfig->{behaviour}{posibleValues}, $chConfig->{behaviour}{value});
 				
 			}
@@ -377,6 +377,7 @@ sub parseFrameData($$$) {
 	my $hmwId              	= $hash->{'DEF'};
 	my $chHash             	= $main::modules{'HM485'}{'defptr'}{$hmwId . '_' . $channel};
 	($behaviour, undef) 	= getChannelBehaviour($chHash);
+	# HM485::Util::logger( 'Device:parseFrameData', 3, 'deviceKey = ' . $deviceKey . ' behaviour = ' . $behaviour);
 	my $frameData       	= getFrameInfos($deviceKey, $data, 1, $behaviour, 'from_device');
 	my $retVal          	= convertFrameDataToValue($hash, $deviceKey, $frameData);
 	
@@ -400,6 +401,10 @@ sub getFrameInfos($$;$$$) {
 	my $chTyp         	= HM485::Device::getChannelType( $deviceKey, $chNr);
 	my $frameTypeName  	= getValueFromDefinitions( $deviceKey . '/channels/' . $chTyp . '/paramset/values/parameter/frequency/physical/get/response');
 	$frameTypeName		= $frameTypeName ? $frameTypeName : 'info_level';
+	if ( $frameTypeName eq "info_frequency" && $behaviour eq "digital_input") {
+		$frameTypeName	= "info_level";
+	}
+	HM485::Util::logger( 'Device:getFrameInfos', 5, ' frameTypeName = ' . $frameTypeName);
 	# Schnellloesung, muss noch ueberprueft werden:
 	if ( substr( $data, 0, 2) eq '4B') {
 		# ermitteln ob short oder long
@@ -423,7 +428,7 @@ sub getFrameInfos($$;$$$) {
 			if ( $frameTypeName eq $frame) {
 				if ($frames->{$frame}{'parameter'}{'index'}) {
 					# Todo we rewrite the new configuration to the old one
-					my $replace = convertFrameIndexToHash ($frames->{$frame}{'parameter'});
+					my $replace = convertFrameIndexToHash( $frames->{$frame}{'parameter'});
 					delete ($frames->{$frame}{'parameter'});
 					$frames->{$frame}{'parameter'} = $replace;
 				}
@@ -547,7 +552,7 @@ sub getValueFromEepromData($$$$;$) {
 }
 
 sub getPhysicalAdress($$$$) { 		# 8.0 0.1
-	my ($hash, $configHash, $adressStart, $adressStep) = @_;	# configHash = deviceKey/channels/channelType/paramset/master/parameter/LOGGING/
+	my ($hash, $configHash, $adressStart, $adressStep) = @_;	# configHash = deviceKey/channels/channelType/paramset/master/parameter/behaviour/
 	
 	my $adrId = 0;
 	my $size  = 0;
@@ -575,10 +580,11 @@ sub getPhysicalAdress($$$$) { 		# 8.0 0.1
 			my $spConfig  = HM485::Device::getValueFromDefinitions(
 				$deviceKey . '/channels/' . $chType .'/special_parameter/'
 			);
-			if ($spConfig->{'id'} eq $configHash->{'physical'}{'value_id'}) {
-				$adressStep   = $spConfig->{'physical'}{'address'}{'step'} ? $spConfig->{'physical'}{'address'}{'step'}  : 0;
-				$size         = $spConfig->{'physical'}{'size'} ? $spConfig->{'physical'}{'size'} : 1;
-				$adrId        = $spConfig->{'physical'}{'address'}{'index'} ? $spConfig->{'physical'}{'address'}{'index'} : 0;
+			my $id = $configHash->{'physical'}{'value_id'};
+			if ( exists( $spConfig->{$id})) {
+				$adressStep   = $spConfig->{$id}{'physical'}{'address'}{'step'} ? $spConfig->{$id}{'physical'}{'address'}{'step'}  : 0;
+				$size         = $spConfig->{$id}{'physical'}{'size'} ? $spConfig->{$id}{'physical'}{'size'} : 1;
+				$adrId        = $spConfig->{$id}{'physical'}{'address'}{'index'} ? $spConfig->{$id}{'physical'}{'address'}{'index'} : 0;
 				if ( $chCount < 9) {
 					$adrId   = $adrId + ( $chId * $adressStep * ceil($size));
 				} else {
@@ -593,7 +599,7 @@ sub getPhysicalAdress($$$$) { 		# 8.0 0.1
 				#$adrId        = $adrId + ($chId * $addressStep * ceil($size));
 			}			
 		} else { ##eeprom
-			if (exists $configHash->{'physical'}{'address'}{'index'}){
+			if ( exists $configHash->{'physical'}{'address'}{'index'}){
 				my $valId     = $configHash->{'physical'}{'address'}{'index'};
 				$size         = $configHash->{'physical'}{'size'} ? $configHash->{'physical'}{'size'} : 1;
 				$adressStep   = $configHash->{'physical'}{'address'}{'step'} ? $configHash->{'physical'}{'address'}{'step'} : $adressStep;
@@ -755,11 +761,14 @@ sub valueToControl($$) {
 		}
 
 	} else {
-		#digital_analog_input - digital input has no control
-		if (exists $paramHash->{'logical'}{'type'} && $paramHash->{'logical'}{'type'} eq 'boolean' ) {
-			$retVal = $value ? 'yes' : 'no';
+		#digital_analog_input - digital_input has no control
+		if (exists $paramHash->{'logical'}{'type'} && $paramHash->{'logical'}{'type'} eq 'boolean') {
+			my $threshold = $paramHash->{conversion}{threshold};	# digital_input + digital_input_values
+			$threshold = $threshold ? int($threshold) : 1;
+			$retVal = ($value >= $threshold) ? 'on' : 'off';
+			#$retVal = $value ? 'yes' : 'no';
 			#$retVal = $value ? 'on' : 'off';
-		} else {
+		} else {	# info_frequency + analog_input
 			$retVal = $value;
 		}
 	}
@@ -1332,10 +1341,10 @@ sub getAllowedSets($) {
 	my $name   = $hash->{'NAME'};
 	my $model  = $hash->{'MODEL'};
 	my $onOff  = 'on:noArg off:noArg ';
-	my $keys   = 'press_short:noArg press_long:noArg';
+	my $keys   = 'press_short:noArg press_long:noArg';	# on-for-timer
 	
 	my %cmdOverwrite = (
-		'switch.state'	=> "on:noArg off:noArg toggle:noArg"
+		'switch.state'	=> "on:noArg off:noArg toggle:noArg on-for-timer:textField"
 	);
 		
 	my %cmdArgs = (
