@@ -61,7 +61,7 @@ sub ServerTools_init($$$$$$) {
 		$SIG{'HUP'}  = 'IGNORE'
 	}
 
-	require $pathFHEM . 'DevIo.pm';
+	require $pathFHEM . 'DevIo485.pm';
 	require $pathFHEM . 'TcpServerUtils.pm';
 	
 	$hash{$serverName}->{NAME} = $serverName;
