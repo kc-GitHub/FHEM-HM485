@@ -7,7 +7,7 @@
 	$Id$
 
 =head1 DESCRIPTION
-	Communication contans the communication layer for HS485 Protocol for Hmomematic
+	Communication contains the communication layer for HS485 Protocol for Hmomematic
 
 =head1 AUTHOR - Dirk Hoffmann
 	dirk@FHEM_Forum (forum.fhem.de)
@@ -53,7 +53,7 @@ use constant {
 	LOGTAG                  => 'HM485d'
 };
 
-my @validRequestTypes = ('K', 'R', 'S', 'h', 'n', 'p', 'r', 's', 'v', 'x', 'Ë');
+my @validRequestTypes = ('K', 'R', 'S', 'h', 'n', 'p', 'r', 'v', 'x', 'Ë'); #s mal weggenommen
 
 my %sendQueue;
 my %discoveryData;
@@ -93,6 +93,7 @@ sub cmdDiscovery($$$);
 sub discoveryStart($);
 sub readDiscoveryResult();
 sub discoveryEnd($);
+
 
 ###############################################################################
 
@@ -542,7 +543,7 @@ sub parseFrame() {
 				!HM485::Util::ctrlHasSender($self->{sendQueue}{$currentQueueId}{CTRL}) &&
 				HM485::Util::ctrlTxNum($self->{sendQueue}{$currentQueueId}{CTRL}) == $ackNum) {
 
-				# This ist the ACK - Frame of last sent frame
+				# This is the ACK - Frame of last sent frame
 				$self->{sendQueue}{$currentQueueId}{STATE} = STATE_ACKNOWLEDGED;
 			}
 		}
