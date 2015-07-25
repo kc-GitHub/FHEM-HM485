@@ -270,8 +270,14 @@ sub clientRead($) {
 		if ($message) {
 			$message = chr(0xFD) . $message;
 			
-			### Debug ###
+			### Debug ###   
 			HM485::Util::debugBinData(LOGTAG, 4, $message, 'Rx', 1);
+		
+		    #PFE BEGIN
+			#We need to unescape already here as otherwise message length, message ID, 
+			#msgCmd can go wrong (msgId actually will go wrong when it reaches 253!)
+			$message = HM485::Util::unescapeMessage($message);
+			#PFE END
 		
 			my $msgFirstByte = substr($message, 0, 1);
 			my $msgId        = ord(substr($message, 2, 1));
@@ -291,7 +297,11 @@ sub clientRead($) {
 		
 			} elsif ($msgFirstByte ne '>' && $msgCmd) {	
 				$hm485Protocoll->parseCommand(
-					HM485::Util::unescapeMessage($message), $msgId
+				    #PFE BEGIN
+					#The message is already unescaped
+					# HM485::Util::unescapeMessage($message), $msgId
+					$message, $msgId
+					#PFE END
 				);
 			}
 		}
@@ -309,10 +319,13 @@ sub clientWrite($$$) {
 	my ($msgId, $msgCmd, $msgData) = @_;
 	my $len = 2 + length($msgData);
 
-	if ($msgId == 0) {
-		$msgId = ($msgCounter >= 0xFF) ? 1 : ($msgCounter + 1);
-	}
-	$msgCounter = $msgId;
+    #PFE BEGIN
+	# msgId == 0 is ok for events coming from the device
+	# if ($msgId == 0) {
+		# $msgId = ($msgCounter >= 0xFF) ? 1 : ($msgCounter + 1);
+	# }
+	# $msgCounter = $msgId;
+	#PFE END
 
 	my $msg = chr(0xFD) . chr($len) . chr($msgId) . chr($msgCmd) . $msgData;
 
