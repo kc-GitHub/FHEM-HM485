@@ -745,7 +745,11 @@ sub valueToControl($$) {
 			}
 
 		} elsif (index($control, 'button.') > -1) {
-			$retVal = $valName . ' ' . $value;
+			# PFE BEGIN
+			# Warum sollte das verkettet werden:
+			# $retVal = $valName . ' ' . $value;
+			$retVal = $value;
+			# PFE END
 			# HM485::Util::HM485_Log( 'Device:valueToControl: retVal = ' . $retVal);
 
 		} elsif ($control eq 'door_sensor.state') {	# hmw_sen_sc_12_dr

@@ -1625,19 +1625,22 @@ sub HM485_ProcessEvent($$) {
 				}
 			}
 			# Bei Channels vom Typ KEY das Reading PRESS_SHORT oder PRESS_LONG loeschen
-			my $chNr	= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
-			my $chTyp 	= HM485::Device::getChannelType( $deviceKey, $chNr);
-			if ( $chTyp eq 'key') {
-				my $chHash = HM485_GetHashByHmwid( $hmwId . '_' . $chNr);
-				my $chName = $chHash->{NAME};
-				if ( defined( ReadingsVal( $chName, 'press_short', undef))) {
-					fhem( "deletereading $chName press_short");
-				} elsif ( defined( ReadingsVal( $chName, 'press_long', undef))) {
-					fhem( "deletereading $chName press_long");
-				} else {
-					# kein reading zu loeschen
-				}
-			}
+			# PFE BEGIN (according to Ralf9)
+			# Wozu das reading loeschen?
+			# my $chNr	= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
+			# my $chTyp 	= HM485::Device::getChannelType( $deviceKey, $chNr);
+			# if ( $chTyp eq 'key') {
+				# my $chHash = HM485_GetHashByHmwid( $hmwId . '_' . $chNr);
+				# my $chName = $chHash->{NAME};
+				# if ( defined( ReadingsVal( $chName, 'press_short', undef))) {
+					# fhem( "deletereading $chName press_short");
+				# } elsif ( defined( ReadingsVal( $chName, 'press_long', undef))) {
+					# fhem( "deletereading $chName press_long");
+				# } else {
+					# # kein reading zu loeschen
+				# }
+			# }
+			# PFE END
 		} else {
 			# my $type = substr($msgData, 0, 2);
 			HM485_CheckForAutocreate($ioHash, $hmwId);
@@ -1783,7 +1786,6 @@ sub HM485_DoSendCommand($) {
 	# send command to device and get the request id
 	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
 
-	#PFE: level should be 5 below
 	HM485::Util::logger( 'HM485_DoSendCommand', 5, 'hmwId = ' . $hmwId . ' data = ' . $data . ' requestId = ' . $requestId);
 	
 	# frame types which must return values
@@ -1816,63 +1818,96 @@ sub HM485_DoSendCommand($) {
 	@param	string  the message data
 	@param	string  action type such us response, frame, ...
 =cut
+# PFE BEGIN
+# Etwas aufgeraeumt 
+# sub HM485_ProcessChannelState($$$$) {
+	# my ($hash, $hmwId, $msgData, $actionType) = @_;
+
+# #print Dumper($msgData);
+	# my $name = $hash->{NAME};
+	# my $retval = undef;
+	# if ($msgData) {
+		# if ($hash->{MODEL}) {
+			# # HM485::Util::HM485_Log( 'HM485_ProcessChannelState: name1 = ' . $name . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
+			# my $deviceKey	= HM485::Device::getDeviceKeyFromHash($hash);
+			# my $chNr		= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
+			# my $chtyp 		= HM485::Device::getChannelType( $deviceKey, $chNr);
+			# # HM485::Util::HM485_Log( 'HM485_ProcessChannelState: chtyp = ' . $chtyp);
+			# if ( $chtyp) {
+				# my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);	# hash, 690E03FF, response
+				# if ( uc( $deviceKey) eq 'HMW_IO12_SW14_DR') {
+					# # Eeeprom Daten zur Ueberpruefung ausgeben
+					# if ($hash->{READINGS}{'.eeprom_0000'}{VAL}) {
+					# #	HM485::Util::HM485_Log( 'HM485_ProcessChannelState hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
+						# HM485::Util::logger( 'HM485_ProcessChannelState', 5, ' hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
+					# }
+				# }
+					# #   valueHash->ch = 21,
+					# #			 ->params{state}{val} = $value
+					# #			 ->type = 69
+					# #			 ->event = 1
+					# #			 ->id = INFO_LEVEL
+								 
+				# HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'name2 = ' . $name . ' hmwId = ' . $hmwId . ' Channel = ' . $valueHash->{ch} . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
+				# #if ($valueHash) {
+				# #	foreach my $vh (keys %{$valueHash}) {
+				# #		HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . ' = ' . $valueHash->{$vh});
+				# #		if ( $valueHash->{ch} gt '00') {
+				# #			if ( ref( $valueHash->{$vh}) eq 'HASH') {
+				# #				my $param = $valueHash->{$vh};
+				# #				foreach my $par (keys %{$param}) {
+				# #					HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . ' = ' . $param->{$par});
+				# #					if ( ref( $param->{$par}) eq 'HASH') {
+				# #						my $para = $param->{$par};
+				# #						foreach my $pa (keys %{$para}) {
+				# #							HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . '->' . $pa . ' = ' . $para->{$pa});
+				# #						}
+				# #					}
+				# #				}
+				# #			}
+				# #		}
+				# #	}
+				# #}
+				# if ($valueHash->{ch}) {
+					# my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
+					# HM485_ChannelUpdate( $chHash, $valueHash->{value});
+				# }
+			# }
+		# }
+	# }
+	# return;
+# }
+
+
 sub HM485_ProcessChannelState($$$$) {
 	my ($hash, $hmwId, $msgData, $actionType) = @_;
 
-#print Dumper($msgData);
-	my $name = $hash->{NAME};
-	my $retval = undef;
-	if ($msgData) {
-		if ($hash->{MODEL}) {
-			# HM485::Util::HM485_Log( 'HM485_ProcessChannelState: name1 = ' . $name . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
-			my $deviceKey	= HM485::Device::getDeviceKeyFromHash($hash);
-			my $chNr		= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
-			my $chtyp 		= HM485::Device::getChannelType( $deviceKey, $chNr);
-			# HM485::Util::HM485_Log( 'HM485_ProcessChannelState: chtyp = ' . $chtyp);
-			if ( $chtyp) {
-				my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);	# hash, 690E03FF, response
-				if ( uc( $deviceKey) eq 'HMW_IO12_SW14_DR') {
-					# Eeeprom Daten zur Ueberpruefung ausgeben
-					if ($hash->{READINGS}{'.eeprom_0000'}{VAL}) {
-					#	HM485::Util::HM485_Log( 'HM485_ProcessChannelState hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
-						HM485::Util::logger( 'HM485_ProcessChannelState', 5, ' hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
-					}
-				}
-					#   valueHash->ch = 21,
-					#			 ->params{state}{val} = $value
-					#			 ->type = 69
-					#			 ->event = 1
-					#			 ->id = INFO_LEVEL
-								 
-				HM485::Util::logger( 'HM485_ProcessChannelState', 5, 'name2 = ' . $name . ' hmwId = ' . $hmwId . ' Channel = ' . $valueHash->{ch} . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
-				#if ($valueHash) {
-				#	foreach my $vh (keys %{$valueHash}) {
-				#		HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . ' = ' . $valueHash->{$vh});
-				#		if ( $valueHash->{ch} gt '00') {
-				#			if ( ref( $valueHash->{$vh}) eq 'HASH') {
-				#				my $param = $valueHash->{$vh};
-				#				foreach my $par (keys %{$param}) {
-				#					HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . ' = ' . $param->{$par});
-				#					if ( ref( $param->{$par}) eq 'HASH') {
-				#						my $para = $param->{$par};
-				#						foreach my $pa (keys %{$para}) {
-				#							HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . '->' . $pa . ' = ' . $para->{$pa});
-				#						}
-				#					}
-				#				}
-				#			}
-				#		}
-				#	}
-				#}
-				if ($valueHash->{ch}) {
-					my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
-					HM485_ChannelUpdate( $chHash, $valueHash->{value});
-				}
-			}
-		}
+    # device and message ok?
+	if(!$msgData || !$hash->{MODEL}) {
+	  HM485::Util::logger( 'HM485_ProcessChannelState', 3, ' hmwId = ' . $hmwId . ' No message or no model');
+	  return;
 	}
-	return;
+	# parse frame data, this also knows whether there is a channel
+	my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);	# hash, 690E03FF, response
+	# is there a channel?
+	# (This could be an announce message, which does not have channels.)
+	if(!defined($valueHash->{ch})) {
+	  HM485::Util::logger( 'HM485_ProcessChannelState', 5, ' hmwId = ' . $hmwId . ' No channel');
+	  return;
+	}
+	
+	# HM485::Util::HM485_Log( 'HM485_ProcessChannelState: name1 = ' . $name . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
+	#   valueHash->ch = 21,
+	#			 ->params{state}{val} = $value
+	#			 ->type = 69
+	#			 ->event = 1
+	#			 ->id = INFO_LEVEL
+								 
+	HM485::Util::logger( 'HM485_ProcessChannelState', 5, 'name2 = ' . $hash->{NAME} . ' hmwId = ' . $hmwId . ' Channel = ' . $valueHash->{ch} . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
+	my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
+	HM485_ChannelUpdate( $chHash, $valueHash->{value});
 }
+# PFE END
 
 =head2
 	Dispatch channel update by InternalTimer
@@ -1920,50 +1955,56 @@ sub HM485_ChannelDoUpdate($) {
 		if (defined($value)) {
 			# we trigger events only if necesary
 			HM485::Util::logger( 'HM485_ChannelDoUpdate', 5, 'valueKey = ' . $valueKey . ' value = ' . $value . ' Alter Wert = ' . $chHash->{READINGS}{$valueKey}{VAL});
-			if (!defined($chHash->{READINGS}{$valueKey}{VAL}) ||
-			    $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
+			# PFE BEGIN
+			# Eigentlich kann FHEM das zentral viel besser...
+			# if (!defined($chHash->{READINGS}{$valueKey}{VAL}) ||
+			    # $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
 
-				my $inter = AttrVal( $name, 'event-min-interval', 0);
-				if ( $inter > 0.1) {
-					my $lastTime = time_str2num( ReadingsTimestamp( $name, $valueKey, 0 ));
-					my $interval = int( time) - $lastTime;
-					$doTrigger 	 = ( $interval - $inter) > 0 ? 1 : 0;
-				}
+				# my $inter = AttrVal( $name, 'event-min-interval', 0);
+				# if ( $inter > 0.1) {
+					# my $lastTime = time_str2num( ReadingsTimestamp( $name, $valueKey, 0 ));
+					# my $interval = int( time) - $lastTime;
+					# $doTrigger 	 = ( $interval - $inter) > 0 ? 1 : 0;
+				# }
 				
-				my @onChangeArr = ();
-				my $onChange = AttrVal( $name, 'event-on-change-reading', '');
-				if ( index( $onChange, " ") == 0 && length( $onChange) > 0) {
-					$onChangeArr[0] = $onChange;
-				} elsif ( length( $onChange) > 0) {
-					@onChangeArr = split( ' ', $onChange);
-				}
-				foreach (@onChangeArr){
-					if ( $valueKey eq "$_"){
-						# HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'valueKey = ' . $valueKey . ' value = ' . $value . ' onChange ' . $_);
-						if ( $valueKey eq 'press_long') {
-							if ( defined( $chHash->{'.press_long'}) && $chHash->{'.press_long'}{VAL} eq $value) {
-								$doTrigger = 0;
-								# HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'doTrigger = 0');
-							} else {
-								$chHash->{'.press_long'}{VAL} = $value;
-							}
-						}
-					}
-				}
+				# my @onChangeArr = ();
+				# my $onChange = AttrVal( $name, 'event-on-change-reading', '');
+				# if ( index( $onChange, " ") == 0 && length( $onChange) > 0) {
+					# $onChangeArr[0] = $onChange;
+				# } elsif ( length( $onChange) > 0) {
+					# @onChangeArr = split( ' ', $onChange);
+				# }
+				# foreach (@onChangeArr){
+					# if ( $valueKey eq "$_"){
+						# # HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'valueKey = ' . $valueKey . ' value = ' . $value . ' onChange ' . $_);
+						# if ( $valueKey eq 'press_long') {
+							# if ( defined( $chHash->{'.press_long'}) && $chHash->{'.press_long'}{VAL} eq $value) {
+								# $doTrigger = 0;
+								# # HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'doTrigger = 0');
+							# } else {
+								# $chHash->{'.press_long'}{VAL} = $value;
+							# }
+						# }
+					# }
+				# }
+				# PFE END
 				
 #				$chHash->{'READINGS'}{'state'}{'VAL'} = $value;
 #			    $chHash->{'READINGS'}{'state'}{'NAME'} = $name;
 #			    $chHash->{'READINGS'}{'state'}{'TIME'} = TimeNow();
-				if ( ( $onChange && $doTrigger) || length( $onChange) == 0) {
+				# if ( ( $onChange && $doTrigger) || length( $onChange) == 0) {
 					readingsBulkUpdate( $chHash, $valueKey, $value);
 			
 					HM485::Util::logger(
-						HM485::LOGTAG_HM485, 3, $name . ': ' . $valueKey . ' -> ' . $value
+						HM485::LOGTAG_HM485, 4, $name . ': ' . $valueKey . ' -> ' . $value
 					);
-				}
+				#}
 				# State noch aktuallisieren
 				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: name = ' . $name . ' alter State = ' . $chHash->{STATE} . ' valueKey = ' . $valueKey . ' value = ' . $value);
-				if ( defined( $chHash->{STATE}) && $chHash->{STATE}) {
+				# PFE BEGIN (according to Ralf9)	
+				# Not only if STATE already exists...
+				# if ( defined( $chHash->{STATE}) && $chHash->{STATE}) {
+				# PFE END
 					if ( $valueKey eq 'state' || $valueKey eq 'sensor') {
 			#			if ( HM485::Device::isNumber($value)) {
 			#				if ( $value == 0) {
@@ -1976,10 +2017,10 @@ sub HM485_ChannelDoUpdate($) {
 			#				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen STATE auf ' . lc( $value));
 			#			}
 					} else {
-						$chHash->{STATE} = $valueKey . '_' . $value;
+							$chHash->{STATE} = $valueKey . '_' . $value;
 					}
-				}
-			}
+				#}
+			#}
 		}
 	}
 
