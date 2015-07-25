@@ -499,10 +499,13 @@ sub HM485_Set($@) {
 	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
 	if (scalar (keys %{$configHash})) {
 		$sets{'config'} = '';
-		#PFE BEGIN
-		$sets{'raw'} = '';
-		#PFE END	
 	}
+	#PFE BEGIN
+	# raw geht immer beim Device
+	if(!$chNr) {
+	  $sets{'raw'} = '';
+	};
+	#PFE END	
 
 	# HM485::Util::HM485_Log( 'HM485_Set', 3, 'cmd = ' . $cmd);
 	if (@params < 2) {
@@ -815,6 +818,7 @@ sub HM485_FhemwebShowConfig($$$) {
 #PFE BEGIN
 sub HM485_SetConfigStatus($$) {
   my ($hash, $status) = @_;
+  HM485::Util::logger( 'HM485_SetConfigStatus', 5, 'Hash: '.$hash);
   $hash->{CONFIG_STATUS} = $status;
 }
 
@@ -931,12 +935,12 @@ sub HM485_CreateAndReadChannels($$) {
 	my ($devHash, $hmwId) = @_;
 	# Channels anlegen
 	my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($devHash));
-	HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Channels initialisieren ' . substr($hmwId, 0, 8));
+	HM485::Util::logger( HM485::LOGTAG_HM485, 4, 'Channels initialisieren ' . substr($hmwId, 0, 8));
 	HM485_CreateChannels( $devHash);
 	# HM485_Log( 'HM485_GetConfig: ' . 'deviceKey = ' . $deviceKey . ' hmwId = ' . $hmwId);
 	# State der Channels ermitteln
 	my $configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
-	HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'State der Channels ermitteln ' . substr($hmwId, 0, 8));
+	HM485::Util::logger( HM485::LOGTAG_HM485, 4, 'State der Channels ermitteln ' . substr($hmwId, 0, 8));
 	#create a queue, so we can set the config status afterwards
 	my $queue = HM485_GetNewMsgQueue('HM485_SetConfigStatus',[$devHash,'OK'],
 			                         'HM485_SetConfigStatus',[$devHash,'FAILED']);
@@ -1883,8 +1887,12 @@ sub HM485_ProcessChannelState($$$$) {
 	my ($hash, $hmwId, $msgData, $actionType) = @_;
 
     # device and message ok?
-	if(!$msgData || !$hash->{MODEL}) {
-	  HM485::Util::logger( 'HM485_ProcessChannelState', 3, ' hmwId = ' . $hmwId . ' No message or no model');
+	if(!$msgData) {
+	  HM485::Util::logger( 'HM485_ProcessChannelState', 3, ' hmwId = ' . $hmwId . ' No message');
+	  return;
+	}
+	if(!$hash->{MODEL}) {
+	  HM485::Util::logger( 'HM485_ProcessChannelState', 3, ' hmwId = ' . $hmwId . ' No model');
 	  return;
 	}
 	# parse frame data, this also knows whether there is a channel
@@ -2132,11 +2140,29 @@ sub HM485_QueueCommand($$$$;$) {
 	${$queue->{entries}}[$#{$queue->{entries}} +1] = {hash => $hash, hmwId => $hmwId, data => $data, onlyAck => $onlyAck};
 }	
 
+# This function is a wrapper to be able to call 
+# queue success callbacks via InternalTimer
+sub HM485_QueueSuccessViaTimer($){
+  my ($queue) = @_;
+  no strict "refs";
+  &{$queue->{successFn}}(@{$queue->{successParams}});
+  use strict "refs";
+}
 
 # start processing a queue 
-# just send the commands for now TODO: change this
 sub HM485_QueueStart($) {
   my ($queue) = @_;
+  # empty queues are not really started, we just call the success function
+     #success callback function
+  if($#{$queue->{entries}} == -1) {     
+	if($queue->{successFn}) {
+	  # the success function is called via internal timer
+	  # because it is usually called asynchrnously for non-empty queues
+	  InternalTimer(gettimeofday(), 'HM485_QueueSuccessViaTimer', $queue, 0);
+	};  
+	return;
+  };
+  
   push(@msgQueueList, $queue);
   HM485::Util::logger( 'HM485_QueueStart',5, "Num: ".$#msgQueueList);
   if($#msgQueueList == 0) {
@@ -2152,7 +2178,6 @@ sub HM485_QueueStart($) {
 sub HM485_QueueProcessStep() {
   if($#msgQueueList < 0){ return };  # ready, no Queues
 # TODO: smarter order of processing 
-# TODO don't crash on empty queues 
   $currentQueueIndex = 0;
   my $currentQueue = $msgQueueList[$currentQueueIndex];
   # process next entry in this queue

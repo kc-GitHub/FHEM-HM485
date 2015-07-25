@@ -97,10 +97,19 @@ sub initModels() {
 					$minFW = $minFW ? $minFW : 0;
 					$models{$modelKey}{'versionDeviceKey'}{$minFW} = $deviceKey;
 				}
+				# PFE BEGIN
+				# Handling of the "generic" device
+                # This is probably not perfect, but should work
+				  elsif($deviceKey eq 'HMW_GENERIC') {
+                    $models{$modelKey}{'model'} = $modelKey;
+                    $models{$modelKey}{'name'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'name'};
+					$models{$modelKey}{'type'} = 0;
+					$models{$modelKey}{'versionDeviceKey'}{0} = $deviceKey;  
+				}
+				# PFE END
 			}
 		}
 	}
-	
 #	my $t = getModelName(getModelFromType(91));
 }
 
@@ -141,17 +150,17 @@ sub getDeviceKeyFromHash($) {
 =cut
 sub getModelFromType($) {
 	my ($hwType) = @_;
-	my $retVal = undef;
 
 	foreach my $model (keys (%models)) {
 		# HM485::Util::HM485_Log( 'Device:getModelFromType hwType = ' . $hwType . ' model = ' . $model);
 		if (exists($models{$model}{'type'}) && $models{$model}{'type'} == $hwType) {
-			$retVal = $model;
-			last;
+			return $model;
 		}
 	}
 
-	return $retVal;
+	HM485::Util::logger( 'HM485::Device::getModelFromType',1, 'Unknown device type '.$hwType.'. Setting model to Generic' );
+	
+	return 'HMW_Generic';
 }
 
 =head2 getModelName
