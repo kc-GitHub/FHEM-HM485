@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.6.2
+	Version 0.6.3
 	erste Ziffer
 	0 : In Entwicklung
 		nicht alle Module werden unterstuetzt
@@ -608,10 +608,11 @@ sub HM485_Set($@) {
 #				readingsSingleUpdate($hash, $cmd, 'set_'.$value, 1);
 				$msg = HM485_SetChannelState($hash, $cmd, $value);
 			}
+			return ($msg,1);  # do not trigger events from set commands
 		}
 	}
 
-	return $msg;
+	return $msg;  
 }
 
 =head2
@@ -1786,7 +1787,7 @@ sub HM485_DoSendCommand($) {
 	my $onlyAck		= $paramsHash->{'ack'};
 
 	my %params      = (target => $hmwId, data   => $data);
-
+	
 	# send command to device and get the request id
 	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
 
