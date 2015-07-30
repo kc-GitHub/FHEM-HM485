@@ -408,11 +408,25 @@ sub getFrameInfos($$;$$$) {
 	my %retVal;
 	my $chNr			=  hex( substr( $data, 2, 2)) + 1;
 	my $chTyp         	= HM485::Device::getChannelType( $deviceKey, $chNr);
-	my $frameTypeName  	= getValueFromDefinitions( $deviceKey . '/channels/' . $chTyp . '/paramset/values/parameter/frequency/physical/get/response');
-	$frameTypeName		= $frameTypeName ? $frameTypeName : 'info_level';
+	my $values;
+	my $frameTypeName = "info_level";
+
+	$values = getValueFromDefinitions($deviceKey . '/channels/' . $chTyp . '/paramset/values/parameter/');
+	if (defined($values)) {
+		foreach my $value (keys %{$values}) {
+			#HM485::Util::logger('HM485:Device: getFrameInfos = ', 3, ' $values = ' . $value);
+			if ( defined( $values->{$value}{physical}{get}{response})) {
+				$frameTypeName = $values->{$value}{physical}{get}{response};
+				last;
+			}
+		}
+	}
+	#HM485::Util::logger('HM485:Device:getFrameInfos', 3, ' frameTypeName = ' . $frameTypeName);
+	
 	if ( $frameTypeName eq "info_frequency" && $behaviour eq "digital_input") {
 		$frameTypeName	= "info_level";
 	}
+
 	HM485::Util::logger( 'Device:getFrameInfos', 5, ' frameTypeName = ' . $frameTypeName);
 	# Schnellloesung, muss noch ueberprueft werden:
 	if ( substr( $data, 0, 2) eq '4B') {
