@@ -298,6 +298,8 @@ sub HM485_LAN_Write($$;$) {
 	my $name = $hash->{NAME};
 	my $msgId = $hash->{msgCounter} ? $hash->{msgCounter} : 1;
 
+	HM485::Util::logger('HM485_LAN_Write', 5, 'TX: ' . $msgId );
+	
 	if ($cmd == HM485::CMD_SEND || $cmd == HM485::CMD_DISCOVERY ||
 		$cmd == HM485::CMD_KEEPALIVE || HM485::CMD_INITIALIZE) {
 			
@@ -411,6 +413,7 @@ sub HM485_LAN_SendQueueNextItem($) {
 	my $queueCount = scalar(keys (%{$hash->{sendQueue}}));
 	if ($queueCount > 0) {
 		my $currentQueueId = (sort keys %{$hash->{sendQueue}})[0];
+        HM485::Util::logger('HM485_LAN_SendQueueNextItem', 5, 'QID: '.$currentQueueId );
 		$hash->{currentQueueId} = $currentQueueId;
 
 		my $sendData = $hash->{sendQueue}{$currentQueueId}{data};
@@ -445,11 +448,14 @@ sub HM485_LAN_CheckResendQueueItems($) {
 	my ($param) = @_;
 
 	my($name, $timerName, $currentQueueId) = split(':', $param);
+	
+	HM485::Util::logger('HM485_LAN_CheckResendQueueItems', 5, 'QID: '.$currentQueueId );
 	if ($timerName eq 'queueTimer') {
 		my $hash = $defs{$name};
 	
 #		print Dumper($hash->{sendQueue}{$currentQueueId});
 		if (exists($hash->{sendQueue}{$currentQueueId})) {
+		    HM485::Util::logger('HM485_LAN_CheckResendQueueItems', 5, 'DispatchNack' );
 			HM485_LAN_DispatchNack($hash, $currentQueueId);
 		}
 	
@@ -772,6 +778,8 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	my $currentQueueId = $hash->{currentQueueId};
 	my $canDispatch    = 0;
 	
+	HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'MsgId: '.$msgId.' Cmd: '.$msgCmd);
+	
 	if ($msgCmd == HM485::CMD_DISCOVERY_END) {
 		my $foundDevices = hex($msgData);
 		HM485::Util::logger($name, 4, 'Do action after discovery Found Devices: ' . $foundDevices);
@@ -786,7 +794,8 @@ sub HM485_LAN_parseIncommingCommand($$) {
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $aliveStatus = substr($msgData, 0, 2);
-		# HM485::Util::logger($name, 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
+		# HM485::Util::logger('HM485_LAN_parseIncommingCommand', 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
+		HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Alive: (' . $msgId . ') ' . $msgData.' AliveStatus: '.$aliveStatus);
 		if ($aliveStatus == '00') {
 			# we got a response from keepalive
 			$hash->{keepalive}{ok}    = 1;
@@ -810,7 +819,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 		# HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ')');
 
 		# Debug
-		# HM485::Util::logger($name, 3, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
+		HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
 
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
 		$canDispatch = 1;
@@ -823,14 +832,21 @@ sub HM485_LAN_parseIncommingCommand($$) {
 			datalen => $msgLen,
 			data    => pack('H*', substr($msgData, 18)),
 		);
-		HM485::Util::logger($name, 3, 'Event:', \%RD);
+		HM485::Util::logger($name, 4, 'Event:', \%RD);
 	}		
 
 	if ($canDispatch && length($message) > 3) {
 		Dispatch($hash, $message, '');
 	}
 
-	if ($currentQueueId) {
+	#PFE BEGIN
+	# we should not confuse events with answers
+	# the server knows what is what...
+	# for Nacks, the queue has already been removed
+	# if ($currentQueueId) {
+	if ($currentQueueId && defined($hash->{sendQueue}{$currentQueueId}{msgId}) && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId) {
+	#PFE END
+	    HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Removing Queue '.$currentQueueId);
 		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
 		HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
 		HM485_LAN_CheckResendQueueItems($name . ':queueTimer:' . $currentQueueId);
@@ -941,6 +957,8 @@ sub HM485_LAN_DispatchNack($$) {
 	my ($hash, $currentQueueId) = @_;	
 	my $name = $hash->{NAME};
 
+	HM485::Util::logger('HM485_LAN_DispatchNack', 5, 'Start');
+	
 	$hash->{Last_Sent_RAW_CMD_State} = 'NACK';
 
 	if ($currentQueueId) {
@@ -957,6 +975,7 @@ sub HM485_LAN_DispatchNack($$) {
 							HM485::FRAME_START_LONG, 3, $msgId, HM485::CMD_ALIVE, 1, $hmwId
 						)
 					);
+					HM485::Util::logger('HM485_LAN_DispatchNack', 5, 'Message: '.$message);
 					Dispatch($hash, $message, '');
 				} else {
 					HM485::Util::logger($name, 3, 'NACK: (' . $msgId . ') ' . $hmwId);

@@ -1,17 +1,20 @@
 =head1
 	10_HM485.pm
 
-	Version 0.5.141
+	Version 0.6.3
 	erste Ziffer
-	0 : nicht alle Module werden unterstuetzt
+	0 : In Entwicklung
+		nicht alle Module werden unterstuetzt
 	zweite Ziffer
 	1 : 1. Modul wird voll unterstuetzt : HMW_LC_Bl1
 	2 : 2. Modul wird voll unterstuetzt : HMW_Sen_SC_12
 	3 : 3. Modul wird voll unterstuetzt : HMW_LC_Dim1L
 	4 : 4. Modul wird voll unterstuetzt : HMW_IO_12_Sw7
 	5 : 5. Modul wird voll unterstuetzt : HMW_IO_12_FM
+	6 : Das ganze sollte jetzt nicht mehr so modulspezifisch sein
 	dritte Ziffer
-	12x: Nummer der aktuellen Testversion Ab Version 50 = neue Config
+	Kleine Schritte...
+	
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -63,7 +66,7 @@ sub HM485_Attr($$$$);
 sub HM485_FhemwebShowConfig($$$);
 
 # Device related functions
-sub HM485_GetInfos($$$);
+sub HM485_GetInfos($$$;$);  #PFE last parameter
 sub HM485_GetConfig($$);
 sub HM485_CreateChannels($);
 sub HM485_SetConfig($@);
@@ -91,6 +94,14 @@ sub HM485_ProcessEepromData($$$);
 # External helper functions
 sub HM485_DevStateIcon($);
 
+#PFE BEGIN
+sub HM485_GetNewMsgQueue($$$$);
+sub HM485_QueueStepFailed($);
+sub HM485_QueueStepSuccess($);
+#PFE END
+
+
+
 my @attrListRO     = ();
 my @attrListBindCh = ('model', 'serialNr', 'firmwareVersion', 'room', 'comment');
 
@@ -113,6 +124,13 @@ my %getsCh = ('state' => 'noArg');
 # Bei vielen Modulen ist eine Wartezeit beim Define erforderlich
 my $defWait  = 0;
 my $defStart = 5;
+
+#PFE BEGIN
+# List of "message queues" for e.g. reading config 
+my @msgQueueList = ();
+my $currentQueueIndex = -1; #index of current queue
+#PFE END
+
 
 ###############################################################################
 # Interface related functions
@@ -223,24 +241,35 @@ sub HM485_Define($$) {
 			$hash->{DEF} = $hmwId;
 			
 			if ( defined($hash->{IODev}{STATE}) && length($hmwId) == 8) {
-				if ($hash->{IODev}{STATE} eq 'open') {
-					# das hat er bei mir noch nie geschafft, da Raspi zu langsam
-					HM485::Util::logger(
-						HM485::LOGTAG_HM485, 2, 'Auto get info for : ' . $name
-					);
-					HM485_GetInfos($hash, $addr, 0b111);
-#					HM485_GetConfig($hash, $addr);
-				} else {
-					# Todo: Maybe we must queue "auto get info" if IODev not opened yet 
-					# Moduldaten aus Eeprom holen, nach 4 Sec, um HM485_LAN vorher in den State opened zu bringen
-					#InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_GetInfos', $hash . ' ' . $addr . ' 7', 0);
-					# Konfiguration des Moduls in Speicher übernehmen und Channels anlegen und einlesen
-					#InternalTimer( gettimeofday() + $defStart + 4 + $defWait, 'HM485_GetConfig', $hash . ' ' . $addr, 0);
-					# ++++++++++++++++++++++
-					$hash->{'.waitforConfig'}{'hmwId'} 		= $addr;
-					$hash->{'.waitforConfig'}{'counter'}	= 10;
-					HM485_WaitForConfig($hash);
-				}
+			
+#PFE BEGIN
+				#PFE BEGIN
+				$hash->{CONFIG_STATUS} = 'PENDING';
+				#PFE END
+# We can always use WaitForConfig. It will do it's job eventually in any case.		
+				$hash->{'.waitforConfig'}{'hmwId'} 		= $addr;
+				$hash->{'.waitforConfig'}{'counter'}	= 10;
+				HM485_WaitForConfig($hash);	
+				# if ($hash->{IODev}{STATE} eq 'open') {
+					# # das hat er bei mir noch nie geschafft, da Raspi zu langsam
+					# #PFE: Bei mir immer...
+					# HM485::Util::logger(
+						# HM485::LOGTAG_HM485, 2, 'Auto get info for : ' . $name
+					# );	
+					# HM485_GetInfos($hash, $addr, 0b111);
+# #					HM485_GetConfig($hash, $addr);
+				# } else {
+					# # Todo: Maybe we must queue "auto get info" if IODev not opened yet 
+					# # Moduldaten aus Eeprom holen, nach 4 Sec, um HM485_LAN vorher in den State opened zu bringen
+					# #InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_GetInfos', $hash . ' ' . $addr . ' 7', 0);
+					# # Konfiguration des Moduls in Speicher übernehmen und Channels anlegen und einlesen
+					# #InternalTimer( gettimeofday() + $defStart + 4 + $defWait, 'HM485_GetConfig', $hash . ' ' . $addr, 0);
+					# # ++++++++++++++++++++++
+					# $hash->{'.waitforConfig'}{'hmwId'} 		= $addr;
+					# $hash->{'.waitforConfig'}{'counter'}	= 10;
+					# HM485_WaitForConfig($hash);
+				# }
+#PFE END				
 				$defWait++;
 			}
 		}
@@ -311,6 +340,40 @@ sub HM485_Rename($$) {
 	}
 }
 
+#PFE BEGIN
+
+# sub HM485_WaitForConfig($) {
+	# my ($hash) = @_;
+	
+	# my $hmwId = $hash->{'.waitforConfig'}{'hmwId'};
+	# my $counter = $hash->{'.waitforConfig'}{'counter'};
+	
+	# if (defined($hash->{'IODev'}{'STATE'})) {
+		# if ($hash->{'IODev'}{'STATE'} eq 'open') {
+			# if ( $hmwId) {
+				# # Moduldaten aus Eeprom holen, nach 4 Sec, um HM485_LAN vorher in den State opened zu bringen
+				# # Konfiguration des Moduls in Speicher übernehmen und Channels anlegen und einlesen
+				# InternalTimer( gettimeofday() + $defStart + 4 + $defWait, 'HM485_GetConfig', $hash . ' ' . $hmwId, 0);
+				# #HM485_GetInfos($hash, $hmwId, 0b111);
+				# #HM485_GetConfig($hash, $hmwId);
+				# delete $hash->{'.waitforConfig'};
+				# RemoveInternalTimer($hash);
+				# HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Initialisierung von Modul ' . $hmwId);
+			# }
+		# } else {
+			# HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Warte auf Initialisierung Gateway');
+			# if ($counter >= 0) {
+				# $hash->{'.waitforConfig'}{'counter'} = $counter--;
+				# InternalTimer (gettimeofday() + $defStart, 'HM485_WaitForConfig', $hash, 0);
+			# } else {
+				# delete $hash->{'.waitforConfig'};
+				# RemoveInternalTimer($hash);
+			# }
+		# }
+	# }
+# }
+
+
 sub HM485_WaitForConfig($) {
 	my ($hash) = @_;
 	
@@ -320,10 +383,12 @@ sub HM485_WaitForConfig($) {
 	if (defined($hash->{'IODev'}{'STATE'})) {
 		if ($hash->{'IODev'}{'STATE'} eq 'open') {
 			if ( $hmwId) {
-				# Moduldaten aus Eeprom holen, nach 4 Sec, um HM485_LAN vorher in den State opened zu bringen
-				InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_GetInfos', $hash . ' ' . $hmwId . ' 7', 0);
-				# Konfiguration des Moduls in Speicher übernehmen und Channels anlegen und einlesen
-				InternalTimer( gettimeofday() + $defStart + 4 + $defWait, 'HM485_GetConfig', $hash . ' ' . $hmwId, 0);
+			    # Tell them that we are reading config
+			    HM485_SetConfigStatus($hash, 'READING');
+				# the queue definition below will start GetConfig after successful GetInfos
+				my $queue = HM485_GetNewMsgQueue('HM485_GetConfig',[$hash,$hmwId],
+				                                 'HM485_SetConfigStatus',[$hash,'FAILED']);
+				HM485_GetInfos($hash, $hmwId, 0b111, $queue);
 				#HM485_GetInfos($hash, $hmwId, 0b111);
 				#HM485_GetConfig($hash, $hmwId);
 				delete $hash->{'.waitforConfig'};
@@ -343,6 +408,8 @@ sub HM485_WaitForConfig($) {
 	}
 }
 
+#PFE END
+
 =head2
 	Implements the parse function
 	
@@ -352,19 +419,25 @@ sub HM485_WaitForConfig($) {
 sub HM485_Parse($$) {
 	my ($ioHash, $message) = @_;
 	my $msgId   = ord(substr($message, 2, 1));
+	HM485::Util::logger('HM485_Parse', 5, 'MsgId: '.$msgId);
 	my $msgCmd  = ord(substr($message, 3, 1));
 	my $msgData = uc( unpack ('H*', substr($message, 4)));
 
 	if ($msgCmd == HM485::CMD_RESPONSE) {
 		HM485_SetStateAck($ioHash, $msgId, $msgData);
+		HM485::Util::logger('HM485_Parse', 5, 'ProcessResponse');
 		HM485_ProcessResponse($ioHash, $msgId, substr($msgData,2));
 
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
 		HM485_SetStateAck($ioHash, $msgId, $msgData);
-
+    	HM485::Util::logger('HM485_Parse', 5, 'ProcessEvent');
 		# Todo: check if events triggered on ack only?
 		HM485_ProcessEvent($ioHash, $msgData);
 	} elsif ($msgCmd == HM485::CMD_ALIVE && substr($msgData, 0, 2) eq '01') {
+		#PFE BEGIN
+	    # Stop queue if running
+	    HM485_QueueStepFailed($msgId);
+	    #PFE END
 		HM485_SetStateNack($ioHash, $msgData);
 		my $requestType = $ioHash->{'.waitForResponse'}{$msgId}{requestType};
 		my $hmwId = substr( $msgData, 2, 8);
@@ -427,6 +500,12 @@ sub HM485_Set($@) {
 	if (scalar (keys %{$configHash})) {
 		$sets{'config'} = '';
 	}
+	#PFE BEGIN
+	# raw geht immer beim Device
+	if(!$chNr) {
+	  $sets{'raw'} = '';
+	};
+	#PFE END	
 
 	# HM485::Util::HM485_Log( 'HM485_Set', 3, 'cmd = ' . $cmd);
 	if (@params < 2) {
@@ -521,15 +600,19 @@ sub HM485_Set($@) {
 				
 			} elsif ($cmd eq 'config') {
 				$msg = HM485_SetConfig($hash, @params);
-
+			#PFE BEGIN
+			} elsif ($cmd eq 'raw') {
+				HM485_SendCommand($hash, $hmwId, $value);
+			#PFE END
 			} else {
 #				readingsSingleUpdate($hash, $cmd, 'set_'.$value, 1);
 				$msg = HM485_SetChannelState($hash, $cmd, $value);
 			}
+			return ($msg,1);  # do not trigger events from set commands
 		}
 	}
 
-	return $msg;
+	return $msg;  
 }
 
 =head2
@@ -704,33 +787,83 @@ sub HM485_FhemwebShowConfig($$$) {
 	@param	string  the HMW id
 	@param	int     binary bitmask denined wich infos was requestet from device 
 =cut
-sub HM485_GetInfos($$$) {
-	my ($hash, $hmwId, $infoMask) = @_;
+# sub HM485_GetInfos($$$) {
+	# my ($hash, $hmwId, $infoMask) = @_;
+	# if ( !$hmwId) {
+		# my @param = split(' ', $hash);
+		# $hash     = $param[0];
+		# $hmwId    = $param[1];
+		# $infoMask = $param[2];
+	# }
+	# # HM485::Util::HM485_Log( 'HM485_GetInfos: hmwId = ' . $hmwId . ' infoMask = ' . $infoMask);
+	
+	# $infoMask = defined($infoMask) ? $infoMask : 0;
+
+	# if ($infoMask & 0b001) {
+		# # (h) request module type
+		# HM485_SendCommand($hash, $hmwId, '68');
+	# }
+	
+	# if ($infoMask & 0b010) {
+		# # (n) request serial number
+		# HM485_SendCommand($hash, $hmwId, '6E');
+	# }
+	
+	# if ($infoMask & 0b100) {
+		# # (v) request firmware version
+		# HM485_SendCommand($hash, $hmwId, '76');
+	# }
+# }
+
+
+#PFE BEGIN
+sub HM485_SetConfigStatus($$) {
+  my ($hash, $status) = @_;
+  HM485::Util::logger( 'HM485_SetConfigStatus', 5, 'Hash: '.$hash);
+  $hash->{CONFIG_STATUS} = $status;
+}
+
+
+sub HM485_GetInfos($$$;$) {
+	my ($hash, $hmwId, $infoMask, $queue) = @_;
 	if ( !$hmwId) {
 		my @param = split(' ', $hash);
 		$hash     = $param[0];
 		$hmwId    = $param[1];
 		$infoMask = $param[2];
 	}
+	# TODO: Clean up
+	if(!$hmwId) {
+	  $hash = ${$_[0]}[0];
+	  $hmwId = ${$_[0]}[1];
+	  $infoMask = ${$_[0]}[2];
+	}
+	
 	# HM485::Util::HM485_Log( 'HM485_GetInfos: hmwId = ' . $hmwId . ' infoMask = ' . $infoMask);
 	
 	$infoMask = defined($infoMask) ? $infoMask : 0;
-
+	#if not started with a queue, then create an own one, but without callbacks
+	$queue = defined($queue) ? $queue : HM485_GetNewMsgQueue(undef,undef,undef,undef);
+	
 	if ($infoMask & 0b001) {
 		# (h) request module type
-		HM485_SendCommand($hash, $hmwId, '68');
+		HM485_QueueCommand($queue, $hash, $hmwId, '68');
 	}
 	
 	if ($infoMask & 0b010) {
 		# (n) request serial number
-		HM485_SendCommand($hash, $hmwId, '6E');
+		HM485_QueueCommand($queue, $hash, $hmwId, '6E');
 	}
 	
 	if ($infoMask & 0b100) {
 		# (v) request firmware version
-		HM485_SendCommand($hash, $hmwId, '76');
+		HM485_QueueCommand($queue, $hash, $hmwId, '76');
 	}
+	
+	HM485_QueueStart($queue);
 }
+#PFE END
+
 
 =head2
 	Request device config stoerd in the eeprom of a device
@@ -739,6 +872,93 @@ sub HM485_GetInfos($$$) {
 	@param	hash    hash of device addressed
 	@param	string  the HMW id
 =cut
+
+#PFE BEGIN
+
+# sub HM485_GetConfig($$) {
+	# my ($hash, $hmwId) = @_;
+	# if ( !$hmwId) {
+		# my @param = split(' ', $hash);
+		# $hash     = $param[0];
+		# $hmwId    = $param[1];
+	# }
+	
+	# my $data;
+	# my $devHash = $modules{HM485}{defptr}{substr($hmwId,0,8)};
+
+	# # here we query eeprom data with device settings
+	# if ($devHash->{MODEL}) {
+		# HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Request config for device ' . substr($hmwId, 0, 8));
+		# my $eepromMap = HM485::Device::getEmptyEEpromMap($devHash);
+		
+		# # write eeprom map to readings
+		# foreach my $adrStart (sort keys %{$eepromMap}) {
+			# setReadingsVal($devHash, '.eeprom_' . $adrStart, $eepromMap->{$adrStart}, TimeNow());
+		# }
+
+		# HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Lese Eeprom ' . substr($hmwId, 0, 8));
+		# foreach my $adrStart (sort keys %{$eepromMap}) {
+			# # (R) request eeprom data
+			# HM485_SendCommand($devHash, $hmwId, '52' . $adrStart . '10'); 
+		# }
+		# # Channels anlegen
+		# my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($devHash));
+		# HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Channels initialisieren ' . substr($hmwId, 0, 8));
+		# HM485_CreateChannels( $devHash);
+		# # HM485_Log( 'HM485_GetConfig: ' . 'deviceKey = ' . $deviceKey . ' hmwId = ' . $hmwId);
+		# # State der Channels ermitteln
+		# my $configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
+		# HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'State der Channels ermitteln ' . substr($hmwId, 0, 8));
+		# foreach my $chType (keys %{$configHash}) {
+			# if ( $chType && $chType ne "key" && $chType ne "maintenance") {
+				# my $chStart = $configHash->{$chType}{index};
+				# my $chCount = $configHash->{$chType}{count};
+				# for ( my $ch = $chStart; $ch < $chStart + $chCount; $ch++){
+					# $data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
+					# HM485_SendCommand( $devHash, $hmwId . '_' . $ch, $data);
+				# }
+			# }
+		# }
+		
+	# #	delete( $devHash->{'.Reconfig'});
+	# } else {
+		# HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Initialisierungsfehler ' . substr( $hmwId, 0, 8) . ' ModelName noch nicht vorhanden');
+		# if ( !exists( $devHash->{'.waitforConfig'}{'counter'})) {
+			# $devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
+			# $devHash->{'.waitforConfig'}{'counter'}	= 10;
+			# HM485_WaitForConfig($devHash);
+		# }
+	# }
+# }
+
+#Last step of config, after reading of EEPROM
+sub HM485_CreateAndReadChannels($$) {
+	my ($devHash, $hmwId) = @_;
+	# Channels anlegen
+	my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($devHash));
+	HM485::Util::logger( HM485::LOGTAG_HM485, 4, 'Channels initialisieren ' . substr($hmwId, 0, 8));
+	HM485_CreateChannels( $devHash);
+	# HM485_Log( 'HM485_GetConfig: ' . 'deviceKey = ' . $deviceKey . ' hmwId = ' . $hmwId);
+	# State der Channels ermitteln
+	my $configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
+	HM485::Util::logger( HM485::LOGTAG_HM485, 4, 'State der Channels ermitteln ' . substr($hmwId, 0, 8));
+	#create a queue, so we can set the config status afterwards
+	my $queue = HM485_GetNewMsgQueue('HM485_SetConfigStatus',[$devHash,'OK'],
+			                         'HM485_SetConfigStatus',[$devHash,'FAILED']);
+	foreach my $chType (keys %{$configHash}) {
+		if ( $chType && $chType ne "key" && $chType ne "maintenance") {
+			my $chStart = $configHash->{$chType}{index};
+			my $chCount = $configHash->{$chType}{count};
+			for ( my $ch = $chStart; $ch < $chStart + $chCount; $ch++){
+				my $data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
+				HM485_QueueCommand( $queue, $devHash, $hmwId . '_' . $ch, $data);
+			}
+		}
+	}
+	HM485_QueueStart($queue);
+}
+
+
 sub HM485_GetConfig($$) {
 	my ($hash, $hmwId) = @_;
 	if ( !$hmwId) {
@@ -759,31 +979,23 @@ sub HM485_GetConfig($$) {
 		foreach my $adrStart (sort keys %{$eepromMap}) {
 			setReadingsVal($devHash, '.eeprom_' . $adrStart, $eepromMap->{$adrStart}, TimeNow());
 		}
-
+				
 		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Lese Eeprom ' . substr($hmwId, 0, 8));
+		
+		# Tell them that we are reading config
+		HM485_SetConfigStatus($hash, 'READING');
+		#Get a new queue for reading the EEPROM
+		#This definition will automatically start reading the channels after EEPROM reading
+		#is successful
+		my $queue = HM485_GetNewMsgQueue('HM485_CreateAndReadChannels',[$devHash,$hmwId],
+				                         'HM485_SetConfigStatus',[$hash,'FAILED']);
+		
 		foreach my $adrStart (sort keys %{$eepromMap}) {
 			# (R) request eeprom data
-			HM485_SendCommand($devHash, $hmwId, '52' . $adrStart . '10'); 
+			HM485_QueueCommand($queue, $devHash, $hmwId, '52' . $adrStart . '10'); 
 		}
-		# Channels anlegen
-		my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($devHash));
-		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Channels initialisieren ' . substr($hmwId, 0, 8));
-		HM485_CreateChannels( $devHash);
-		# HM485_Log( 'HM485_GetConfig: ' . 'deviceKey = ' . $deviceKey . ' hmwId = ' . $hmwId);
-		# State der Channels ermitteln
-		my $configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
-		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'State der Channels ermitteln ' . substr($hmwId, 0, 8));
-		foreach my $chType (keys %{$configHash}) {
-			if ( $chType && $chType ne "key" && $chType ne "maintenance") {
-				my $chStart = $configHash->{$chType}{index};
-				my $chCount = $configHash->{$chType}{count};
-				for ( my $ch = $chStart; $ch < $chStart + $chCount; $ch++){
-					$data = sprintf ('53%02X', $ch-1);  # Channel als hex- Wert
-					HM485_SendCommand( $devHash, $hmwId . '_' . $ch, $data);
-				}
-			}
-		}
-		
+		# start the queue, create and read channels afterwards.
+		HM485_QueueStart($queue);		
 	#	delete( $devHash->{'.Reconfig'});
 	} else {
 		HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'Initialisierungsfehler ' . substr( $hmwId, 0, 8) . ' ModelName noch nicht vorhanden');
@@ -794,6 +1006,7 @@ sub HM485_GetConfig($$) {
 		}
 	}
 }
+#PFE END
 
 =head2
 	Create all channels of a device
@@ -1160,7 +1373,7 @@ sub HM485_ProcessResponse($$$) {
 	my ($ioHash, $msgId, $msgData) = @_;
 	my $data = '';
 	
-	# HM485::Util::logger( 'HM485_ProcessResponse', 3, 'msgData = ' . $msgData);
+	HM485::Util::logger( 'HM485_ProcessResponse', 5, 'msgData = ' . $msgData);
 	
 	if ($ioHash->{'.waitForResponse'}{$msgId}{hmwId}) {
 		my $requestType = $ioHash->{'.waitForResponse'}{$msgId}{requestType};
@@ -1270,6 +1483,11 @@ sub HM485_ProcessResponse($$$) {
 		} else {
 		 	HM485_CheckForAutocreate($ioHash, $hmwId, $requestType, $msgData);
 		}
+		
+		#PFE BEGIN
+		#Message queue processing
+	    HM485_QueueStepSuccess($msgId);
+		#PFE END
 
 	} elsif ($ioHash->{'.waitForAck'}{$msgId}{hmwId}) {
 		my $requestType = $ioHash->{'.waitForAck'}{$msgId}{requestType};
@@ -1389,7 +1607,7 @@ sub HM485_ProcessEvent($$) {
 
 	my $hmwId = substr( $msgData, 10, 8);
 	$msgData  = (length($msgData) > 17) ? substr($msgData, 18) : '';
-	# HM485::Util::HM485_Log( 'HM485_ProcessEvent: hmwId = ' . $hmwId . ' msgData = ' . $msgData);
+	HM485::Util::HM485_Log( 'HM485_ProcessEvent: hmwId = ' . $hmwId . ' msgData = ' . $msgData);
 
 	if ($msgData) {
 		my $devHash = $modules{HM485}{defptr}{$hmwId};
@@ -1412,19 +1630,22 @@ sub HM485_ProcessEvent($$) {
 				}
 			}
 			# Bei Channels vom Typ KEY das Reading PRESS_SHORT oder PRESS_LONG loeschen
-			my $chNr	= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
-			my $chTyp 	= HM485::Device::getChannelType( $deviceKey, $chNr);
-			if ( $chTyp eq 'key') {
-				my $chHash = HM485_GetHashByHmwid( $hmwId . '_' . $chNr);
-				my $chName = $chHash->{NAME};
-				if ( defined( ReadingsVal( $chName, 'press_short', undef))) {
-					fhem( "deletereading $chName press_short");
-				} elsif ( defined( ReadingsVal( $chName, 'press_long', undef))) {
-					fhem( "deletereading $chName press_long");
-				} else {
-					# kein reading zu loeschen
-				}
-			}
+			# PFE BEGIN (according to Ralf9)
+			# Wozu das reading loeschen?
+			# my $chNr	= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
+			# my $chTyp 	= HM485::Device::getChannelType( $deviceKey, $chNr);
+			# if ( $chTyp eq 'key') {
+				# my $chHash = HM485_GetHashByHmwid( $hmwId . '_' . $chNr);
+				# my $chName = $chHash->{NAME};
+				# if ( defined( ReadingsVal( $chName, 'press_short', undef))) {
+					# fhem( "deletereading $chName press_short");
+				# } elsif ( defined( ReadingsVal( $chName, 'press_long', undef))) {
+					# fhem( "deletereading $chName press_long");
+				# } else {
+					# # kein reading zu loeschen
+				# }
+			# }
+			# PFE END
 		} else {
 			# my $type = substr($msgData, 0, 2);
 			HM485_CheckForAutocreate($ioHash, $hmwId);
@@ -1520,6 +1741,7 @@ sub HM485_SendCommand($$$;$) {
 		
 		my %params = (hash => $devHash, hmwId => $hmwId, data => $data, ack => $onlyAck);
 		InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
+		HM485::Util::logger( 'HM485_SendCommand',5, $data);
 	}
 } 
 
@@ -1565,7 +1787,7 @@ sub HM485_DoSendCommand($) {
 	my $onlyAck		= $paramsHash->{'ack'};
 
 	my %params      = (target => $hmwId, data   => $data);
-
+	
 	# send command to device and get the request id
 	my $requestId = IOWrite($hash, HM485::CMD_SEND, \%params);
 
@@ -1587,6 +1809,10 @@ sub HM485_DoSendCommand($) {
 		$ioHash->{'.waitForAck'}{$requestId}{hmwId}       = $hmwId;
 		$ioHash->{'.waitForAck'}{$requestId}{requestData} = substr($data, 2);
 	}
+	#PFE BEGIN
+	#Tell Queue system
+	HM485_QueueSetRequestId($requestId);
+	#PFE END
 }
 
 =head2
@@ -1597,63 +1823,100 @@ sub HM485_DoSendCommand($) {
 	@param	string  the message data
 	@param	string  action type such us response, frame, ...
 =cut
+# PFE BEGIN
+# Etwas aufgeraeumt 
+# sub HM485_ProcessChannelState($$$$) {
+	# my ($hash, $hmwId, $msgData, $actionType) = @_;
+
+# #print Dumper($msgData);
+	# my $name = $hash->{NAME};
+	# my $retval = undef;
+	# if ($msgData) {
+		# if ($hash->{MODEL}) {
+			# # HM485::Util::HM485_Log( 'HM485_ProcessChannelState: name1 = ' . $name . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
+			# my $deviceKey	= HM485::Device::getDeviceKeyFromHash($hash);
+			# my $chNr		= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
+			# my $chtyp 		= HM485::Device::getChannelType( $deviceKey, $chNr);
+			# # HM485::Util::HM485_Log( 'HM485_ProcessChannelState: chtyp = ' . $chtyp);
+			# if ( $chtyp) {
+				# my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);	# hash, 690E03FF, response
+				# if ( uc( $deviceKey) eq 'HMW_IO12_SW14_DR') {
+					# # Eeeprom Daten zur Ueberpruefung ausgeben
+					# if ($hash->{READINGS}{'.eeprom_0000'}{VAL}) {
+					# #	HM485::Util::HM485_Log( 'HM485_ProcessChannelState hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
+						# HM485::Util::logger( 'HM485_ProcessChannelState', 5, ' hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
+					# }
+				# }
+					# #   valueHash->ch = 21,
+					# #			 ->params{state}{val} = $value
+					# #			 ->type = 69
+					# #			 ->event = 1
+					# #			 ->id = INFO_LEVEL
+								 
+				# HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'name2 = ' . $name . ' hmwId = ' . $hmwId . ' Channel = ' . $valueHash->{ch} . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
+				# #if ($valueHash) {
+				# #	foreach my $vh (keys %{$valueHash}) {
+				# #		HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . ' = ' . $valueHash->{$vh});
+				# #		if ( $valueHash->{ch} gt '00') {
+				# #			if ( ref( $valueHash->{$vh}) eq 'HASH') {
+				# #				my $param = $valueHash->{$vh};
+				# #				foreach my $par (keys %{$param}) {
+				# #					HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . ' = ' . $param->{$par});
+				# #					if ( ref( $param->{$par}) eq 'HASH') {
+				# #						my $para = $param->{$par};
+				# #						foreach my $pa (keys %{$para}) {
+				# #							HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . '->' . $pa . ' = ' . $para->{$pa});
+				# #						}
+				# #					}
+				# #				}
+				# #			}
+				# #		}
+				# #	}
+				# #}
+				# if ($valueHash->{ch}) {
+					# my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
+					# HM485_ChannelUpdate( $chHash, $valueHash->{value});
+				# }
+			# }
+		# }
+	# }
+	# return;
+# }
+
+
 sub HM485_ProcessChannelState($$$$) {
 	my ($hash, $hmwId, $msgData, $actionType) = @_;
 
-#print Dumper($msgData);
-	my $name = $hash->{NAME};
-	my $retval = undef;
-	if ($msgData) {
-		if ($hash->{MODEL}) {
-			# HM485::Util::HM485_Log( 'HM485_ProcessChannelState: name1 = ' . $name . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
-			my $deviceKey	= HM485::Device::getDeviceKeyFromHash($hash);
-			my $chNr		= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
-			my $chtyp 		= HM485::Device::getChannelType( $deviceKey, $chNr);
-			# HM485::Util::HM485_Log( 'HM485_ProcessChannelState: chtyp = ' . $chtyp);
-			if ( $chtyp) {
-				my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);	# hash, 690E03FF, response
-				if ( uc( $deviceKey) eq 'HMW_IO12_SW14_DR') {
-					# Eeeprom Daten zur Ueberpruefung ausgeben
-					if ($hash->{READINGS}{'.eeprom_0000'}{VAL}) {
-					#	HM485::Util::HM485_Log( 'HM485_ProcessChannelState hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
-						HM485::Util::logger( 'HM485_ProcessChannelState', 5, ' hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
-					}
-				}
-					#   valueHash->ch = 21,
-					#			 ->params{state}{val} = $value
-					#			 ->type = 69
-					#			 ->event = 1
-					#			 ->id = INFO_LEVEL
-								 
-				HM485::Util::logger( 'HM485_ProcessChannelState', 5, 'name2 = ' . $name . ' hmwId = ' . $hmwId . ' Channel = ' . $valueHash->{ch} . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
-				#if ($valueHash) {
-				#	foreach my $vh (keys %{$valueHash}) {
-				#		HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . ' = ' . $valueHash->{$vh});
-				#		if ( $valueHash->{ch} gt '00') {
-				#			if ( ref( $valueHash->{$vh}) eq 'HASH') {
-				#				my $param = $valueHash->{$vh};
-				#				foreach my $par (keys %{$param}) {
-				#					HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . ' = ' . $param->{$par});
-				#					if ( ref( $param->{$par}) eq 'HASH') {
-				#						my $para = $param->{$par};
-				#						foreach my $pa (keys %{$para}) {
-				#							HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . '->' . $pa . ' = ' . $para->{$pa});
-				#						}
-				#					}
-				#				}
-				#			}
-				#		}
-				#	}
-				#}
-				if ($valueHash->{ch}) {
-					my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
-					HM485_ChannelUpdate( $chHash, $valueHash->{value});
-				}
-			}
-		}
+    # device and message ok?
+	if(!$msgData) {
+	  HM485::Util::logger( 'HM485_ProcessChannelState', 3, ' hmwId = ' . $hmwId . ' No message');
+	  return;
 	}
-	return;
+	if(!$hash->{MODEL}) {
+	  HM485::Util::logger( 'HM485_ProcessChannelState', 3, ' hmwId = ' . $hmwId . ' No model');
+	  return;
+	}
+	# parse frame data, this also knows whether there is a channel
+	my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);	# hash, 690E03FF, response
+	# is there a channel?
+	# (This could be an announce message, which does not have channels.)
+	if(!defined($valueHash->{ch})) {
+	  HM485::Util::logger( 'HM485_ProcessChannelState', 5, ' hmwId = ' . $hmwId . ' No channel');
+	  return;
+	}
+	
+	# HM485::Util::HM485_Log( 'HM485_ProcessChannelState: name1 = ' . $name . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
+	#   valueHash->ch = 21,
+	#			 ->params{state}{val} = $value
+	#			 ->type = 69
+	#			 ->event = 1
+	#			 ->id = INFO_LEVEL
+								 
+	HM485::Util::logger( 'HM485_ProcessChannelState', 5, 'name2 = ' . $hash->{NAME} . ' hmwId = ' . $hmwId . ' Channel = ' . $valueHash->{ch} . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
+	my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
+	HM485_ChannelUpdate( $chHash, $valueHash->{value});
 }
+# PFE END
 
 =head2
 	Dispatch channel update by InternalTimer
@@ -1701,50 +1964,56 @@ sub HM485_ChannelDoUpdate($) {
 		if (defined($value)) {
 			# we trigger events only if necesary
 			HM485::Util::logger( 'HM485_ChannelDoUpdate', 5, 'valueKey = ' . $valueKey . ' value = ' . $value . ' Alter Wert = ' . $chHash->{READINGS}{$valueKey}{VAL});
-			if (!defined($chHash->{READINGS}{$valueKey}{VAL}) ||
-			    $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
+			# PFE BEGIN
+			# Eigentlich kann FHEM das zentral viel besser...
+			# if (!defined($chHash->{READINGS}{$valueKey}{VAL}) ||
+			    # $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
 
-				my $inter = AttrVal( $name, 'event-min-interval', 0);
-				if ( $inter > 0.1) {
-					my $lastTime = time_str2num( ReadingsTimestamp( $name, $valueKey, 0 ));
-					my $interval = int( time) - $lastTime;
-					$doTrigger 	 = ( $interval - $inter) > 0 ? 1 : 0;
-				}
+				# my $inter = AttrVal( $name, 'event-min-interval', 0);
+				# if ( $inter > 0.1) {
+					# my $lastTime = time_str2num( ReadingsTimestamp( $name, $valueKey, 0 ));
+					# my $interval = int( time) - $lastTime;
+					# $doTrigger 	 = ( $interval - $inter) > 0 ? 1 : 0;
+				# }
 				
-				my @onChangeArr = ();
-				my $onChange = AttrVal( $name, 'event-on-change-reading', '');
-				if ( index( $onChange, " ") == 0 && length( $onChange) > 0) {
-					$onChangeArr[0] = $onChange;
-				} elsif ( length( $onChange) > 0) {
-					@onChangeArr = split( ' ', $onChange);
-				}
-				foreach (@onChangeArr){
-					if ( $valueKey eq "$_"){
-						# HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'valueKey = ' . $valueKey . ' value = ' . $value . ' onChange ' . $_);
-						if ( $valueKey eq 'press_long') {
-							if ( defined( $chHash->{'.press_long'}) && $chHash->{'.press_long'}{VAL} eq $value) {
-								$doTrigger = 0;
-								# HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'doTrigger = 0');
-							} else {
-								$chHash->{'.press_long'}{VAL} = $value;
-							}
-						}
-					}
-				}
+				# my @onChangeArr = ();
+				# my $onChange = AttrVal( $name, 'event-on-change-reading', '');
+				# if ( index( $onChange, " ") == 0 && length( $onChange) > 0) {
+					# $onChangeArr[0] = $onChange;
+				# } elsif ( length( $onChange) > 0) {
+					# @onChangeArr = split( ' ', $onChange);
+				# }
+				# foreach (@onChangeArr){
+					# if ( $valueKey eq "$_"){
+						# # HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'valueKey = ' . $valueKey . ' value = ' . $value . ' onChange ' . $_);
+						# if ( $valueKey eq 'press_long') {
+							# if ( defined( $chHash->{'.press_long'}) && $chHash->{'.press_long'}{VAL} eq $value) {
+								# $doTrigger = 0;
+								# # HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'doTrigger = 0');
+							# } else {
+								# $chHash->{'.press_long'}{VAL} = $value;
+							# }
+						# }
+					# }
+				# }
+				# PFE END
 				
 #				$chHash->{'READINGS'}{'state'}{'VAL'} = $value;
 #			    $chHash->{'READINGS'}{'state'}{'NAME'} = $name;
 #			    $chHash->{'READINGS'}{'state'}{'TIME'} = TimeNow();
-				if ( ( $onChange && $doTrigger) || length( $onChange) == 0) {
+				# if ( ( $onChange && $doTrigger) || length( $onChange) == 0) {
 					readingsBulkUpdate( $chHash, $valueKey, $value);
 			
 					HM485::Util::logger(
-						HM485::LOGTAG_HM485, 3, $name . ': ' . $valueKey . ' -> ' . $value
+						HM485::LOGTAG_HM485, 4, $name . ': ' . $valueKey . ' -> ' . $value
 					);
-				}
+				#}
 				# State noch aktuallisieren
 				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: name = ' . $name . ' alter State = ' . $chHash->{STATE} . ' valueKey = ' . $valueKey . ' value = ' . $value);
-				if ( defined( $chHash->{STATE}) && $chHash->{STATE}) {
+				# PFE BEGIN (according to Ralf9)	
+				# Not only if STATE already exists...
+				# if ( defined( $chHash->{STATE}) && $chHash->{STATE}) {
+				# PFE END
 					if ( $valueKey eq 'state' || $valueKey eq 'sensor') {
 			#			if ( HM485::Device::isNumber($value)) {
 			#				if ( $value == 0) {
@@ -1757,10 +2026,10 @@ sub HM485_ChannelDoUpdate($) {
 			#				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen STATE auf ' . lc( $value));
 			#			}
 					} else {
-						$chHash->{STATE} = $valueKey . '_' . $value;
+							$chHash->{STATE} = $valueKey . '_' . $value;
 					}
-				}
-			}
+				#}
+			#}
 		}
 	}
 
@@ -1843,6 +2112,170 @@ sub HM485_FrequencyFormField($$$) {
 	return $retVal;
 }
 
+#PFE BEGIN
 
+# TODO: Das ganze funktioniert wahrscheinlich nicht,
+#       wenn irgend ein anderer Befehl (nicht queued)
+#       zwischendurch ausgefuehrt wird.
+# TODO: Auch fuer Befehle, die nur mit ACK beantwortet werden
+
+# Create new entry in the list of message queues
+# Parameter:
+# Success-Callback Name
+# Success-Callback Parameters
+# Failure-Callback Name
+# Failure-Callback Parameters 
+sub HM485_GetNewMsgQueue($$$$) {
+  my ($successFn, $successParams, $failureFn, $failureParams) = @_;
+  HM485::Util::logger( 'HM485_GetNewMsgQueue',5, "bla");
+  return { successFn => $successFn, successParams => $successParams,
+           failureFn => $failureFn, failureParams => $failureParams,
+		   entries => [], currentIndex => -1 };
+}
+
+# append command to queue
+sub HM485_QueueCommand($$$$;$) {
+	my ($queue, $hash, $hmwId, $data, $onlyAck) = @_;
+	HM485::Util::logger( 'HM485_QueueCommand',5, $data);
+	$onlyAck = $onlyAck ? $onlyAck : 0;
+	${$queue->{entries}}[$#{$queue->{entries}} +1] = {hash => $hash, hmwId => $hmwId, data => $data, onlyAck => $onlyAck};
+}	
+
+# This function is a wrapper to be able to call 
+# queue success callbacks via InternalTimer
+sub HM485_QueueSuccessViaTimer($){
+  my ($queue) = @_;
+  no strict "refs";
+  &{$queue->{successFn}}(@{$queue->{successParams}});
+  use strict "refs";
+}
+
+# start processing a queue 
+sub HM485_QueueStart($) {
+  my ($queue) = @_;
+  # empty queues are not really started, we just call the success function
+     #success callback function
+  if($#{$queue->{entries}} == -1) {     
+	if($queue->{successFn}) {
+	  # the success function is called via internal timer
+	  # because it is usually called asynchrnously for non-empty queues
+	  InternalTimer(gettimeofday(), 'HM485_QueueSuccessViaTimer', $queue, 0);
+	};  
+	return;
+  };
+  
+  push(@msgQueueList, $queue);
+  HM485::Util::logger( 'HM485_QueueStart',5, "Num: ".$#msgQueueList);
+  if($#msgQueueList == 0) {
+    # HM485::Util::logger( 'HM485_QueueStart',3, 'Call step');
+    # This is the first one, need to start
+	HM485_QueueProcessStep();
+  }
+};
+ 
+
+#next step in queue processing
+#called for first step or if step before was successful
+sub HM485_QueueProcessStep() {
+  if($#msgQueueList < 0){ return };  # ready, no Queues
+# TODO: smarter order of processing 
+  $currentQueueIndex = 0;
+  my $currentQueue = $msgQueueList[$currentQueueIndex];
+  # process next entry in this queue
+  $currentQueue->{currentIndex}++;
+  my $currentEntry = ${$currentQueue->{entries}}[$currentQueue->{currentIndex}];
+  
+  HM485::Util::logger( 'HM485_QueueProcessStep',5, $currentEntry);
+  HM485_SendCommand($currentEntry->{hash}, $currentEntry->{hmwId}, 
+                    $currentEntry->{data}, $currentEntry->{onlyAck});
+}
+
+
+# set request ID into current queue
+sub HM485_QueueSetRequestId($) {
+  my ($requestId) = @_;
+  HM485::Util::logger( 'HM485_QueueSetRequestId',5, 'start');
+  if($#msgQueueList < 0){ return };  # ready, no Queues
+  my $currentQueue = $msgQueueList[$currentQueueIndex];
+  $currentQueue->{currentRequestId} = $requestId;
+  HM485::Util::logger( 'HM485_QueueSetRequestId',5, 'Id: '. $requestId);
+}
+
+#called from ProcessResponse
+sub HM485_QueueStepSuccess($) {
+   my ($requestId) = @_;
+  # are we in queue processing?
+  if($currentQueueIndex < 0) { return; };
+  HM485::Util::logger( 'HM485_QueueStepSuccess',5, 'called');
+  # if($requestId) {
+    # HM485::Util::logger( 'HM485_QueueStepSuccess',3, 'Request ID defined');
+	# HM485::Util::logger( 'HM485_QueueStepSuccess',3, 'Request ID: '.$requestId);
+  # }else{
+	# HM485::Util::logger( 'HM485_QueueStepSuccess',3, 'Request ID undefined');  
+  # }
+  # ok, go to the next queue entry
+  # get current queue
+  my $currentQueue = $msgQueueList[$currentQueueIndex]; 
+  # correct request?
+  if($currentQueue->{currentRequestId} != $requestId) { 
+    HM485::Util::logger( 'HM485_QueueStepSuccess',5, 'Foreign request ID: '.$requestId.' '.$currentQueue->{currentRequestId});
+    return; 
+  };
+  # have we processed the last entry?
+  HM485::Util::logger( 'HM485_QueueStepSuccess',5, 'Entries: '.$#{$currentQueue->{entries}}.' Index: '.$currentQueue->{currentIndex});
+  if($#{$currentQueue->{entries}} == $currentQueue->{currentIndex}) {
+    # yes, last entry. Remove from list of queues
+	HM485::Util::logger( 'HM485_QueueStepSuccess',5, 'Splice1: '.$#msgQueueList);
+	splice(@msgQueueList,$currentQueueIndex,1);
+	HM485::Util::logger( 'HM485_QueueStepSuccess',5, 'Splice2: '.$#msgQueueList);
+	$currentQueueIndex = -1;
+	# process next entry. This is done in any case as there might be other queues
+	# however, it needs to be done before the callback as this might already create 
+	# a new queue and call queueStart
+	# HM485::Util::logger( 'HM485_QueueStepSuccess',3, 'Call step');
+	HM485_QueueProcessStep();
+    #success callback function
+	if($currentQueue->{successFn}) {
+	  no strict "refs";
+      &{$currentQueue->{successFn}}(@{$currentQueue->{successParams}});
+	  use strict "refs";
+	};  
+  }else{
+  # process next entry. This is done in any case as there might be other queues
+    # HM485::Util::logger( 'HM485_QueueStepSuccess',3, 'Call step');
+    HM485_QueueProcessStep();
+  };
+}
+
+
+#called from SetStateNack
+sub HM485_QueueStepFailed($) {
+  my ($requestId) = @_;
+  HM485::Util::logger( 'HM485_QueueStepFailed',5, 'Request ID: '.$requestId);
+  if($currentQueueIndex < 0) { return };
+  # get current queue
+  my $currentQueue = $msgQueueList[$currentQueueIndex]; 
+  # correct request?
+  if($currentQueue->{currentRequestId} != $requestId) { 
+    HM485::Util::logger( 'HM485_QueueStepFailed',5, 'Foreign request ID');
+    return; 
+  };  
+  # remove complete queue
+  splice(@msgQueueList,$currentQueueIndex,1);
+  $currentQueueIndex = -1;
+  # next step, there might be multiple queues
+  # call this now, just in case the callback creates a new queue
+  HM485::Util::logger( 'HM485_QueueStepFailed',3, 'Call step');
+  HM485_QueueProcessStep();
+  # failure callback
+  if($currentQueue->{failureFn}) {
+    no strict "refs";
+    &{$currentQueue->{failureFn}}(@{$currentQueue->{failureParams}});
+	use strict "refs";
+  };	
+
+}
+
+#PFE END
 
 1;
