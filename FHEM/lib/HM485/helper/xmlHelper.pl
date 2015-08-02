@@ -255,38 +255,44 @@ sub reMap($) {
 				
 			}
 			if ( $param eq 'supported_types') {
-				my $typeHash = $hash->{$param};
-				my $newHash = {};
-				my $conv	= 0;
-				foreach my $type (keys %{$typeHash}) {
-					if ( ref($typeHash->{$type}) eq 'HASH') {
-						my $idHash = $typeHash->{$type};
-						#Convert_Log( 'reMap: Anzahl = ' . scalar (keys %{$idHash}));
-						if ( (scalar (keys %{$idHash})) < 3) {
-						$conv = 1;
-						foreach my $id1 (keys %{$idHash}) {
-							#Convert_Log( 'reMap: id1 = ' . $id1);
-							if ( index( $id1, ' ') > -1) {
-								my $t = $idHash->{$id1};
-								if ( defined( $t->{'id'}) && $t->{'id'}) {
-									my $id = $t->{'id'};
-									$id =~ s/-/_/g;
-									delete( $t->{'id'});
-									my $name = $id1;
-									
-									$newHash->{$id} = $idHash->{$id1};
-									$newHash->{$id}->{name} = $name;
-									
-								}
-							}
-						}
-						}
-					}
-				}	
-				if ( $conv) {
-				#Convert_Log( 'reMap: conv = ' . $conv);
-				$hash->{$param} = reMap($newHash);
+			    # Bei mehreren supported types bleibt ein "type" uebrig
+				# TODO: Vielleicht kann man das gleich von Anfang an 
+				#       richtig machen und nicht nachtraeglich korrigieren
+				if(defined($hash->{$param}{'type'})) {
+				  $hash->{$param} = $hash->{$param}{'type'};
 				}
+				# my $typeHash = $hash->{$param};
+				# my $newHash = {};
+				# my $conv	= 0;
+				# foreach my $type (keys %{$typeHash}) {
+					# if ( ref($typeHash->{$type}) eq 'HASH') {
+						# my $idHash = $typeHash->{$type};
+						# #Convert_Log( 'reMap: Anzahl = ' . scalar (keys %{$idHash}));
+						# if ( (scalar (keys %{$idHash})) < 3) {
+						# $conv = 1;
+						# foreach my $id1 (keys %{$idHash}) {
+							# #Convert_Log( 'reMap: id1 = ' . $id1);
+							# if ( index( $id1, ' ') > -1) {
+								# my $t = $idHash->{$id1};
+								# if ( defined( $t->{'id'}) && $t->{'id'}) {
+									# my $id = $t->{'id'};
+									# $id =~ s/-/_/g;
+									# delete( $t->{'id'});
+									# my $name = $id1;
+									
+									# $newHash->{$id} = $idHash->{$id1};
+									# $newHash->{$id}->{name} = $name;
+									
+								# }
+							# }
+						# }
+						# }
+					# }
+				# }	
+				# if ( $conv) {
+				#Convert_Log( 'reMap: conv = ' . $conv);
+				$hash->{$param} = reMap($hash->{$param});
+				#}
 			}
 			
 		} elsif (ref($hash->{$param}) eq 'ARRAY') {
