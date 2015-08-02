@@ -1,6 +1,6 @@
 HM585 - Modul for Homematic Wired (HM485) communication
 =======================================================
-Von Dirk Hoffmann <dirk@FHEM_Forum (forum.fhem.de)>
+Von Dirk Hoffmann <dirk@FHEM_Forum (forum.fhem.de)>.
 
 V 0.5.140
 

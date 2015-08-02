@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.6.4
+	Version 0.7.0
 	erste Ziffer
 	0 : In Entwicklung
 		nicht alle Module werden unterstuetzt
@@ -111,7 +111,7 @@ my %setsDev = ('reset' => 'noArg');
 # Default set comands for channel
 my %setsCh = ();
 
-# Default set comands for device
+# Default get commands for device
 my %getsDev = (
 	'info'    => 'noArg', # maybe only for debugging
 	'config'  => 'all',
@@ -144,19 +144,19 @@ my $currentQueueIndex = -1; #index of current queue
 sub HM485_Initialize($) {
 	my ($hash) = @_;
 
-	$hash->{Match}          = '^FD.*';
-	$hash->{DefFn}          = 'HM485_Define';
-	$hash->{UndefFn}        = 'HM485_Undefine';
-	$hash->{RenameFn}       = 'HM485_Rename';
-	$hash->{ParseFn}        = 'HM485_Parse';
-	$hash->{SetFn}          = 'HM485_Set';
-	$hash->{GetFn}          = 'HM485_Get';
-	$hash->{AttrFn}         = 'HM485_Attr';
+	$hash->{'Match'}          = '^FD.*';
+	$hash->{'DefFn'}          = 'HM485_Define';
+	$hash->{'UndefFn'}        = 'HM485_Undefine';
+	$hash->{'RenameFn'}       = 'HM485_Rename';
+	$hash->{'ParseFn'}        = 'HM485_Parse';
+	$hash->{'SetFn'}          = 'HM485_Set';
+	$hash->{'GetFn'}          = 'HM485_Get';
+	$hash->{'AttrFn'}         = 'HM485_Attr';
 	
 	# For FHEMWEB
-	$hash->{FW_detailFn}    = 'HM485_FhemwebShowConfig';
+	$hash->{'FW_detailFn'}    = 'HM485_FhemwebShowConfig';
 
-	$hash->{AttrList}       = 'do_not_notify:0,1 ' .
+	$hash->{'AttrList'}       = 'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
 	                          'model:' . HM485::Device::getModelList() . ' ' .
 	                          'subType firmwareVersion setList event-min-interval ' .
@@ -165,7 +165,7 @@ sub HM485_Initialize($) {
 	#@attrListRO = ('serialNr', 'firmware', 'hardwareType', 'model' , 'modelName');
 	@attrListRO = ('serialNr', 'firmware');
 	
-	$data{webCmdFn}{textField}  = "HM485_FrequencyFormField";
+	$data{'webCmdFn'}{'textField'}  = "HM485_FrequencyFormField";
 }
 
 =head2
@@ -189,19 +189,19 @@ sub HM485_Define($$) {
 	if (int(@a)!=3 || (defined($a[2]) && $a[2] !~ m/^[A-F0-9]{8}_{0,1}[A-F0-9]{0,2}$/i)) {
 		$msg = 'wrong syntax: define <name> HM485 <8-digit-hex-code>[_<2-digit-hex-code>]';
 
-	} elsif ($modules{HM485}{defptr}{$hmwId}) {
+	} elsif ($modules{'HM485'}{'defptr'}{$hmwId}) {
 		$msg = 'Device ' . $hmwId . ' already defined.'
 
 	} else {
-		my $name = $hash->{NAME};
+		my $name = $hash->{'NAME'};
 		
 		if ($chNr) {
 			
 			# We defined a channel of a device
-			my $devHash = $modules{HM485}{defptr}{$addr};
+			my $devHash = $modules{'HM485'}{'defptr'}{$addr};
 			
 			if ($devHash) {
-				my $devName = $devHash->{NAME};
+				my $devName = $devHash->{'NAME'};
 				
 				$devHash->{'channel_' .  $chNr} = $name;
 				# $devHash->{'channel_' .  $chNr} = $a[0];
@@ -237,10 +237,10 @@ sub HM485_Define($$) {
 
 		if (!$msg) {
 			
-			$modules{HM485}{defptr}{$hmwId} = $hash;
-			$hash->{DEF} = $hmwId;
+			$modules{'HM485'}{'defptr'}{$hmwId} = $hash;
+			$hash->{'DEF'} = $hmwId;
 			
-			if ( defined($hash->{IODev}{STATE}) && length($hmwId) == 8) {
+			if ( defined($hash->{'IODev'}{'STATE'}) && length($hmwId) == 8) {
 			
 #PFE BEGIN
 				#PFE BEGIN
@@ -873,6 +873,9 @@ sub HM485_GetInfos($$$;$) {
 	@param	string  the HMW id
 =cut
 
+
+
+
 #PFE BEGIN
 
 # sub HM485_GetConfig($$) {
@@ -959,6 +962,9 @@ sub HM485_CreateAndReadChannels($$) {
 }
 
 
+
+
+
 sub HM485_GetConfig($$) {
 	my ($hash, $hmwId) = @_;
 	if ( !$hmwId) {
@@ -1017,8 +1023,12 @@ sub HM485_GetConfig($$) {
 sub HM485_CreateChannels($) {
 	my ($hash, $hwType) = @_;
 
+
+
+
 	my $name  = $hash->{NAME};
 	my $hmwId = $hash->{DEF};
+
 
 	# get related subdevices for this device from config
 	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
@@ -1107,7 +1117,6 @@ sub HM485_SetConfig($@) {
 		if (scalar (keys %{$setConfigHash})) {
 			$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
 			$configHash = $configHash->{parameter};
-			$configHash = HM485::ConfigurationManager::getConfigSetting($configHash);  # Hash's mit dem Attribut hidden werden geloescht
 			
 			foreach my $setConfig (keys %{$setConfigHash}) {
 				my $configTypeHash = $configHash->{$setConfig};	# hash von behaviour
@@ -1208,6 +1217,9 @@ sub HM485_SetChannelState($$$) {
 	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
 	my $chType         = HM485::Device::getChannelType($deviceKey, $chNr);
 
+
+
+
 	# HM485::Util::Logger( 'HM485_SetChannelState', 3,' hmwId = ' . $hmwId . ' chNr = ' . $chNr . ' cmd = ' . $cmd . ' chType = ' . $chType );
 #	my $values;
 	my ($behaviour,$bool) = HM485::Device::getChannelBehaviour($hash);
@@ -1273,6 +1285,7 @@ sub HM485_SetChannelState($$$) {
 	
 }
 
+
 sub HM485_ValidateSettings($$$$) {
 	my ($configHash, $cmdSet, $value, $deviceKey) = @_;
 	my $msg = '';
@@ -1301,10 +1314,20 @@ sub HM485_ValidateSettings($$$$) {
 					$msg = 'must be 1 or 0';
 				}
 
-			} elsif ($logical->{type} eq 'option') {
-				my @optionValues = HM485::ConfigurationManager::optionHashToArray( $logical->{option});
-				if ( !(grep $_ eq $value, @optionValues) ) {
-					$msg = 'must be on of: ' . join(', ', @optionValues);					
+			} elsif ($logical->{'type'} eq 'option') {
+				my $optionValues = HM485::ConfigurationManager::optionsToList( $logical->{option});
+				my $found = 0;
+				#Todo option to Value
+				my @Values = map {s/ //g; $_; } split(',', $optionValues);
+				foreach my $val (@Values) {
+					my ($item,$num) = split(':',$val);	
+					if ($num eq $value) {
+						$found = 1;
+					}				
+				}
+
+				if ($found eq '0') {
+					$msg = 'must be one of: ' . join(', ', $optionValues);					
 				} 
 			}
 		}

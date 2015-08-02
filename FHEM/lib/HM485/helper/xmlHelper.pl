@@ -6,7 +6,7 @@ XMLHelper.pl Version 0.12 vom 03.04.2015
 
 =head1 SYNOPSIS
 
-XMLHelper.pl -imputFile </input/path> -outputPath </output/path> [-indentStyle <0..2>]
+XMLHelper.pl -inputFile </input/path> -outputPath </output/path> [-indentStyle <0..2>]
 
 =head1 OPTIONS
 
@@ -119,7 +119,8 @@ sub convertFile($$) {
 	
 	print $inputFile . ' -> ' . $outputFile . "\n";
 	
-	my $xml = XMLin($inputFile);
+	my $xml = XMLin("$inputFile", KeyAttr => {});
+	# my $xml = XMLin("$inputFile", KeyAttr => {'logical type'=>"option"});
 	$xml = reMap($xml);
 	$xml->{'frames'} = $xml->{'frames'}->{'frame'};
 	$xml->{'channels'} = $xml->{'channels'}->{'channel'};
@@ -162,6 +163,8 @@ sub convertFile($$) {
 	
 	open(FH, ">$outputFile") or die('Error opening "' . $outputFile . '"');
 	print FH $content;
+	# print FH Dumper($xml);
+	
 	#print FH "@{[ %($xml) ]}\n";
 	#foreach my $key (keys %{$xml}) {
 	#	if (ref($xml->{$key}) eq 'HASH') {
@@ -241,7 +244,9 @@ sub reMap($) {
 				delete ($hash->{$param});
 
 			} else {
-				if (defined($hash->{$param}{'type'}) && ($hash->{$param}{'type'} eq 'array')) {
+				if (defined($hash->{$param}{'type'}) && ($hash->{$param}{'type'} eq 'option')) {
+					#print Dumper ("remap",$hash->{$param}{option});
+				} elsif (defined($hash->{$param}{'type'}) && ($hash->{$param}{'type'} eq 'array')) {
 					#delete ($hash->{$param}{'type'});	
 					$hash->{$param} = $hash->{$param}{$param};
 				} else {

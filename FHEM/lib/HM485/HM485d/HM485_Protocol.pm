@@ -494,6 +494,11 @@ sub parseFrame() {
 
 	my $frameFromOtherCentralUnit = 0;
 	
+	HM485::Util::logger(LOGTAG, 8, 'Current Queue: '.$currentQueueId);
+	if(!exists($self->{sendQueue}{$currentQueueId})) {
+	  HM485::Util::logger(LOGTAG, 8, '...does not exist');
+	}
+	
 	if (exists($addressLastMsgMap{$RD{sender}}) &&
 	    $addressLastMsgMap{$RD{sender}}{cb} == $RD{cb} &&
 	    $addressLastMsgMap{$RD{sender}}{data} eq $RD{data} &&
@@ -592,7 +597,7 @@ sub parseFrame() {
 	
 				# Dont dispatch frames from other CCU
 				if (!$frameFromOtherCentralUnit) {
-	
+	                HM485::Util::logger(LOGTAG, 8, 'Dispatch Event');
 					# Dispatch frame
 					$self->sendEvent(
 						$RD{target}, $RD{cb}, $RD{sender}, substr($RD{data}, 0, -2)

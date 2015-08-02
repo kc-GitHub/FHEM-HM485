@@ -210,7 +210,7 @@ sub HM485_LAN_Read($) {
 	my $buffer = DevIo_SimpleRead($hash);
 
 	if ($buffer) {
-		# Remove timer to avoid duplicates
+ 	    # Remove timer to avoid duplicates
 		RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
 		RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
 		
