@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.4
+	Version 0.7.5
 	erste Ziffer
 	0 : In Entwicklung
 		nicht alle Module werden unterstuetzt
@@ -2404,86 +2404,35 @@ sub HM485_ChannelDoUpdate($) {
 	my $valueHash = $params->{valueHash};
 	my $name      = $chHash->{NAME};
 	my $doTrigger = $params->{doTrigger} ? 1 : 0;
+	
+	my $state = undef;  # in case we do not update state anyway, use the last parameter
 
 	HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: name = ' . $name);
 	readingsBeginUpdate($chHash);
-#	print Dumper($valueHash);
 	
 	foreach my $valueKey (keys %{$valueHash}) {
 		my $value = $valueHash->{$valueKey};
 		
 		if (defined($value)) {
-			# we trigger events only if necesary
 			HM485::Util::logger( 'HM485_ChannelDoUpdate', 5, 'valueKey = ' . $valueKey . ' value = ' . $value . ' Alter Wert = ' . $chHash->{READINGS}{$valueKey}{VAL});
-			# PFE BEGIN
-			# Eigentlich kann FHEM das zentral viel besser...
-			# if (!defined($chHash->{READINGS}{$valueKey}{VAL}) ||
-			    # $chHash->{READINGS}{$valueKey}{VAL} ne $value) {
-
-				# my $inter = AttrVal( $name, 'event-min-interval', 0);
-				# if ( $inter > 0.1) {
-					# my $lastTime = time_str2num( ReadingsTimestamp( $name, $valueKey, 0 ));
-					# my $interval = int( time) - $lastTime;
-					# $doTrigger 	 = ( $interval - $inter) > 0 ? 1 : 0;
-				# }
-				
-				# my @onChangeArr = ();
-				# my $onChange = AttrVal( $name, 'event-on-change-reading', '');
-				# if ( index( $onChange, " ") == 0 && length( $onChange) > 0) {
-					# $onChangeArr[0] = $onChange;
-				# } elsif ( length( $onChange) > 0) {
-					# @onChangeArr = split( ' ', $onChange);
-				# }
-				# foreach (@onChangeArr){
-					# if ( $valueKey eq "$_"){
-						# # HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'valueKey = ' . $valueKey . ' value = ' . $value . ' onChange ' . $_);
-						# if ( $valueKey eq 'press_long') {
-							# if ( defined( $chHash->{'.press_long'}) && $chHash->{'.press_long'}{VAL} eq $value) {
-								# $doTrigger = 0;
-								# # HM485::Util::logger( 'HM485_ChannelDoUpdate', 3, 'doTrigger = 0');
-							# } else {
-								# $chHash->{'.press_long'}{VAL} = $value;
-							# }
-						# }
-					# }
-				# }
-				# PFE END
-				
-#				$chHash->{'READINGS'}{'state'}{'VAL'} = $value;
-#			    $chHash->{'READINGS'}{'state'}{'NAME'} = $name;
-#			    $chHash->{'READINGS'}{'state'}{'TIME'} = TimeNow();
-				# if ( ( $onChange && $doTrigger) || length( $onChange) == 0) {
-					readingsBulkUpdate( $chHash, $valueKey, $value);
+	
+			readingsBulkUpdate( $chHash, $valueKey, $value);
 			
-					HM485::Util::logger(
-						HM485::LOGTAG_HM485, 4, $name . ': ' . $valueKey . ' -> ' . $value
-					);
-				#}
-				# State noch aktuallisieren
-				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: name = ' . $name . ' alter State = ' . $chHash->{STATE} . ' valueKey = ' . $valueKey . ' value = ' . $value);
-				# PFE BEGIN (according to Ralf9)	
-				# Not only if STATE already exists...
-				# if ( defined( $chHash->{STATE}) && $chHash->{STATE}) {
-				# PFE END
-					if ( $valueKey eq 'state' || $valueKey eq 'sensor') {
-			#			if ( HM485::Device::isNumber($value)) {
-			#				if ( $value == 0) {
-			#					$chHash->{STATE} = 'off'; 
-			#				} else {
-			#					$chHash->{STATE} = 'on';
-			#				}
-			#			} else {
-							$chHash->{STATE} = lc( $value);
-			#				# HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: setzen STATE auf ' . lc( $value));
-			#			}
-					} else {
-							$chHash->{STATE} = $valueKey . '_' . $value;
-					}
-				#}
-			#}
+			HM485::Util::logger(
+				HM485::LOGTAG_HM485, 4, $name . ': ' . $valueKey . ' -> ' . $value
+			);
+			# State noch aktualisieren
+			if ( $valueKey eq 'state' || $valueKey eq 'sensor') {
+				$state = undef;
+			} else {
+				$state = $valueKey . '_' . $value;
+				
+			}
 		}
 	}
-
+	if(defined($state)) {
+		readingsBulkUpdate( $chHash, 'state', $state);
+	};	
 	readingsEndUpdate($chHash, $doTrigger);
 	
 }
