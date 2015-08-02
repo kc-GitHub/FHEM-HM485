@@ -3,7 +3,7 @@
 	
 =head1 SYNOPSIS
 	Helper module for HomeMatic Wired (HM485) for FHEM
-	contributed by Dirk Hoffmann 2012 - 2013.
+	contributed by Dirk Hoffmann 2012 - 2013
 	$Id$
 
 =head1 DESCRIPTION
@@ -285,6 +285,20 @@ sub getHashKeyBySubkey($$$) {
 
 	return $retVal;
 }
+
+sub convertIdToHash($) {
+	my ($configSettings) = @_;
+	
+	my $ConvertHash = {};
+	my $id = $configSettings->{'id'};
+
+	if ($id) {
+			$ConvertHash->{$id} = $configSettings;
+			#delete $ConvertHash->{$id}{'id'}; wenn ich die id lösche gehts nimmer Warum?
+	}
+	return $ConvertHash;
+}
+
 
 sub HM485_Log($){
 	my ( $LogText) = @_;

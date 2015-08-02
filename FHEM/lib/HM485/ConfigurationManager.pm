@@ -435,25 +435,4 @@ sub convertSettingsToEepromData($$) {
 	return $addressData;
 }
 
-# TODO: wird das verwendet? (honk fragen?)
-sub configToAttr ($) {
-	my ($validatedConfig) = @_;
-	
-	my $retVal = {};
-	
-	#Todo nach Werten im xml.pm suchen
-	if ($validatedConfig->{'behaviour'}) {
-		if ($validatedConfig->{'pulsetime'}) {
-			if ($validatedConfig->{'behaviour'}{'value'} == 0) {
-				$retVal->{'webCmd'} = "frequency";
-				$retVal->{'stateFormat'} = "frequency";
-			} else {
-				$retVal->{'delete'} = "webCmd";
-				$retVal->{'stateFormat'} = "state";
-			}
-		}
-	}
-	
-	return $retVal;
-}
 1;

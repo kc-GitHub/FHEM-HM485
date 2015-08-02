@@ -844,7 +844,9 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	# the server knows what is what...
 	# for Nacks, the queue has already been removed
 	# if ($currentQueueId) {
-	if ($currentQueueId && defined($hash->{sendQueue}{$currentQueueId}{msgId}) && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId) {
+	if ($currentQueueId && defined($hash->{sendQueue}{$currentQueueId}{msgId}) 
+	       && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId
+		   && $msgCmd != HM485::CMD_ALIVE) {  # probably not needed, but no harm either
 	#PFE END
 	    HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Removing Queue '.$currentQueueId);
 		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
