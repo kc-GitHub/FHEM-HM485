@@ -283,48 +283,45 @@ sub removeHiddenConfig($) {
 
 sub convertSettingsToEepromData($$) {
 	my ($hash, $configData) = @_;
+	#print Dumper ("convertSettingsToEepromData",$configData);
 
 	my $adressStart = 0;
 	my $adressStep  = 0;
-	my $masterConfig = {};
-
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 	
 	my $adressOffset = 0;
-	my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
-	if ($chNr > 0) {
-		my $chType = HM485::Device::getChannelType($deviceKey, $chNr);
-		$masterConfig = HM485::Device::getValueFromDefinitions(
-			$deviceKey . '/channels/' . $chType . '/paramset/master/'
+	if ($chNr > 0) { #im channel 0 gibt es nur address index kein address_start oder address_step
+		my $deviceKey    = HM485::Device::getDeviceKeyFromHash($hash);
+		my $chType       = HM485::Device::getChannelType($deviceKey, $chNr);
+		my $masterConfig = HM485::Device::getValueFromDefinitions(
+			$deviceKey . '/channels/' . $chType . '/paramset/master'
 		);
+		#addres step in the other xml Version is serched in getPhysicalAddress
 		$adressStart = $masterConfig->{'address_start'} ? $masterConfig->{'address_start'} : 0;
-		$adressStep  = $masterConfig->{'address_step'}  ? $masterConfig->{'address_step'}  : 1;
+		$adressStep  = $masterConfig->{'address_step'}  ? $masterConfig->{'address_step'} : 1;
 		$adressOffset = $adressStart + ($chNr - 1) * $adressStep;
-	} else {
-	    # TODO: Warum ist das nicht so bei honk?
-		#im channel 0 gibt es nur address index kein address_start oder address_step
-		$masterConfig = HM485::Device::getValueFromDefinitions( $deviceKey . '/paramset/');
+		
+	#my $dbg = sprintf("0x%X",$adressStart);
+	#print Dumper ("convertSettingsToEepromData $deviceKey $chType start :$dbg step:$adressStep offset:$adressOffset");
+		
 	}
 	
 	
 	my $addressData = {};
-	my $oldValue = 0;
-	my $zaehler = 0;
-	my $eepromValue = 0;
-	my $invert = 0;
-	print(Dumper($configData));
 	foreach my $config (keys %{$configData}) {
-		my $configHash = $configData->{$config}{'config'};	#hash von BEHAVIOUR
-		
-		my ($adrId, $size, $littleEndian) = HM485::Device::getPhysicalAdress(	
+		my $configHash     = $configData->{$config}{'config'};
+		my ($adrId, $size, $littleEndian) = HM485::Device::getPhysicalAddress(
 			$hash, $configHash, $adressStart, $adressStep
 		);
+		
 		my $value = $configData->{$config}{'value'};
+		my $optText = undef;
+		
 		if ($configData->{$config}{'config'}{'logical'}{'type'} && 
-		    $configData->{$config}{'config'}{'logical'}{'type'} eq 'option') {
-			#$value = convertOptionToValue(
-			#	$configData->{$config}{'config'}{'logical'}{'option'}, $value
-			#);
+			$configData->{$config}{'config'}{'logical'}{'type'} eq 'option') {
+			# $value = convertOptionToValue(
+			# 	$configData->{$config}{'config'}{'logical'}{'option'}, $value
+			# );
 		} else {
 			$value = HM485::Device::dataConversion(
 				$value, $configData->{$config}{'config'}{'conversion'}, 'to_device'
@@ -332,104 +329,47 @@ sub convertSettingsToEepromData($$) {
 		}
 
 		my $adrKey = int($adrId);
-		if ( !defined( $addressData->{$adrKey})) {
-			$zaehler = 0;
-		}
+
 		if (HM485::Device::isInt($size)) {
 			$addressData->{$adrKey}{'value'} = $value;
 			$addressData->{$adrKey}{'text'} = $config . '=' . $configData->{$config}{'value'};
 			$addressData->{$adrKey}{'size'} = $size;
 		} else {
-			#if ( !defined( $addressData->{$adrKey})) {
-			$eepromValue = HM485::Device::getValueFromEepromData ( $hash, $configHash, $adressStart, $adressStep, 1);
-			$oldValue 	= $eepromValue;	# Wert beinhaltes das ganze Byte
-			if ( $configHash->{logical}{type} eq 'boolean') {
-				$invert = $configHash->{conversion}{invert} ? 1 : 0;
-				$oldValue = (($invert && $oldValue) || (!$invert && !$oldValue)) ? 0 : 1; 
-				$oldValue = ( $oldValue >= 1) ? 1 : 0;
-			} else {
-				$invert = 0;
+			if (!defined($addressData->{$adrKey}{'value'})) {
+				my $eepromValue = HM485::Device::getValueFromEepromData (
+					$hash, $configData->{$config}{'config'}, $adressStart, $adressStep, 1
+				);
+				$addressData->{$adrKey}{'value'} = $eepromValue;
+				$addressData->{$adrKey}{'text'} = '';
+				$addressData->{$adrKey}{'size'} = ceil($size);
 			}
 
-			if (!defined($addressData->{$adrKey}{'value'})) {
-				$addressData->{$adrKey}{'value'} 	= $eepromValue; # alter Wert fuer ein Byte
-				$addressData->{$adrKey}{'text'} = '';
-				$addressData->{$adrKey}{'size'} = ceil($size);  # aufrunden auf naechsthoehere Zahl
-				# wenn eepromValue = 0 dann sollte der vorherige Schaltzustand default sein, bei Doppeltbelegung des bytes
-			}
-			
 			my $bit = ($adrId * 10) - ($adrKey * 10);
 			$addressData->{$adrKey}{'_adrId'} = $adrId;
 			$addressData->{$adrKey}{'_value_old'} = $addressData->{$adrKey}{'value'};
 			$addressData->{$adrKey}{'_value'} = $value;
+			
+			HM485::Util::logger('ConfigManager:convSetToEepromData', 3,' eepromval = ' . $addressData->{$adrKey}{'value'} . ' value = ' . $value . ' size = ' . $size . ' adrid = ' . $adrId);
 		
-	
-			if ( defined( $value)) {
-				my $bitMask = 1 << $bit;  # 1 um bit nach links schieben
-				if ( $configData->{$config}{config}{logical}{type} eq 'option') {
-					if ( $config eq 'behaviour') {
-						if ( $value == 0) {
-							# pruefen ob Channelbit gesetzt ist
-							$value = $oldValue | $bitMask;  # Bitweises OR
-							if ( $value == $oldValue) {  # Channelbit ist gesetzt
-								# Channelbit zurücksetzen
-								$value = $oldValue ^ $bitMask;  # Bitweises XOR
-							} else {
-								$value = $oldValue;
-							}
-						}
-						if ( $value == 1) {
-							# Channelbit setzen
-							$value = $oldValue | $bitMask;  # Bitweises OR
-							#if ( $value != $oldValue) {  # Channelbit ist nicht gesetzt
-							#	# Channelbit setzen
-							#	$value = $oldValue | $bitMask;  # Bitweises OR
-							#}
-						}
-					} else {
-						if ( $value == 0) {
-							# pruefen ob bit gesetzt ist
-							$value = $addressData->{$adrKey}{value} | $bitMask;  # Bitweises OR
-							if ( $value == $addressData->{$adrKey}{value}) {  # bit ist gesetzt
-								# bit zurücksetzen
-								$value = $addressData->{$adrKey}{value} ^ $bitMask;  # Bitweises XOR
-							} else {
-								$value = $addressData->{$adrKey}{value};
-							}
-						} elsif ( $value == 1) {
-							# bit setzten
-							$value = $addressData->{$adrKey}{value} | $bitMask;  # Bitweises OR
-						}
-					}
-				} elsif ( $configData->{$config}{config}{logical}{type} eq 'boolean') {
-					if ( $value > 0) {
-						if ( $value == $addressData->{$adrKey}{value}) {
-							$value = $bitMask;
-						} else {
-							$value = $addressData->{$adrKey}{value} | $bitMask;  # Bitweises ODER
-						}
-					}
-				} else {
-					$value = $value | $bitMask;  # Bitweises ODER
-				}
+			$value = HM485::Device::updateBits($addressData->{$adrKey}{'value'},$value,$size,$adrId);
+			
+			HM485::Util::logger('ConfigManager:convertSettingsToEepromData', 3, ' value nach updateBits = ' . $value);
+			
+			if ($optText) {
+				$addressData->{$adrKey}{'text'} .= ' '. $config . '=' . $optText;
 			} else {
-				my $bitMask = unpack ('C', pack 'c', ~(1 << $bit));
-				$value = $value & $bitMask;
+				$addressData->{$adrKey}{'text'} .= ' '. $config . '=' . $configData->{$config}{'value'};
 			}
-			
-			$addressData->{$adrKey}{'text'} .= ' ' . $config . '=' . $configData->{$config}{'value'};
-			
 		}
+		
 		
 		if ($littleEndian) {
 			$value = sprintf ('%0' . ($size*2) . 'X' , $value);
 			$value = reverse( pack('H*', $value) );
 			$value = hex(unpack('H*', $value));
 		}
-		
-		# HM485::Util::HM485_Log( 'ConfigurationsManager.convertSettingsToEepromData value = ' . $value);
-		$zaehler++;
-		$addressData->{$adrKey}{'value'} = $value;	# neuen Wert für naechsten Durchlauf der Schleife ( naechstes bit vom gleichen byte) merken
+
+		$addressData->{$adrKey}{'value'} = $value;
 	}
 	
 	return $addressData;

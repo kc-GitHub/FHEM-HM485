@@ -196,6 +196,7 @@ sub getModelList() {
 }
 
 
+
 sub getBehaviour($) {
 	my ($hash) = @_;
 	
@@ -241,6 +242,7 @@ sub getBehaviourCommand($) {
 	
 	my ($chConfig, $chType, $extension) = getBehaviour($hash);
 	
+
 
 	if ($chConfig->{'behaviour'}{'value'} && $chConfig->{'behaviour'}{'value'} eq '1') {	
 		my $deviceKey = getDeviceKeyFromHash($hash);
@@ -753,7 +755,7 @@ sub valueToControl($$) {
 			$retVal = ($value >= $threshold) ? 'on' : 'off';
 
 		} elsif ($control eq 'door_sensor.state') {
-			$retVal = ($value >= 1) ? 'closed' : 'open';
+			$retVal = ($value == 0) ? 'closed' : 'open';
 		} elsif ($control eq 'dimmer.level' || $control eq 'blind.level' || $control eq 'valve.level') {
 			if ( exists $paramHash->{'logical'}{'unit'} && $paramHash->{'logical'}{'unit'} eq '100%') {
 				$retVal = $value * 100;
@@ -1421,6 +1423,33 @@ sub subBit ($$$) {
 	my ($byte, $start, $len) = @_;
 	
 	return (($byte << (8 - $start - $len)) & 0xFF) >> (8 - $len);
+}
+
+
+sub updateBits ($$$$) {
+	my ($eepromValue, $value, $size, $index) = @_;
+	#We handle everything as bits, also numbers are more bits
+	
+	my $bitIndex = ($index * 10) - (int($index) *10);
+	my $bitSize  = $size * 10;
+	my $retVal   = $eepromValue;
+	
+	#get the bit
+	$value = $value << $bitIndex;
+	for (my $i = 0; $i < $bitSize; $i++) {
+		
+		my $mask = 1 << $i + $bitIndex;
+		my $bit  = $value & $mask;
+		
+		if ($bit) { #bit 1
+			$retVal = $retVal | $mask;
+		} else {    #bit 0
+			my $bitMask = ~(1 << $i + $bitIndex);
+			$retVal = $retVal & $bitMask;
+		}
+	}
+	#print Dumper ("updateBits $eepromValue, $value, $size, $index, $retVal");
+	return $retVal;
 }
 
 
