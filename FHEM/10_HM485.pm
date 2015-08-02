@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.3
+	Version 0.7.4
 	erste Ziffer
 	0 : In Entwicklung
 		nicht alle Module werden unterstuetzt
@@ -887,6 +887,7 @@ sub HM485_GetPeerSettings($$$) {
 	HM485::Util::logger(
 		HM485::LOGTAG_HM485, 4, 'Get peer settings for device ' . $hmwId . ' -> ' . $arg
 	);
+	FW_directNotify("#FHEMWEB:WEB", "location.reload(true);","" ); 
 	
 }
 
@@ -1586,7 +1587,7 @@ sub HM485_SetChannelState($$$) {
 			
 			if ($control eq 'digital_analog_output.frequency')	{
 				#deviec sends ACK only no Info frame. Need a only_ack bit for this control
-				$onlyAck = 1;				
+				$onlyAck = 0;				
 			}
 
 			if ($cmd eq 'on' || $cmd eq 'off' || $cmd eq 'toggle') {
@@ -2530,7 +2531,7 @@ sub HM485_ProcessEepromData($$$) {
 =cut
 sub HM485_DevStateIcon($) {
 	my ($name) = @_;
-	my @dimValues = (6,12,18,25,31,37,43,50,56,62,68,75,81,78,93);
+	my @dimValues = (6,12,18,25,31,37,43,50,56,62,68,75,81,87,93);
 	
 	# HM485::Util::logger('HM485_DevStateIcon', 3, 'name = ' . $name);
 	my $value = ReadingsVal($name, 'level', '???');
@@ -2542,7 +2543,8 @@ sub HM485_DevStateIcon($) {
 
 	if ($level == 0) {
 		$retVal = '.*:off';
-
+	} elsif ($level >= 93) {  
+ 		$retVal = '.*:dim93%';  
 	} elsif ($level == 100) {
 		$retVal = '.*:on';
 
@@ -2550,7 +2552,6 @@ sub HM485_DevStateIcon($) {
 		foreach my $dimValue (@dimValues) {
 			if ($level <= $dimValue) {
 				$retVal =  sprintf ('.*:dim%02d%%' , $dimValue);
-				#$retVal.='%';
 				last;
 			}
 		}

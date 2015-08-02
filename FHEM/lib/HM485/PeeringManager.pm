@@ -525,7 +525,7 @@ sub convertPeeringsToEepromData($$) {
 			$addressData->{$adrKey}{'_value_old'} = $addressData->{$adrKey}{'value'};
 			$addressData->{$adrKey}{'_value'} = $value;
 			
-			$value = updateBits($addressData->{$adrKey}{'value'},$value,$size,$config);
+			$value = HM485::Device::updateBits($addressData->{$adrKey}{'value'},$value,$size,$config);
 			
 			if ($sortedConfig->{$config}{'text'}) {
 				$addressData->{$adrKey}{'text'}  .= $sortedConfig->{$config}{'id'} . '=' . $sortedConfig->{$config}{'text'} .' ';
