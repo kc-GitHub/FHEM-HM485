@@ -13,29 +13,31 @@ use Data::Dumper;
 
 
 #get next free peerID from Device
-sub getFreeChannel ($$) {
+sub getFreePeerId ($$) {
 	my ($devhash,$peerType) = @_;
 	
-	my $type = $peerType ? $peerType : 'sensor';
+	$peerType = $peerType ? $peerType : 'sensor';
 	
-	my $devLinkParams = getLinkParams($devhash);
-	my $linkParams = $devLinkParams->{$type};
+	my $linkParams = getLinkParams($devhash);
 	my $retVal;
 	
-	if (ref($linkParams) eq 'HASH') {
-		for (my $i=0 ; $i < $linkParams->{'count'}; $i++) {
-			$devhash->{'.helper'}{'peerNr'} = $i;
+	if (ref($linkParams->{$peerType}) eq 'HASH') {
+		for (my $peerId = 0 ; $peerId < $linkParams->{$peerType}{count}; $peerId ++) {
+			
+			my $adrStart = $linkParams->{$peerType}{address_start}
+					+ ($peerId * $linkParams->{$peerType}{address_step}
+			);
 		
-			if (ref($linkParams->{'parameter'}) eq 'HASH') {
-				if (ref($linkParams->{'parameter'}{'channel'}) eq 'HASH') {
+			if (ref($linkParams->{$peerType}{parameter}) eq 'HASH') {
+				if (ref($linkParams->{$peerType}{parameter}{channel}) eq 'HASH') {
 					my $chHash = HM485::ConfigurationManager::writeConfigParameter($devhash,
-						$linkParams->{'parameter'}{'channel'},
-						$linkParams->{'address_start'},
-						$linkParams->{'address_step'}
+						$linkParams->{$peerType}{parameter}{channel},
+						$adrStart,
+						$linkParams->{$peerType}{address_step}
 						);
 					
-					if (($chHash->{'value'}) >= 255) {
-						$retVal = $i;
+					if (($chHash->{value}) >= 255) {
+						$retVal = $peerId;
 						last;
 					}
 				} 
@@ -43,7 +45,6 @@ sub getFreeChannel ($$) {
 		}	
 	}
 	
-	delete $devhash->{'.helper'}{'peerNr'};
 	return $retVal;
 }
 

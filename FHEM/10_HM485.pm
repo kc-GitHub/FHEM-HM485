@@ -1069,8 +1069,8 @@ sub HM485_SetPeer($@) {
 	
 		my $aktParams = HM485::PeeringManager::getLinkParams($devHash);
 		my $senParams = HM485::PeeringManager::getLinkParams($senDevHash);
-		my $freeAct   = HM485::PeeringManager::getFreeChannel($devHash,'actuator');
-		my $freeSen   = HM485::PeeringManager::getFreeChannel($senDevHash,'sensor');
+		my $freeAct   = HM485::PeeringManager::getFreePeerId($devHash,'actuator');
+		my $freeSen   = HM485::PeeringManager::getFreePeerId($senDevHash,'sensor');
 		
 		my $configTypeHash;
 		my $validatedConfig;
