@@ -54,36 +54,33 @@ sub getPeerId ($$$$) {
 	my $retVal;
 	my $ch 			= int($channel) -1;
 	my $peertype 	= $isAct ? 'actuator' : 'sensor';
-	my $linkParams 	= $hash->{'cache'}{'linkParams'};
-	
-	if (!$linkParams) {
-		$linkParams = getLinkParams($hash);
-	}
+	my $linkParams 	= getLinkParams($hash);
 		
 	if (ref($linkParams->{$peertype}) eq 'HASH') {
-		for (my $i=0 ; $i < $linkParams->{$peertype}{'count'}; $i++) {
-			$hash->{'.helper'}{'peerNr'} = $i;
+		for (my $peerId = 0 ; $peerId < $linkParams->{$peertype}{count}; $peerId ++) {
 			
-			#my $adrStart = $linkParams->{$peertype}{'address_start'} + ($i * $linkParams->{$peertype}{'address_step'});
+			my $adrStart = $linkParams->{$peertype}{address_start} + 
+				($peerId * $linkParams->{$peertype}{address_step}
+			);
 		
-			if (ref($linkParams->{$peertype}{'parameter'}) eq 'HASH') {
-				if (ref($linkParams->{$peertype}{'parameter'}{'channel'}) eq 'HASH') {
+			if (ref($linkParams->{$peertype}{parameter}) eq 'HASH') {
+				if (ref($linkParams->{$peertype}{parameter}{channel}) eq 'HASH') {
 					my $chHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-						$linkParams->{$peertype}{'parameter'}{'channel'},
-						$linkParams->{$peertype}{'address_start'},
-						$linkParams->{$peertype}{'address_step'}
+						$linkParams->{$peertype}{parameter}{channel},
+						$adrStart,
+						$linkParams->{$peertype}{address_step}
 						);
 					
-					if (($chHash->{'value'} < 255) && ($chHash->{'value'} == $ch)) {
+					if (($chHash->{value} < 255) && ($chHash->{value} == $ch)) {
 						my $peering = $isAct ? 'actuator' : 'sensor';
 						my $adrHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-							$linkParams->{$peertype}{'parameter'}{$peering},
-							$linkParams->{$peertype}{'address_start'},
-							$linkParams->{$peertype}{'address_step'}
+							$linkParams->{$peertype}{parameter}{$peering},
+							$adrStart,
+							$linkParams->{$peertype}{address_step}
 							);
 							
-						if ($adrHash->{'value'} eq $hmwid) {
-							$retVal = $i;
+						if ($adrHash->{value} eq $hmwid) {
+							$retVal = $peerId;
 						}					
 					}
 				} 
@@ -91,7 +88,6 @@ sub getPeerId ($$$$) {
 		}	
 	}
 	
-	delete $hash->{'.helper'}{'peerNr'};
 	return $retVal;
 }	
 
