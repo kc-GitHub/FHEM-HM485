@@ -649,7 +649,7 @@ sub translateFrameDataToValue($$) {
 			# HM485::Util::logger( 'Device:translateFrameDataToValue', 3, ' value = ' . $value . ' constValue = ' . $constValue);
 			if ( !defined($constValue) || $constValue eq $value) {
 				$retVal{$param}{val} = $value;
-				if ($constValue) {
+				if (defined $constValue) {
 					$retVal{$param}{param} = 'const_value';
 				} else {
 					$retVal{$param}{param} = $params->{$param}{param};
