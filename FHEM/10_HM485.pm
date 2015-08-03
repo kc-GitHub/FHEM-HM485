@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.5
+	Version 0.7.6
 	erste Ziffer
 	0 : In Entwicklung
 		nicht alle Module werden unterstuetzt

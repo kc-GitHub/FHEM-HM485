@@ -587,10 +587,11 @@ sub getPhysicalAddress($$$$) {
 	if (ref($configHash->{'physical'}) eq 'HASH' && exists $configHash->{'physical'}{'interface'}) {
 		if ($configHash->{'physical'}{'interface'} eq 'internal') {
 			my $spConfig  = HM485::Device::getValueFromDefinitions(
-				$deviceKey . '/channels/' . $chType .'/special_parameter/'
+			    # $configHash->{'physical'}{'value_id'} ist z.B. "behaviour"
+				$deviceKey . '/channels/' . $chType .'/special_parameter/'.$configHash->{'physical'}{'value_id'}
 			);
 			
-			if ($spConfig && $spConfig->{'id'} eq $configHash->{'physical'}{'value_id'}) {
+			if ($spConfig) {
 				$addressStep  = $spConfig->{'physical'}{'address'}{'step'} ?
 								$spConfig->{'physical'}{'address'}{'step'}  : 0;
 				$size         = $spConfig->{'physical'}{'size'} ?
