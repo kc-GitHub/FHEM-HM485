@@ -791,14 +791,14 @@ sub onOffToState($$) {
 	if ( $cmd eq 'on') {
 		if ( $logicalHash->{'type'} eq 'boolean') {
 			$state = $conversionHash->{true};
-		} elsif ( $logicalHash->{'type'} eq 'float') {
+		} elsif ( $logicalHash->{'type'} eq 'float' || $logicalHash->{'type'} eq 'int') {
 			$state = $conversionHash->{'factor'} * $logicalHash->{'max'};
 		}
 		#$state = 1;
 	} elsif ( $cmd eq 'off') {
 		if ( $logicalHash->{'type'} eq 'boolean') {
 			$state = $conversionHash->{false};
-		} elsif ( $logicalHash->{'type'} eq 'float') {
+		} elsif ( $logicalHash->{'type'} eq 'float' || $logicalHash->{'type'} eq 'int') {
 			$state = $conversionHash->{'factor'} * $logicalHash->{'min'};
 		}
 	} elsif ($cmd eq 'toggle') {
