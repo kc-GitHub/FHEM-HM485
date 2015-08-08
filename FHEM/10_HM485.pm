@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.9	
+	Version 0.7.10	
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -2342,16 +2342,6 @@ sub HM485_ProcessEepromData($$$) {
 	my $name = $hash->{NAME};
 	my $adr  = substr($requestData, 0, 4); 
 	
-	if (ref $hash->{'.helper'}{'firsttime'} eq 'HASH') {
-		if (keys %{$hash->{'.helper'}{'firsttime'}} == 0) {
-			Log3 ($name, 3, "Request Eeprom data finished");
-			delete $hash->{'.helper'}{'firsttime'};
-			
-		} else {
-			delete $hash->{'.helper'}{'firsttime'}{$adr};
-			
-		}
-	}
 	# HM485_Log( 'HM485_ProcessEepromData: name = ' . $name . ' requestData = ' . $requestData . ' eepromData = ' . $eepromData . ' adr = ' . $adr);
 	
 	setReadingsVal($hash, '.eeprom_' . $adr, $eepromData, TimeNow());
