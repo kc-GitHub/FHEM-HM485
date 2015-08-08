@@ -1,20 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.7
-	erste Ziffer
-	0 : In Entwicklungsub HM485_GetPeerSettings($$)
-		nicht alle Module werden unterstuetzt
-	zweite Ziffer
-	1 : 1. Modul wird voll unterstuetzt : HMW_LC_Bl1
-	2 : 2. Modul wird voll unterstuetzt : HMW_Sen_SC_12
-	3 : 3. Modul wird voll unterstuetzt : HMW_LC_Dim1L
-	4 : 4. Modul wird voll unterstuetzt : HMW_IO_12_Sw7
-	5 : 5. Modul wird voll unterstuetzt : HMW_IO_12_FM
-	6 : Das ganze sollte jetzt nicht mehr so modulspezifisch sein
-	dritte Ziffer
-	Kleine Schritte...
-	
+	Version 0.7.8	
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -2157,10 +2144,6 @@ sub HM485_CheckForAutocreate($$;$$) {
 		my $deviceName = '_' . $serialNr;
 		$deviceName = ($model ne $modelType) ? $model . $deviceName : 'HMW_' . $model . $deviceName;
 		DoTrigger("global",  'UNDEFINED ' . $deviceName . ' HM485 ' . $hmwId);
-		
-		#we try a get info so all channels can be createt
-#		HM485_GetInfos($ioHash, $hmwId, 0b111);
-#		HM485_GetConfig($ioHash, $hmwId);
 	}
 }
 
@@ -2199,32 +2182,6 @@ sub HM485_SendCommand($$$;$) {
 		HM485::Util::logger( 'HM485_SendCommand',5, $data);
 	}
 } 
-
-#sub HM485_SendCommandState($) {
-#	my ($paramsHash) = @_;
-#	
-#	my $hash  = $paramsHash->{hash};
-#	my $hmwId = $paramsHash->{hmwId};
-#	my $data  = $paramsHash->{data};
-#	
-#	$hmwId = substr($hmwId, 0, 8);
-#	
-#	if ( $data && length( $data) > 1) {
-#		# HM485::Util::logger( 'HM485_SendCommandState', 3, 'hash = ' . $hash . ' hmwId = .' . $hmwId . '. data = ' . $data);
-#
-#		# on send need the hash of the main device
-#		my $devHash = $modules{HM485}{defptr}{$hmwId};
-#		if (!$devHash) {
-#			$devHash = {
-#				IODev => $hash,
-#				NAME  => '.tmp',
-#			};
-#		}
-#
-#		my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
-#		InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
-#	}
-#} 
 
 =head2
 	Send a command to device
