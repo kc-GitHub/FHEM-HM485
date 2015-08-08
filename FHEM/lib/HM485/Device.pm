@@ -1229,21 +1229,21 @@ sub getRawEEpromData($;$$$$) {
 sub setRawEEpromData($$$$) {
 	my ($hash, $start, $len, $data) = @_;
 
-#	HM485::Util::logger( 'Device:setRawEEpromData', 3, 'start = ' . $start . ' len = ' . $len . ' data = ' . $data);
-#	$data = substr( $data, 0, ($len * 2));
-#	$len  = length( $data);
-#	HM485::Util::logger( 'Device:setRawEEpromData', 3, 'len = ' . $len . ' data = ' . $data);
-	$len = $len * 2;
+    # HM485::Util::logger('setRawEEpromData', 3, 'Start: '.$start.' Len: '.$len.' Data: '.$data);
+
+	$len = hex($len) * 2;
 	$data = substr($data, 0, $len);
 	my $blockLen = 16;
 	my $addrMax = 1024;
 	my $blockStart = 0;
 	my $blockCount = 0;
 	
-	if (hex($start) > 0) {
-		$blockStart = int((hex($start) * 2) / ($blockLen * 2));
+	$start = hex($start);
+	
+	if ($start > 0) {
+		$blockStart = int($start / $blockLen);  # Die 2 kuerzt sich hier raus
 	}
-
+  
 	for ($blockCount = $blockStart; $blockCount < (ceil($addrMax / $blockLen)); $blockCount++) {
 
 		my $blockId = sprintf ('.eeprom_%04X' , ($blockCount * $blockLen));
@@ -1252,8 +1252,9 @@ sub setRawEEpromData($$$$) {
 			# no blockdata defined yet
 			$blockData = 'FF' x $blockLen;
 		}
+		# HM485::Util::logger('setRawEEpromData', 3, $blockId.' Old Block Data: ' .  $blockData);
 
-		my $dataStart = (hex($start) * 2) - ($blockCount * ($blockLen * 2));
+		my $dataStart = ($start * 2) - ($blockCount * ($blockLen * 2));
 		my $dataLen = $len;
 
 		if ($dataLen > (($blockLen * 2) - $dataStart)) {
@@ -1280,7 +1281,7 @@ sub setRawEEpromData($$$$) {
 			$data = substr($data, $dataLen);
 			$start = ($blockCount * $blockLen) + $blockLen;
 		}
-		
+		# HM485::Util::logger('setRawEEpromData', 3, $blockId.'New Block Data: ' .  $newBlockData);
         main::setReadingsVal($hash, $blockId, $newBlockData, main::TimeNow());
 
 		$len = length($data);

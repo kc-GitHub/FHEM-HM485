@@ -343,56 +343,43 @@ sub getLinksFromDevice($) {
 }
 
 sub getPeerSettingsFromDevice($$) {
-	my ($hash, $sensor) = @_;
+	my ($arg, $sensor) = @_;
 	
-	my $retVal;	
-	my ($hmwId, $chNr)  = HM485::Util::getHmwIdAndChNrFromHash($hash);
-	my $devLinkParams   = getLinkParams($hash);
-	my $linkParams 		= $devLinkParams->{'sensor'};
+	my $hash		= $main::modules{HM485}{defptr}{substr($arg, 0, 8)};
+	my $linkParams	= getLinkParams($hash);
+	my $peerId		= getPeerId($hash, $sensor, substr($arg, 9, 2), 0);
+	my $retVal;
 	
-	if (ref($linkParams) eq 'HASH' && $linkParams->{'count'}) {
+	if (defined ($peerId) && ref($linkParams->{sensor}) eq 'HASH') {
 		
-		for (my $i=0 ; $i < $linkParams->{'count'}; $i++) {
-			$hash->{'.helper'}{'peerNr'} = $i;
-			
-			if (ref($linkParams->{'parameter'}{'sensor'}) eq 'HASH') {
-				my $sensorHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-						$linkParams->{'parameter'}{'sensor'},
-						$linkParams->{'address_start'},
-						$linkParams->{'address_step'}
-					);
-					
-				if ($sensorHash->{'value'} eq $sensor) {
-					
-					foreach my $setting (keys %{$linkParams->{'parameter'}}) {
-						
-						if ($setting eq 'channel' || $setting eq 'sensor') {
-							next;
-						}
-						
-						my $settingHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-							$linkParams->{'parameter'}{$setting},
-							$linkParams->{'address_start'},
-							$linkParams->{'address_step'}
-						);
+		my $adrStart = $linkParams->{sensor}{address_start} +
+		    ($peerId * $linkParams->{sensor}{address_step}
+		);
 
-						$retVal->{$setting} = $settingHash;
-					}
-					#insert the actuator address into the peering hash hmmmm!
-					#todo better way ?
-					$retVal->{'actuator'}{'value'} = $hmwId;
-					$retVal->{'actuator'}{'type'} = 'address';
-					$retVal->{'actuator'}{'unit'} = '';
-					$retVal->{'peerId'}{'value'} = $i;
-					$retVal->{'peerId'}{'type'} = 'address';
-					$retVal->{'peerId'}{'unit'} = '';
-					
-				}
+		foreach my $setting (keys %{$linkParams->{sensor}{parameter}}) {
+						
+			if ($setting eq 'channel' || $setting eq 'sensor') {
+				next;
 			}
+						
+			my $settingHash = HM485::ConfigurationManager::writeConfigParameter($hash,
+				$linkParams->{sensor}{parameter}{$setting},
+				$adrStart,
+				$linkParams->{sensor}{address_step}
+			);
+
+			$retVal->{$setting} = $settingHash;
 		}
+		
+		#insert the actuator address into the peering hash hmmmm!
+		#todo better way ?
+		$retVal->{actuator}{value}	= $hash->{DEF};
+		$retVal->{actuator}{type}	= 'address';
+		$retVal->{actuator}{unit}	= '';
+		$retVal->{peerId}{value}	= $peerId;
+		$retVal->{peerId}{type}		= 'address';
+		$retVal->{peerId}{unit}		= '';
 	}
-	
-	delete $hash->{'.helper'}{'peerNr'};
 	
 	return $retVal;
 }

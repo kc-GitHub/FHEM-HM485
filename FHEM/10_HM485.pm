@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.6
+	Version 0.7.7
 	erste Ziffer
-	0 : In Entwicklung
+	0 : In Entwicklungsub HM485_GetPeerSettings($$)
 		nicht alle Module werden unterstuetzt
 	zweite Ziffer
 	1 : 1. Modul wird voll unterstuetzt : HMW_LC_Bl1
@@ -77,6 +77,7 @@ sub HM485_SetChannelState($$$);
 sub HM485_ValidateSettings($$$);
 sub HM485_SetWebCmd($;$);
 sub HM485_GetHashByHmwid ($);
+sub HM485_GetPeerSettings($$);
 
 #Communication related functions
 sub HM485_ProcessResponse($$$);
@@ -641,7 +642,7 @@ sub HM485_Get($@) {
 			$data = sprintf ('53%02X', $chNr-1);  # Channel als hex- Wert
 			HM485_SendCommand( $hash, $hmwId, $data);
 		} elsif ($cmd eq 'peersettings') {
-			HM485_GetPeerSettings($hash, $hmwId, $args);	
+			HM485_GetPeerSettings($hash, $args);	
 		}
 	}
 
@@ -875,18 +876,18 @@ sub HM485_CreateAndReadChannels($$) {
 }
 
 
-sub HM485_GetPeerSettings($$$) {
-	my ($hash, $hmwId, $arg) = @_;
+sub HM485_GetPeerSettings($$) {
+	my ($hash, $arg) = @_;
 	
-	my $sensor   = $hash->{'DEF'};
-	my $chHash   = $main::modules{'HM485'}{'defptr'}{substr($arg,0,8)};
-	my $peerHash = HM485::PeeringManager::getPeerSettingsFromDevice($chHash, $sensor);
+	my $sensor   = $hash->{DEF};
+	my $peerHash = HM485::PeeringManager::getPeerSettingsFromDevice($arg, $sensor);
 	
-	$hash->{'peerings'} = $peerHash;
+	$hash->{peerings} = $peerHash;
 	
 	HM485::Util::logger(
-		HM485::LOGTAG_HM485, 4, 'Get peer settings for device ' . $hmwId . ' -> ' . $arg
+		HM485::LOGTAG_HM485, 4, 'Get peer settings for device ' . $sensor . ' -> ' . $arg
 	);
+	
 	FW_directNotify("#FHEMWEB:WEB", "location.reload(true);","" ); 
 	
 }
@@ -2414,7 +2415,9 @@ sub HM485_ChannelDoUpdate($) {
 		my $value = $valueHash->{$valueKey};
 		
 		if (defined($value)) {
-			HM485::Util::logger( 'HM485_ChannelDoUpdate', 5, 'valueKey = ' . $valueKey . ' value = ' . $value . ' Alter Wert = ' . $chHash->{READINGS}{$valueKey}{VAL});
+			my $oldValue = $chHash->{READINGS}{$valueKey}{VAL} ? $chHash->{READINGS}{$valueKey}{VAL} : 'empty';
+			HM485::Util::logger( 'HM485_ChannelDoUpdate', 5, 'valueKey = ' . $valueKey .
+				' value = ' . $value . ' Alter Wert = ' . $oldValue);
 	
 			readingsBulkUpdate( $chHash, $valueKey, $value);
 			
