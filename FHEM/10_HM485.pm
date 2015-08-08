@@ -422,7 +422,6 @@ sub HM485_Parse($$) {
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
 		HM485_SetStateAck($ioHash, $msgId, $msgData);
     	HM485::Util::logger('HM485_Parse', 5, 'ProcessEvent');
-		# Todo: check if events triggered on ack only?
 		HM485_ProcessEvent($ioHash, $msgData);
 	} elsif ($msgCmd == HM485::CMD_ALIVE && substr($msgData, 0, 2) eq '01') {
 		#PFE BEGIN
@@ -2277,73 +2276,12 @@ sub HM485_DoSendCommand($) {
 	@param	string  the message data
 	@param	string  action type such us response, frame, ...
 =cut
-# PFE BEGIN
-# Etwas aufgeraeumt 
-# sub HM485_ProcessChannelState($$$$) {
-	# my ($hash, $hmwId, $msgData, $actionType) = @_;
-
-# #print Dumper($msgData);
-	# my $name = $hash->{NAME};
-	# my $retval = undef;
-	# if ($msgData) {
-		# if ($hash->{MODEL}) {
-			# # HM485::Util::HM485_Log( 'HM485_ProcessChannelState: name1 = ' . $name . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
-			# my $deviceKey	= HM485::Device::getDeviceKeyFromHash($hash);
-			# my $chNr		= sprintf ('%02d' , hex( substr( $msgData, 2, 2)) + 1);
-			# my $chtyp 		= HM485::Device::getChannelType( $deviceKey, $chNr);
-			# # HM485::Util::HM485_Log( 'HM485_ProcessChannelState: chtyp = ' . $chtyp);
-			# if ( $chtyp) {
-				# my $valueHash = HM485::Device::parseFrameData($hash, $msgData, $actionType);	# hash, 690E03FF, response
-				# if ( uc( $deviceKey) eq 'HMW_IO12_SW14_DR') {
-					# # Eeeprom Daten zur Ueberpruefung ausgeben
-					# if ($hash->{READINGS}{'.eeprom_0000'}{VAL}) {
-					# #	HM485::Util::HM485_Log( 'HM485_ProcessChannelState hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
-						# HM485::Util::logger( 'HM485_ProcessChannelState', 5, ' hmwId = ' . $hmwId . ' .eeprom_0000 = ' . $hash->{READINGS}{'.eeprom_0000'}{VAL});
-					# }
-				# }
-					# #   valueHash->ch = 21,
-					# #			 ->params{state}{val} = $value
-					# #			 ->type = 69
-					# #			 ->event = 1
-					# #			 ->id = INFO_LEVEL
-								 
-				# HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'name2 = ' . $name . ' hmwId = ' . $hmwId . ' Channel = ' . $valueHash->{ch} . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
-				# #if ($valueHash) {
-				# #	foreach my $vh (keys %{$valueHash}) {
-				# #		HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . ' = ' . $valueHash->{$vh});
-				# #		if ( $valueHash->{ch} gt '00') {
-				# #			if ( ref( $valueHash->{$vh}) eq 'HASH') {
-				# #				my $param = $valueHash->{$vh};
-				# #				foreach my $par (keys %{$param}) {
-				# #					HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . ' = ' . $param->{$par});
-				# #					if ( ref( $param->{$par}) eq 'HASH') {
-				# #						my $para = $param->{$par};
-				# #						foreach my $pa (keys %{$para}) {
-				# #							HM485::Util::logger( 'HM485_ProcessChannelState', 3, 'valueHash->' . $vh . '->' . $par . '->' . $pa . ' = ' . $para->{$pa});
-				# #						}
-				# #					}
-				# #				}
-				# #			}
-				# #		}
-				# #	}
-				# #}
-				# if ($valueHash->{ch}) {
-					# my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
-					# HM485_ChannelUpdate( $chHash, $valueHash->{value});
-				# }
-			# }
-		# }
-	# }
-	# return;
-# }
-
-
 sub HM485_ProcessChannelState($$$$) {
 	my ($hash, $hmwId, $msgData, $actionType) = @_;
 
     # device and message ok?
 	if(!$msgData) {
-	  HM485::Util::logger( 'HM485_ProcessChannelState', 3, ' hmwId = ' . $hmwId . ' No message');
+	  HM485::Util::logger( 'HM485_ProcessChannelState', 3, ' hmwId = ' . $hmwId .' No message');
 	  return;
 	}
 	if(!$hash->{MODEL}) {
@@ -2358,13 +2296,6 @@ sub HM485_ProcessChannelState($$$$) {
 	  HM485::Util::logger( 'HM485_ProcessChannelState', 5, ' hmwId = ' . $hmwId . ' No channel');
 	  return;
 	}
-	
-	# HM485::Util::HM485_Log( 'HM485_ProcessChannelState: name1 = ' . $name . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
-	#   valueHash->ch = 21,
-	#			 ->params{state}{val} = $value
-	#			 ->type = 69
-	#			 ->event = 1
-	#			 ->id = INFO_LEVEL
 								 
 	HM485::Util::logger( 'HM485_ProcessChannelState', 5, 'name2 = ' . $hash->{NAME} . ' hmwId = ' . $hmwId . ' Channel = ' . $valueHash->{ch} . ' msgData = ' . $msgData . ' actionType = ' . $actionType);
 	my $chHash = HM485_GetHashByHmwid($hash->{DEF} . '_' . $valueHash->{ch});
