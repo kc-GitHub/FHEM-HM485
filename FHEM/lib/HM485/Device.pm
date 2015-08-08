@@ -405,7 +405,6 @@ sub parseFrameData($$$) {
 	my $hmwId              	= $hash->{'DEF'};
 	my $chHash             	= $main::modules{'HM485'}{'defptr'}{$hmwId . '_' . $channel};
 	($behaviour, undef) 	= getChannelBehaviour($chHash);
-	# HM485::Util::logger( 'Device:parseFrameData', 3, 'deviceKey = ' . $deviceKey . ' behaviour = ' . $behaviour);
 	my $frameData       	= getFrameInfos($deviceKey, $data, 1, $behaviour, 'from_device');
 	my $retVal          	= convertFrameDataToValue($hash, $deviceKey, $frameData);
 
@@ -422,72 +421,97 @@ sub parseFrameData($$$) {
 =cut
 sub getFrameInfos($$;$$$) {
 	my ($deviceKey, $data, $event, $behaviour, $dir) = @_;
-			
-	my $frameType = hex(substr($data, 0,2));
-	my %retVal;
+					
+	my $frameType = hex(substr($data, 0,2));  #e.g. 69 or 4B 
+	my @retVals;
 	
 	my $frames = getValueFromDefinitions($deviceKey . '/frames/');
+	if(!$frames){ return {}; }; #Device has no Frames, give up 
 	
-	if ($frames) {
-		foreach my $frame (keys %{$frames}) {
-			if ($frames->{$frame}{'parameter'}{'index'}) {
-				# Todo we rewrite the new configuration to the old one
-				my $replace = convertFrameIndexToHash ($frames->{$frame}{'parameter'});
-				delete ($frames->{$frame}{'parameter'});
-				$frames->{$frame}{'parameter'} = $replace;
-			}
-	
-			if ($behaviour) {
-				if ($frame eq 'info_frequency') {
-				    if (($behaviour eq 'analog_output') ||
-				    	($behaviour eq 'analog_input') || 
-				    	($behaviour eq 'digital_input') || 
-				    	($behaviour eq 'digital_output')) {
-						next;
-					}
-				} elsif ($frame eq 'info_level') {
-					if ($behaviour eq 'frequency_input') {
-						next;
-					}
-				}	
-			} else {
-				if ($frame eq 'info_frequency') { next; }
-			}
-	
-			my $fType  = $frames->{$frame}{'type'};
-			my $fEvent = $frames->{$frame}{'event'} ? $frames->{$frame}{'event'} : 0;
-			my $fDir   = $frames->{$frame}{'direction'} ? $frames->{$frame}{'direction'} : 0;
-			
-			if ($frameType == $fType &&
-			   (!defined($event) || $event == $fEvent) &&
-			   (!defined($event) || $dir eq $fDir) ) {
-				my $chField = ($frames->{$frame}{'channel_field'} - 9) * 2;
-				my $parameter = translateFrameDataToValue($data, $frames->{$frame}{'parameter'});
-				if (defined($parameter)) { #Daten umstrukturieren
-					foreach my $pindex (keys %{$parameter}) {
-						my $replace = $parameter->{$pindex}{'param'};
-						if (defined($replace)) {
-							$parameter->{$replace} = delete $parameter->{$pindex};
-							delete $parameter->{$replace}{'param'};	
-						}
-					}
+	foreach my $frame (keys %{$frames}) {
+		if ($frames->{$frame}{'parameter'}{'index'}) {
+			# Rewrite the new configuration to the old one
+			# TODO: Is this still needed? Maybe for "old" Homebrew devices 
+			my $replace = convertFrameIndexToHash ($frames->{$frame}{'parameter'});
+			delete ($frames->{$frame}{'parameter'});
+			$frames->{$frame}{'parameter'} = $replace;
+		}
+		# TODO: This behaviour handling looks a bit hard-coded
+		#       Can we read this from the XML?
+		if ($behaviour) {
+			if ($frame eq 'info_frequency') {
+			    if (($behaviour eq 'analog_output') ||
+			    	($behaviour eq 'analog_input') || 
+			    	($behaviour eq 'digital_input') || 
+			    	($behaviour eq 'digital_output')) {
+					next;
 				}
-
-				if (defined($parameter)) {
-					%retVal = (
-						ch     => sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1),
-						params => $parameter,
-						type   => $fType,
-						event  => $frames->{$frame}{'event'} ? $frames->{$frame}{'event'} : 0,
-						id     => $frame
-					);
-					last;
+			} elsif ($frame eq 'info_level') {
+				if ($behaviour eq 'frequency_input') {
+					next;
+				}
+			}	
+		} else {
+			if ($frame eq 'info_frequency') { next; }
+		}
+	
+		my $fType  = $frames->{$frame}{'type'};
+		my $fEvent = $frames->{$frame}{'event'} ? $frames->{$frame}{'event'} : 0;
+		my $fDir   = $frames->{$frame}{'direction'} ? $frames->{$frame}{'direction'} : 0;
+		
+		# Frame Type, event and direction are matching?
+		if (!($frameType == $fType &&
+		   (!defined($event) || $event == $fEvent) &&
+		   (!defined($dir) || $dir eq $fDir) )) {
+		   next; # no, go on
+		}
+		my $chField = ($frames->{$frame}{'channel_field'} - 9) * 2;
+		my $parameter = translateFrameDataToValue($data, $frames->{$frame}{'parameter'});
+		# The above line checks e.g. const_value and might return nothing
+		if (!defined($parameter)) { next; }; 
+		# Ok, we have found something
+		# Daten umstrukturieren
+		foreach my $pindex (keys %{$parameter}) {
+			my $replace = $parameter->{$pindex}{'param'};
+			if (defined($replace)) {
+				$parameter->{$replace} = delete $parameter->{$pindex};
+				delete $parameter->{$replace}{'param'};	
+			}
+		}
+			
+		# collect all the frames we are finding	
+		@retVals[scalar @retVals] = {
+			ch     => sprintf ('%02d' , hex(substr($data, $chField, 2)) + 1),
+			params => $parameter,
+			type   => $fType,
+			event  => $frames->{$frame}{'event'} ? $frames->{$frame}{'event'} : 0,
+			id     => $frame
+		};
+	}
+	if(scalar @retVals > 1) {
+		# We found multiple Frames which fit in theory
+		# Check for Channel definitions
+		foreach my $retVal (@retVals) {
+			# in theory, the channel can be different as the channel field 
+			# is in the frame definition
+			my $chTyp	= getChannelType( $deviceKey, $retVal->{ch});
+			my $values = getValueFromDefinitions($deviceKey . '/channels/' . $chTyp . '/paramset/values/parameter/');
+			if(!$values){ next; }  # no Frames for this channel?
+			foreach my $value (keys %{$values}) {
+				if ( defined( $values->{$value}{'physical'}{'get'}{'response'})
+					&& $values->{$value}{'physical'}{'get'}{'response'} eq $retVal->{id} ) {
+					# found a match, return it
+					return $retVal;
 				}
 			}
 		}
 	}
-	
-	return \%retVal;
+	# if we come here, then we have either not return value at all
+	if(scalar @retVals == 0) { return {}; } 
+	# or there are multiple, but none matching the channel definition
+	# or there is anyway exactly one. In both last cases, we just return 
+	# the first entry
+	return $retVals[0];
 }
 
 sub convertFrameIndexToHash($) {
