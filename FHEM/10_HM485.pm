@@ -3,7 +3,7 @@
 
 	Version 0.7.7
 	erste Ziffer
-	0 : In Entwicklung
+	0 : In Entwicklungsub HM485_GetPeerSettings($$)
 		nicht alle Module werden unterstuetzt
 	zweite Ziffer
 	1 : 1. Modul wird voll unterstuetzt : HMW_LC_Bl1
@@ -77,6 +77,7 @@ sub HM485_SetChannelState($$$);
 sub HM485_ValidateSettings($$$);
 sub HM485_SetWebCmd($;$);
 sub HM485_GetHashByHmwid ($);
+sub HM485_GetPeerSettings($$);
 
 #Communication related functions
 sub HM485_ProcessResponse($$$);
@@ -640,7 +641,7 @@ sub HM485_Get($@) {
 			$data = sprintf ('53%02X', $chNr-1);  # Channel als hex- Wert
 			HM485_SendCommand( $hash, $hmwId, $data);
 		} elsif ($cmd eq 'peersettings') {
-			HM485_GetPeerSettings($hash, $hmwId, $args);	
+			HM485_GetPeerSettings($hash, $args);	
 		}
 	}
 
@@ -874,18 +875,18 @@ sub HM485_CreateAndReadChannels($$) {
 }
 
 
-sub HM485_GetPeerSettings($$$) {
-	my ($hash, $hmwId, $arg) = @_;
+sub HM485_GetPeerSettings($$) {
+	my ($hash, $arg) = @_;
 	
-	my $sensor   = $hash->{'DEF'};
-	my $chHash   = $main::modules{'HM485'}{'defptr'}{substr($arg,0,8)};
-	my $peerHash = HM485::PeeringManager::getPeerSettingsFromDevice($chHash, $sensor);
+	my $sensor   = $hash->{DEF};
+	my $peerHash = HM485::PeeringManager::getPeerSettingsFromDevice($arg, $sensor);
 	
-	$hash->{'peerings'} = $peerHash;
+	$hash->{peerings} = $peerHash;
 	
 	HM485::Util::logger(
-		HM485::LOGTAG_HM485, 4, 'Get peer settings for device ' . $hmwId . ' -> ' . $arg
+		HM485::LOGTAG_HM485, 4, 'Get peer settings for device ' . $sensor . ' -> ' . $arg
 	);
+	
 	FW_directNotify("#FHEMWEB:WEB", "location.reload(true);","" ); 
 	
 }
@@ -1046,10 +1047,11 @@ sub HM485_SetPeer($@) {
 	
 	if (@values == 1) {
 		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-		my $actHmwId 	   = substr($values[0],0,8);
-		my $actCh 		   = int(substr($values[0],9,2));
+		my $valId 	   	   = HM485::PeeringManager::getHmwIdByDevName($values[0]);
+		my $actHmwId 	   = substr($valId,0,8);
+		my $actCh 		   = int(substr($valId,9,2));
 		
-		my $senHash 	   = $main::modules{'HM485'}{'defptr'}{$values[0]};
+		my $senHash 	   = $main::modules{'HM485'}{'defptr'}{$valId};
 		my $senDevHash 	   = $main::modules{'HM485'}{'defptr'}{$actHmwId};
 		my $devHash		   = $main::modules{'HM485'}{'defptr'}{substr($hmwId,0,8)};
 		
@@ -1210,15 +1212,15 @@ sub HM485_SetUnpeer($@) {
 	shift(@values);
 	shift(@values);
 	my ($senHmwId, $senCh) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-	my $actCh 		   = int(substr($values[0],9,2));
-	my $actHmwId 	   = $values[0];
+	my $actHmwId 	   	   = HM485::PeeringManager::getHmwIdByDevName($values[0]);
+	my $actCh 		  	   = int(substr($actHmwId,9,2));
 
 	my $msg = '';
 	
 	if (@values == 1) {
 		
 		my $config;
-		my $actHash = $main::modules{'HM485'}{'defptr'}{substr($values[0],0,8)};
+		my $actHash = $main::modules{'HM485'}{'defptr'}{substr($actHmwId,0,8)};
 		my $senHash = $main::modules{'HM485'}{'defptr'}{substr($hash->{'DEF'},0,8)};
 		my $actParams = HM485::PeeringManager::getLinkParams($actHash);
 		my $senParams = HM485::PeeringManager::getLinkParams($senHash);
@@ -2345,7 +2347,9 @@ sub HM485_ChannelDoUpdate($) {
 		my $value = $valueHash->{$valueKey};
 		
 		if (defined($value)) {
-			HM485::Util::logger( 'HM485_ChannelDoUpdate', 5, 'valueKey = ' . $valueKey . ' value = ' . $value . ' Alter Wert = ' . $chHash->{READINGS}{$valueKey}{VAL});
+			my $oldValue = $chHash->{READINGS}{$valueKey}{VAL} ? $chHash->{READINGS}{$valueKey}{VAL} : 'empty';
+			HM485::Util::logger( 'HM485_ChannelDoUpdate', 5, 'valueKey = ' . $valueKey .
+				' value = ' . $value . ' Alter Wert = ' . $oldValue);
 	
 			readingsBulkUpdate( $chHash, $valueKey, $value);
 			
