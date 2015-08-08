@@ -143,10 +143,12 @@ sub getPeerableChannels($) {
 				}
 						
 				if ($alreadyPeered) {
-					push @peered, $hmwId.'_'.$num;
+					#push @peered, $hmwId.'_'.$num;
+					push @peered, getDevNameByHmwId($hmwId.'_'.$num);
 					next;
 				} else {
-					push @peerable, $hmwId.'_'.$num;
+					#push @peerable, $hmwId.'_'.$num;
+					push @peerable, getDevNameByHmwId($hmwId.'_'.$num);
 				}
 				
 			}
@@ -155,6 +157,36 @@ sub getPeerableChannels($) {
 	
 	$retVal->{peerable} = join(",",@peerable);
 	$retVal->{peered} = join(",",@peered);
+	
+	return $retVal;
+}
+
+sub getDevNameByHmwId($) {
+	my ($hmwId) = @_;
+	
+	my $hash = $main::modules{HM485}{defptr}{$hmwId};
+	my $retVal = 'unknown';
+	
+	if (ref($hash) eq 'HASH') {
+		$retVal = $hash->{NAME};
+	}
+	
+	return $retVal;
+}
+
+sub getHmwIdByDevName ($) {
+	my ($name) = @_;
+	
+	my $retVal = undef;
+	
+	foreach my $def (keys %{$main::modules{HM485}{defptr}}) {
+		
+		if ($main::modules{HM485}{defptr}{$def}{NAME} eq $name) {
+	
+			$retVal = $main::modules{HM485}{defptr}{$def}{DEF};
+			last;
+		}
+	}
 	
 	return $retVal;
 }
@@ -338,16 +370,17 @@ sub getLinksFromDevice($) {
 			$devHash->{'cache'}{'peers'}{'sensors'}{'0'}{'sensor'} = 'none';
 		}
 	}
-	
+
 	return $peers;
 }
 
 sub getPeerSettingsFromDevice($$) {
 	my ($arg, $sensor) = @_;
 	
-	my $hash		= $main::modules{HM485}{defptr}{substr($arg, 0, 8)};
+	my $hmwid 		= getHmwIdByDevName($arg);
+	my $hash		= $main::modules{HM485}{defptr}{substr($hmwid, 0, 8)};
 	my $linkParams	= getLinkParams($hash);
-	my $peerId		= getPeerId($hash, $sensor, substr($arg, 9, 2), 0);
+	my $peerId		= getPeerId($hash, $sensor, substr($hmwid, 9, 2), 0);
 	my $retVal;
 	
 	if (defined ($peerId) && ref($linkParams->{sensor}) eq 'HASH') {
@@ -384,8 +417,49 @@ sub getPeerSettingsFromDevice($$) {
 	return $retVal;
 }
 
-
-
+#convert a confighash to a addresshash
+sub configDataToAddressData($$$$) {
+	my ($devHash, $configData, $adressStart, $adressStep) = @_;
+	#create a new hash with address keys, so i can sort it by address.
+	
+	my $adrConfig;
+	
+	foreach my $sort (keys %{$configData}) {
+		my ($adrId, $size, $littleEndian, $readSize) = HM485::Device::getPhysicalAddress(
+			$devHash, $configData->{$sort}{config}, $adressStart, $adressStep
+		);
+		
+		$adrConfig->{$adrId}{value}  	= $configData->{$sort}{value};
+		$adrConfig->{$adrId}{config} 	= $configData->{$sort}{config};
+		$adrConfig->{$adrId}{size}   	= $size;
+		$adrConfig->{$adrId}{readSize}	= $readSize;
+		$adrConfig->{$adrId}{'le'}     	= $littleEndian;
+		$adrConfig->{$adrId}{id}     	= $sort;
+		
+		if (defined $configData->{$sort}{chan}) {
+			$adrConfig->{$adrId}{chan} = $configData->{$sort}{chan};
+		}
+		
+		if (ref($configData->{$sort}{config}{logical}) eq 'HASH' &&
+				$configData->{$sort}{config}{logical}{type} eq 'option')
+		{
+			$adrConfig->{$adrId}{text} = HM485::ConfigurationManager::convertOptionToValue(
+				$configData->{$sort}{config}{logical}{option},
+				$configData->{$sort}{value}
+			);
+		}
+		
+		if (ref($configData->{$sort}{config}{conversion}) eq 'HASH') {
+			$adrConfig->{$adrId}{value} = HM485::Device::dataConversion(
+				$configData->{$sort}{value}, 
+				$configData->{$sort}{config}{conversion},
+				'to_device'
+			);
+		}	
+	}
+	
+	return $adrConfig;
+}
 
 sub convertPeeringsToEepromData($$) {
 	my ($devHash, $configData) = @_;
@@ -424,86 +498,58 @@ sub convertPeeringsToEepromData($$) {
 	);
 	
 	my $addressData = {};
-	my $sortedConfig ={};
+	my $sortedConfig = configDataToAddressData($devHash, $configData, $adressStart, $adressStep);
 	
-	# create a new hash with address keys, so i can sort it by address.
-	foreach my $sort (keys %{$configData}) {
-		my ($adrId, $size, $littleEndian, $readSize) = HM485::Device::getPhysicalAddress(
-			$devHash, $configData->{$sort}{'config'}, $adressStart, $adressStep
-		);
-		
-		$sortedConfig->{$adrId}{'value'}  	= $configData->{$sort}{'value'};
-		$sortedConfig->{$adrId}{'config'} 	= $configData->{$sort}{'config'};
-		$sortedConfig->{$adrId}{'size'}   	= $size;
-		$sortedConfig->{$adrId}{'readSize'} = $readSize;
-		$sortedConfig->{$adrId}{'le'}     	= $littleEndian;
-		$sortedConfig->{$adrId}{'id'}     	= $sort;
-		
-		if (defined $configData->{$sort}{'chan'}) {
-			$sortedConfig->{$adrId}{'chan'} = $configData->{$sort}{'chan'};
-		}
-		
-		if (ref($configData->{$sort}{'config'}{'logical'}) eq 'HASH' &&
-				$configData->{$sort}{'config'}{'logical'}{'type'} eq 'option') {
-			$sortedConfig->{$adrId}{'text'} = HM485::ConfigurationManager::convertOptionToValue(
-				$configData->{$sort}{'config'}{'logical'}{'option'}, $configData->{$sort}{'value'}
-			);
-		}
-		
-		if (ref($configData->{$sort}{'config'}{'conversion'}) eq 'HASH') {
-			$sortedConfig->{$adrId}{'value'} = HM485::Device::dataConversion(
-			$configData->{$sort}{'value'}, $configData->{$sort}{'config'}{'conversion'}, 'to_device'
-			);
-		}	
-	}
+	if (ref ($sortedConfig) eq 'HASH') {
 	
-	foreach my $config (sort keys %{$sortedConfig}) {
+		foreach my $config (sort keys %{$sortedConfig}) {
 				
-		my $adrKey   = int($config);
-		my $value    = $sortedConfig->{$config}{'value'};
-		my $size     = $sortedConfig->{$config}{'size'};
-		my $readSize = $sortedConfig->{$config}{'readSize'};
+			my $adrKey   = int($config);
+			my $value    = $sortedConfig->{$config}{'value'};
+			my $size     = $sortedConfig->{$config}{'size'};
+			my $readSize = $sortedConfig->{$config}{'readSize'};
 			
-		if (HM485::Device::isInt($sortedConfig->{$config}{'size'})) {
-			$addressData->{$adrKey}{'value'} = $value;
-			$addressData->{$adrKey}{'text'} = $sortedConfig->{$config}{'id'} . '=' . $sortedConfig->{$config}{'value'};
-			$addressData->{$adrKey}{'size'} = $size;
-			$addressData->{$adrKey}{'le'} = $sortedConfig->{$config}{'le'};
-			
-		} else {
-			my $bit = ($config * 10) - ($adrKey * 10);
-			#print Dumper ("bit: $bit size:$size readsize: $readSize $sortedConfig->{$config}{'id'}
-			# text: $sortedConfig->{$config}{'text'} value: $sortedConfig->{$config}{'value'}");
-			
-			if (!defined($addressData->{$adrKey}{'value'})) {
-					my $eepromValue = HM485::Device::getValueFromEepromData (
-					$devHash, $sortedConfig->{$config}{'config'}, $adressStart, $adressStep, 1
-				);
-				
-				$addressData->{$adrKey}{'value'} = $eepromValue;
-				$addressData->{$adrKey}{'text'}  = '';
-				$addressData->{$adrKey}{'size'}  = $readSize;
+			if (HM485::Device::isInt($sortedConfig->{$config}{'size'})) {
+				$addressData->{$adrKey}{'value'} = $value;
+				$addressData->{$adrKey}{'text'} = $sortedConfig->{$config}{'id'} . '=' . $sortedConfig->{$config}{'value'};
+				$addressData->{$adrKey}{'size'} = $size;
 				$addressData->{$adrKey}{'le'} = $sortedConfig->{$config}{'le'};
-			}
+			
+			} else {
+				my $bit = ($config * 10) - ($adrKey * 10);
+				#print Dumper ("bit: $bit size:$size readsize: $readSize $sortedConfig->{$config}{'id'}
+				# text: $sortedConfig->{$config}{'text'} value: $sortedConfig->{$config}{'value'}");
+			
+				if (!defined($addressData->{$adrKey}{'value'})) {
+					my $eepromValue = HM485::Device::getValueFromEepromData (
+						$devHash, $sortedConfig->{$config}{'config'}, $adressStart, $adressStep, 1
+					);
+				
+					$addressData->{$adrKey}{'value'} = $eepromValue;
+					$addressData->{$adrKey}{'text'}  = '';
+					$addressData->{$adrKey}{'size'}  = $readSize;
+					$addressData->{$adrKey}{'le'} = $sortedConfig->{$config}{'le'};
+				}
 			
  
-			$addressData->{$adrKey}{'_adrId'} = $config;
-			$addressData->{$adrKey}{'_value_old'} = $addressData->{$adrKey}{'value'};
-			$addressData->{$adrKey}{'_value'} = $value;
+				$addressData->{$adrKey}{'_adrId'} = $config;
+				$addressData->{$adrKey}{'_value_old'} = $addressData->{$adrKey}{'value'};
+				$addressData->{$adrKey}{'_value'} = $value;
+				
+				$value = HM485::Device::updateBits($addressData->{$adrKey}{'value'},$value,$size,$config);
 			
-			$value = HM485::Device::updateBits($addressData->{$adrKey}{'value'},$value,$size,$config);
-			
-			if ($sortedConfig->{$config}{'text'}) {
-				$addressData->{$adrKey}{'text'}  .= $sortedConfig->{$config}{'id'} . '=' . $sortedConfig->{$config}{'text'} .' ';
-			} else {
-				$addressData->{$adrKey}{'text'} .= $sortedConfig->{$config}{'id'} . '=' . $sortedConfig->{$config}{'value'} .' ';
+				if ($sortedConfig->{$config}{'text'}) {
+					$addressData->{$adrKey}{'text'}  .= $sortedConfig->{$config}{'id'} . '=' . $sortedConfig->{$config}{'text'} .' ';
+				} else {
+					$addressData->{$adrKey}{'text'} .= $sortedConfig->{$config}{'id'} . '=' . $sortedConfig->{$config}{'value'} .' ';
+				}
+				$addressData->{$adrKey}{'_bit'} = $bit;
+				$addressData->{$adrKey}{'_size'} = $size;
 			}
-			$addressData->{$adrKey}{'_bit'} = $bit;
-			$addressData->{$adrKey}{'_size'} = $size;
-		}
 
-		$addressData->{$adrKey}{'value'} = $value;
+			$addressData->{$adrKey}{'value'} = $value;
 		
+		}
 	}
 	
 	delete $devHash->{'.helper'}{'peerNr'};

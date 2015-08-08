@@ -1048,10 +1048,11 @@ sub HM485_SetPeer($@) {
 	
 	if (@values == 1) {
 		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-		my $actHmwId 	   = substr($values[0],0,8);
-		my $actCh 		   = int(substr($values[0],9,2));
+		my $valId 	   	   = HM485::PeeringManager::getHmwIdByDevName($values[0]);
+		my $actHmwId 	   = substr($valId,0,8);
+		my $actCh 		   = int(substr($valId,9,2));
 		
-		my $senHash 	   = $main::modules{'HM485'}{'defptr'}{$values[0]};
+		my $senHash 	   = $main::modules{'HM485'}{'defptr'}{$valId};
 		my $senDevHash 	   = $main::modules{'HM485'}{'defptr'}{$actHmwId};
 		my $devHash		   = $main::modules{'HM485'}{'defptr'}{substr($hmwId,0,8)};
 		
@@ -1212,15 +1213,15 @@ sub HM485_SetUnpeer($@) {
 	shift(@values);
 	shift(@values);
 	my ($senHmwId, $senCh) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-	my $actCh 		   = int(substr($values[0],9,2));
-	my $actHmwId 	   = $values[0];
+	my $actHmwId 	   	   = HM485::PeeringManager::getHmwIdByDevName($values[0]);
+	my $actCh 		  	   = int(substr($actHmwId,9,2));
 
 	my $msg = '';
 	
 	if (@values == 1) {
 		
 		my $config;
-		my $actHash = $main::modules{'HM485'}{'defptr'}{substr($values[0],0,8)};
+		my $actHash = $main::modules{'HM485'}{'defptr'}{substr($actHmwId,0,8)};
 		my $senHash = $main::modules{'HM485'}{'defptr'}{substr($hash->{'DEF'},0,8)};
 		my $actParams = HM485::PeeringManager::getLinkParams($actHash);
 		my $senParams = HM485::PeeringManager::getLinkParams($senHash);
