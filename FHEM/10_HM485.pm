@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.11	
+	Version 0.7.12	
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -643,18 +643,7 @@ sub HM485_Attr($$$$) {
 
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 
-	# HM485::Util::HM485_Log( 'HM485_Attr : name = ' . $name . ' attrName = ' . $attrName . ' val = ' . $val . ' chNr = ' . $chNr);
 	if ($attrName) {
-#		foreach my $attrRO (@attrListRO) {
-#			
-#			HM485::Util::HM485_Log( 'HM485_Attr : attrRO = ' . $attrRO . ' attrName = ' . $attrName . ' AttrVal = ' . AttrVal($name, $attrName, undef));
-#			if ( $attrName eq $attrRO && AttrVal($name, $attrName, undef) ) {
-# Todo:
-#				$msg = 'Attribute ' . $attrName . ' is read only after definition.';
-#			}
-#		}
-	
-		# HM485::Util::logger( 'HM485_Attr', 3, 'ModelList = ' . HM485::Device::getModelList());
 		if (!$msg) {
 			if ( $attrName eq 'serialNr' && (!defined($val) || $val !~ m/^[A-Za-z0-9]{10}$/i) ) {
 				$msg = 'Wrong serialNr (' . $val . ') defined. serialNr must be 10 characters (A-Z, a-z or 0-9).';
@@ -668,9 +657,6 @@ sub HM485_Attr($$$$) {
 
 			} elsif ($attrName eq 'model') {
 				my @modelList = split(',', HM485::Device::getModelList());
-
-				# HM485::Util::HM485_Log( 'HM485_Attr : modelList = ' . join(' ', @modelList));
-
 				$msg = 'model of "' . $name . '" must one of ' . join(' ', @modelList);
 				if ($val) {
 					foreach my $model (@modelList) {
@@ -681,32 +667,9 @@ sub HM485_Attr($$$$) {
 					}
 
 					$hash->{MODEL} = $val;
-#					if (!$msg && $chNr > 0) {
-						# if we are a channel, we set webCmd attribute
-#						HM485_SetWebCmd($hash, $val);
-#					}
 				}
 			}
 		}
-		
-		# if (!$msg) {
-			# if ( !chNr ) {
-				# # we are a device we try to copy some attributes to all defined channels
-				# foreach my $attrBindCh (@attrListBindCh) {
-					# if ( $attrName eq $attrBindCh && AttrVal($name, $attrName, undef) ) {
-						# foreach my $chName (grep(/^channel_/, keys %{$hash})) {
-							# my $devName = $hash->{$chName};
-							# # HM485::Util::HM485_Log( 'HM485_Attr : devName = ' . $devName . ' attrName = ' . $attrName . ' val = ' . $val);
-							# my $cval= AttrVal($devName, $attrName, undef);
-							# # Bereits definierte Attr werden nicht ueberschrieben
-							# if ( !defined( $cval)) {
-								# CommandAttr(undef, $devName . ' ' . $attrName . ' ' . $val);
-							# }
-						# } 
-					# }
-				# }
-			# }
-		# }
 	}
 	
 	return ($msg) ? $msg : undef;
@@ -972,6 +935,10 @@ sub HM485_CreateChannels($) {
 						if ($subType eq 'key') {
 								# Key subtypes don't have a state
 								delete($modules{HM485}{defptr}{$chHmwId}{STATE});
+						}
+						if($subType eq 'blind') {
+							# Blinds go up and down
+							CommandAttr(undef, $devName . ' webCmd up:down');
 						}
 						# copy definded attributes to channel
 						foreach my $attrBindCh (@attrListBindCh) {
@@ -1561,7 +1528,7 @@ sub HM485_SetChannelState($$$) {
 	my $valueKey = undef;
 	if($values->{$cmd}) {
 		$valueKey = $cmd;
-	}elsif($cmd eq 'on' || $cmd eq 'off' || $cmd eq 'toggle') {
+	}elsif(index('on:off:toggle:up:down', $cmd) != -1) {
 		# in this case use state, level or frequency
 		foreach my $vKey (keys %{$values}) {
 			if ($vKey eq 'state' || $vKey eq 'level' || $vKey eq 'frequency') {
@@ -1585,7 +1552,7 @@ sub HM485_SetChannelState($$$) {
 		$onlyAck = 0;				
 	}
 
-	if ($cmd eq 'on' || $cmd eq 'off' || $cmd eq 'toggle') {
+	if (index('on:off:toggle:up:down', $cmd) != -1) {
 		if ($control eq 'switch.state' || $control eq 'blind.level' ||
 			$control eq 'dimmer.level' || $control eq 'valve.level') {
 			$frameValue = HM485::Device::onOffToState($valueHash, $cmd);

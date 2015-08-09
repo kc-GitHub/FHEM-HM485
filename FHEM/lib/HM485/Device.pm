@@ -827,14 +827,14 @@ sub onOffToState($$) {
 	my $logicalHash	   = $stateHash->{logical};
 	#Todo es gaebe auch: long_[on,off]_level short_[on,off]_level, wäre dann aus dem eeprom zu holen
 	
-	if ( $cmd eq 'on') {
+	if ( $cmd eq 'on' || $cmd eq 'up') {
 		if ( $logicalHash->{'type'} eq 'boolean') {
 			$state = $conversionHash->{true};
 		} elsif ( $logicalHash->{'type'} eq 'float' || $logicalHash->{'type'} eq 'int') {
 			$state = $conversionHash->{'factor'} * $logicalHash->{'max'};
 		}
 		#$state = 1;
-	} elsif ( $cmd eq 'off') {
+	} elsif ( $cmd eq 'off' || $cmd eq 'down') {
 		if ( $logicalHash->{'type'} eq 'boolean') {
 			$state = $conversionHash->{false};
 		} elsif ( $logicalHash->{'type'} eq 'float' || $logicalHash->{'type'} eq 'int') {
@@ -1559,7 +1559,7 @@ sub getAllowedSets($) {
 		
 	my %cmdArgs = (
 		'none'			=> "noArg",
-   		'blind.level'	=> "slider,0,1,100 on:noArg off:noArg",
+   		'blind.level'	=> "slider,0,1,100 on:noArg off:noArg up:noArg down:noArg",
    		'blind.stop'	=> "noArg",
    		'dimmer.level' 	=> "slider,0,1,100 on:noArg off:noArg",
    		'valve.level' 	=> "slider,0,1,100 on:noArg off:noArg",
