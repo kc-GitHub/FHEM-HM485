@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.10	
+	Version 0.7.11	
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -523,11 +523,7 @@ sub HM485_Set($@) {
 							  $hash->{'READINGS'}{'sim_counter'}{'VAL'} : 0;
 				readingsSingleUpdate($hash, 'state', $cmd .' '.$counter, 1);
 				$msg = HM485_SetKeyEvent($hash, $cmd);
-			
-			} elsif ($cmd eq 'on' || $cmd eq 'off' || $cmd eq 'toggle') {
-				readingsSingleUpdate($hash, 'state', 'set_'. $cmd, 1);
-				$msg = HM485_SetChannelState($hash, $cmd, $value);
-			
+
 			} elsif ($cmd eq 'peer') {
 				$msg = HM485_SetPeer($hash, @params);
 			
@@ -546,11 +542,7 @@ sub HM485_Set($@) {
 			
 			} elsif ($cmd eq 'frequency') {
 				readingsSingleUpdate($hash, $cmd, $value, 1);
-				$msg = HM485_SetChannelState($hash, $cmd, $value);
-			
-			} elsif ($cmd eq 'level') {
-				readingsSingleUpdate($hash, 'state', 'set_'. $value, 1);
-				$msg = HM485_SetChannelState($hash, $cmd, $value);
+				$msg = HM485_SetChannelState($hash, $cmd, $value);			
 			} elsif ( $cmd eq 'on-for-timer') {
 				my $state = uc( ReadingsVal( $name, 'state', 'off'));
 				if ( $value && $value > 0) {
@@ -563,13 +555,13 @@ sub HM485_Set($@) {
 					$state = 'off';
 					$msg = HM485_SetChannelState($hash, $state, $value);
 				}
-			#PFE BEGIN
 			} elsif ($cmd eq 'raw') {
 				HM485_SendCommand($hash, $hmwId, $value);
-			#PFE END
-					
-			} else {
-				readingsSingleUpdate($hash, $cmd, 'set_'. $value, 1);
+			# "else" includes level, stop, on, off, toggle
+			} else {  
+				my $state = 'set_'.$cmd;
+				if($value) { $state .= '_'.$value; }
+				readingsSingleUpdate($hash, 'state', $state, 1);
 				$msg = HM485_SetChannelState($hash, $cmd, $value);
 			}
 			return ($msg,1);  # do not trigger events from set commands
@@ -1564,47 +1556,55 @@ sub HM485_SetChannelState($$$) {
 		$values = HM485::Util::convertIdToHash($values);
 	}
 	
-	foreach my $valueKey (keys %{$values}) {
-		
-		if ($valueKey eq 'state' || $valueKey eq 'level' || $valueKey eq 'frequency') {
-			my $onlyAck = 0;
-			
-			my $valueHash  = $values->{$valueKey} ? $values->{$valueKey} : '';
-			my $control    = $valueHash->{'control'} ? $valueHash->{'control'} : '';
-			my $frameValue = undef;
-			
-			if ($control eq 'digital_analog_output.frequency')	{
-				#deviec sends ACK only no Info frame. Need a only_ack bit for this control
-				$onlyAck = 0;				
-			}
-
-			if ($cmd eq 'on' || $cmd eq 'off' || $cmd eq 'toggle') {
-				if ($control eq 'switch.state' || $control eq 'blind.level' ||
-					$control eq 'dimmer.level' || $control eq 'valve.level') {
-					
-					$frameValue = HM485::Device::onOffToState($valueHash, $cmd);
-				} else {
-					$retVal = 'no on / off for this channel';
-				}
-				
-			} else {
-				$frameValue = HM485::Device::valueToState(
-					$valueHash, $value);
-			}
-
-			$frameData->{$valueKey} = {
-				value    => $frameValue,
-				physical => $valueHash->{'physical'}
-			};
-			
-			if ($frameData) {
-				my $frameType = $valueHash->{'physical'}{'set'}{'request'};
-				my $data      = HM485::Device::buildFrame($hash, $frameType, $frameData);
-
-				HM485_SendCommand($hash, $hmwId, $data, $onlyAck) if length $data;
+	# The command is either directly listed as parameter (level, state, frequency, stop,...)
+	# or it is on,off,toggle
+	my $valueKey = undef;
+	if($values->{$cmd}) {
+		$valueKey = $cmd;
+	}elsif($cmd eq 'on' || $cmd eq 'off' || $cmd eq 'toggle') {
+		# in this case use state, level or frequency
+		foreach my $vKey (keys %{$values}) {
+			if ($vKey eq 'state' || $vKey eq 'level' || $vKey eq 'frequency') {
+				$valueKey = $vKey; #perl is weird sometimes
+				last;
 			}
 		}
 	}
+	
+	# now $valueKey is something sensible or empty/undef
+	# (we are assuming that this routine is only called for sensible commands)
+	if(!$valueKey) { return $retVal; }
+		
+	my $onlyAck = 0;  # TODO this onlyAck stuff is not really used, is it?
+	my $valueHash  = $values->{$valueKey} ? $values->{$valueKey} : '';
+	my $control    = $valueHash->{'control'} ? $valueHash->{'control'} : '';
+	my $frameValue = undef;
+			
+	if ($control eq 'digital_analog_output.frequency')	{
+		#deviec sends ACK only no Info frame. Need a only_ack bit for this control
+		$onlyAck = 0;				
+	}
+
+	if ($cmd eq 'on' || $cmd eq 'off' || $cmd eq 'toggle') {
+		if ($control eq 'switch.state' || $control eq 'blind.level' ||
+			$control eq 'dimmer.level' || $control eq 'valve.level') {
+			$frameValue = HM485::Device::onOffToState($valueHash, $cmd);
+		} else {
+			$retVal = 'no on / off for this channel';
+		}
+	} else {
+		$frameValue = HM485::Device::valueToState(
+			$valueHash, $value);
+	}
+
+	$frameData->{$valueKey} = {
+		value    => $frameValue,
+		physical => $valueHash->{'physical'}
+	};
+			
+	my $frameType = $valueHash->{'physical'}{'set'}{'request'};
+	my $data      = HM485::Device::buildFrame($hash, $frameType, $frameData);
+	HM485_SendCommand($hash, $hmwId, $data, $onlyAck) if length $data;
 
 	return $retVal;
 }
@@ -2296,7 +2296,8 @@ sub HM485_ChannelDoUpdate($) {
 	my $doTrigger = $params->{doTrigger} ? 1 : 0;
 	
 	my $state = undef;  # in case we do not update state anyway, use the last parameter
-
+    my $updateState = 1;
+	
 	HM485::Util::HM485_Log( 'HM485_ChannelDoUpdate: name = ' . $name);
 	readingsBeginUpdate($chHash);
 	
@@ -2314,15 +2315,14 @@ sub HM485_ChannelDoUpdate($) {
 				HM485::LOGTAG_HM485, 4, $name . ': ' . $valueKey . ' -> ' . $value
 			);
 			# State noch aktualisieren
-			if ( $valueKey eq 'state' || $valueKey eq 'sensor') {
-				$state = undef;
-			} else {
+			if ( $valueKey eq 'state') {
+				$updateState = 0; # anyway updated
+			} elsif(!defined($state) || $valueKey eq 'level' || $valueKey eq 'sensor' || $valueKey eq 'frequency') {
 				$state = $valueKey . '_' . $value;
-				
 			}
 		}
 	}
-	if(defined($state)) {
+	if(defined($state) && $updateState) {
 		readingsBulkUpdate( $chHash, 'state', $state);
 	};	
 	readingsEndUpdate($chHash, $doTrigger);

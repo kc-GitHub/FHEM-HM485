@@ -70,7 +70,6 @@ sub init () {
 		if (scalar(keys %deviceDefinitions) < 1 ) {
 			return 'HM485: Warning, no device definitions loaded!';
 		}
-	
 		initModels();
 	} else {
 		$retVal = 'HM485: ERROR! Can\'t read devicePath: ' . $devicesPath . $!;
@@ -695,8 +694,13 @@ sub getValueFromHexData($;$$$) {
 	$start = $start ? $start : 0;
 	$size  = $size ? $size : 1;
 	
-	my $bitsId 	 = ($start - int($start)) * 10;
-	my $bitsSize = ($size - int($size)) * 10;
+	# the following needs to be done with split as floating point 
+	# calculations are not precise (it was done by multiplying the decimals with 10)
+	my (undef, $bitsId) = split('\.',$start);
+	# usually, addresses and sizes should always be denoted like 12.0, but you never know
+	$bitsId = $bitsId ? $bitsId : 0;
+	my (undef, $bitsSize) = split('\.',$size);
+	$bitsSize = $bitsSize ? $bitsSize : 0;
 	
 	my $retVal;
 	
@@ -726,28 +730,29 @@ sub getValueFromHexData($;$$$) {
 sub convertFrameDataToValue($$$) {
 	my ($hash, $deviceKey, $frameData) = @_;
 					
-	if ($frameData->{ch}) {
+	if (!($frameData->{ch})) { return $frameData; }
 
 	foreach my $valId (keys %{$frameData->{params}}) {
-			# HM485::Util::HM485_Log( 'Device:convertFrameDataToValue valId = ' . $valId);
-			my $valueMap = getChannelValueMap($hash, $deviceKey, $frameData, $valId);
-			if ( defined($valueMap) && exists( $valueMap->{name})) {
-				HM485::Util::logger( 'Device:convertFrameDataToValue', 5, 'deviceKey = ' . $deviceKey . ' valId = ' . $valId . ' value1 = ' . $frameData->{params}{$valId}{val});
-			
-				$frameData->{params}{$valId}{val} = dataConversion(
-					$frameData->{params}{$valId}{val},					
-					$valueMap->{conversion},
-					'from_device'
-				);
-				HM485::Util::logger( 'Device:convertFrameDataToValue', 5, 'value2 = ' . $frameData->{params}{$valId}{val});
-				$frameData->{value}{$valueMap->{name}} = valueToControl(
-					$valueMap,
-					$frameData->{params}{$valId}{val},
-				);
-			} else {
-				# frames zu denen keine valueMap existiert loeschen
-				delete $frameData->{params}{$valId};
-			}
+		# HM485::Util::HM485_Log( 'Device:convertFrameDataToValue valId = ' . $valId);
+		my $valueMap = getChannelValueMap($hash, $deviceKey, $frameData, $valId);
+		if(!(scalar @$valueMap)) {
+			# frames zu denen keine valueMap existiert loeschen
+			delete $frameData->{params}{$valId};
+			next;
+		}
+		foreach my $valueMapEntry (@$valueMap) { 
+			HM485::Util::logger( 'Device:convertFrameDataToValue', 5, 'deviceKey = ' . $deviceKey . ' valId = ' . $valId . ' value1 = ' . $frameData->{params}{$valId}{val});
+		
+			$frameData->{params}{$valId}{val} = dataConversion(
+				$frameData->{params}{$valId}{val},					
+				$valueMapEntry->{conversion},
+				'from_device'
+			);
+			HM485::Util::logger( 'Device:convertFrameDataToValue', 5, 'value2 = ' . $frameData->{params}{$valId}{val});
+			$frameData->{value}{$valueMapEntry->{name}} = valueToControl(
+				$valueMapEntry,
+				$frameData->{params}{$valId}{val},
+			);
 		}
 	}
 
@@ -765,7 +770,7 @@ sub convertFrameDataToValue($$$) {
 sub valueToControl($$) {
 	my ($paramHash, $value) = @_;
 	# Transformieren des Modulwertebereichs in den FHEM Wertebereich
-	my $retVal = $value;
+	my $retVal = $value;  # default
 
 	my $control = undef;
 	if ( defined( $paramHash->{control}) && $paramHash->{control}) {
@@ -785,21 +790,30 @@ sub valueToControl($$) {
 			if ( exists $paramHash->{'logical'}{'unit'} && $paramHash->{'logical'}{'unit'} eq '100%') {
 				$retVal = $value * 100;
 			}
-		} else {
-			$retVal = $value;
 		}
-
-	} else {
 		#digital_analog_input - digital_input has no control
-		if (exists $paramHash->{'logical'}{'type'} && $paramHash->{'logical'}{'type'} eq 'boolean') {
-			my $threshold = $paramHash->{conversion}{threshold};	# digital_input + digital_input_values
-			$threshold = $threshold ? int($threshold) : 1;
-			$retVal = ($value >= $threshold) ? 'on' : 'off';
-			#$retVal = $value ? 'yes' : 'no';
-			#$retVal = $value ? 'on' : 'off';
-		} else {	# info_frequency + analog_input
-			$retVal = $value;
+		#the same for direction, working
+	} elsif (exists $paramHash->{'logical'}{'type'} && $paramHash->{'logical'}{'type'} eq 'boolean') {
+		my $threshold = $paramHash->{conversion}{threshold};	# digital_input + digital_input_values
+		$threshold = $threshold ? int($threshold) : 1;
+		$retVal = ($value >= $threshold) ? 'on' : 'off';
+	} elsif (exists $paramHash->{'logical'}{'type'} && $paramHash->{'logical'}{'type'} eq 'option') {
+		# not checking index arrays simply seems to create entries in the array
+		my $options = $paramHash->{logical}{option}; 
+		if(exists($options->[$value])) {
+			$retVal = $options->[$value]{id};
+		}else{
+		# if $value is out of bounds, find the default option
+			HM485::Util::logger( 'Device:valueToControl', 3, 'options = ');
+			print(Dumper($options));
+			foreach my $option (@$options) {
+				print(Dumper($option));
+				if(defined($option->{default}) && $option->{default}) {
+					return $option->{id};
+				}
+			}
 		}
+	
 	}
 	
 	return $retVal;
@@ -917,11 +931,13 @@ sub translateValueToFrameData ($$) {
 	my $key     = (keys %{$frameData})[0];
 	my $valueId = $frameData->{$key}{'physical'}{'value_id'};
 	
+	# HM485::Util::logger('translateValueToFrameData', 3, 'frameParam: ');
+	# print(Dumper($frameParam));
+	
 	if ($valueId && $key) {
 		if ($frameParam->{'size'}) {
 			my $paramLen = $frameParam->{'size'};
 			$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key}{'value'});
-				
 		} else {
 			my $value = undef;
 			
@@ -930,17 +946,17 @@ sub translateValueToFrameData ($$) {
 				my $shift    = $index *10 - floor($index) * 10;
 				my $paramLen = $frameParam->{$index}{'size'} ? $frameParam->{$index}{'size'} : 1;
 				
+				# fixed value?
+				if (defined ($frameParam->{$index}{'const_value'})) {
+					$frameData->{$key}{'value'} = $frameParam->{$index}{'const_value'};
+				}
+				
 				if ($paramLen >= 1) {
 					$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key}{'value'});
 				} else {
 					# bitschupsen
-					if (defined ($frameParam->{$index}{'const_value'})) {
-						my $val = $frameParam->{$index}{'const_value'} << $shift;
-						$value += $val; 
-					} else {
-						my $val = $frameData->{$key}{'value'} << $shift;
-						$value += $val;
-					}
+					my $val = $frameData->{$key}{'value'} << $shift;
+					$value += $val;
 				}
 			}
 			
@@ -1124,7 +1140,7 @@ sub getChannelValueMap($$$$) {
 		$deviceKey . '/channels/' . $chType . $valuePrafix
 	);
 	
-	my $retVal;
+	my @retVal = ();
 	if (defined($values)) {
 		if (exists ($values->{'id'})) {
 			# oh wie ich diese id's hasse :-(
@@ -1133,20 +1149,18 @@ sub getChannelValueMap($$$$) {
 					$values->{'physical'}{'event'}{'frame'} eq $frameData->{'id'}) {
 						
 					my $id = $values->{'id'};
-					$retVal = $values;
-					$retVal->{'name'} = $id;
+					$retVal[0] = $values;
+					$retVal[0]{name} = $id;
 					}
 				}		
 		} else {
-			
 			foreach my $value (keys %{$values}) {
 				if ($values->{$value}{'physical'}{'value_id'} eq $valId) {
 					if (!defined($values->{$value}{'physical'}{'event'}{'frame'}) ||
 						$values->{$value}{'physical'}{'event'}{'frame'} eq $frameData->{'id'}) {
 
-						$retVal = $values->{$value};
-						$retVal->{'name'} = $value;
-						last;
+						$retVal[scalar @retVal] = $values->{$value};
+						$retVal[$#retVal]{name} = $value;
 					}
 				}
 			}
@@ -1155,7 +1169,7 @@ sub getChannelValueMap($$$$) {
 	#Todo Log5
 	#print Dumper ("getChannelValueMap,$valId bevaviour:$behaviour bool:$bool extension:$extension chtype:$chType");
 	
-	return $retVal;
+	return \@retVal;
 }
 
 sub getEmptyEEpromMap($) {
@@ -1447,7 +1461,7 @@ sub isInt($) {
 
 sub subBit ($$$) {
 	my ($byte, $start, $len) = @_;
-	
+
 	return (($byte << (8 - $start - $len)) & 0xFF) >> (8 - $len);
 }
 
