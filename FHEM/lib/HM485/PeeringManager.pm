@@ -599,6 +599,32 @@ sub updateBits ($$$$) {
 	return $retVal;
 }
 
+sub indexArray(@)
+{        
+         1 while $_[0] ne pop;
+          $#_;
+}
+
+sub loadDefaultPeerSettingsneu($) {
+	my ($configTypeHash) = @_;
+	my $retVal;
+	
+	if (ref($configTypeHash->{logical}) eq 'HASH' && $configTypeHash->{physical}{interface} eq 'eeprom') {
+		if (defined $configTypeHash->{logical}{default}) {
+			$retVal = $configTypeHash->{logical}{default};
+		} elsif (defined $configTypeHash->{logical}{option}) {
+			for(my $index = 0; $index <= $#{$configTypeHash->{logical}{option}}; $index++){
+     			if ($configTypeHash->{logical}{option}[$index]{default}) {
+     				$retVal = $index;
+     				last;
+     			}
+			}			
+		}
+	}
+	
+	return $retVal;
+}
+
 sub loadDefaultPeerSettings($) {
 	my ($device) = @_;
 	

@@ -482,7 +482,7 @@ sub HM485_Set($@) {
 			$sets{'unpeer'} = $peerList->{'peered'};
 		}
 	} else {
-		HM485::PeeringManager::getLinksFromDevice($hash);
+		#HM485::PeeringManager::getLinksFromDevice($hash);
 		%sets = %setsDev;
 	}
 
@@ -1041,6 +1041,11 @@ sub HM485_SetPeer($@) {
 		foreach my $sen (keys %{$senParams->{'sensor'}{'parameter'}}) {
 			
 			$configTypeHash = $senParams->{'sensor'}{'parameter'}{$sen};
+			if (!defined($peering->{'sen'}{$sen})) {
+				$peering->{'sen'}{$sen} = HM485::PeeringManager::loadDefaultPeerSettingsneu($configTypeHash);
+				#print Dumper ("validate $sen",$configTypeHash->{logical}{default},$peering->{'sen'}{$sen});
+			}
+			
 			#todo validate address data
 			$msg = HM485_ValidateSettings($configTypeHash, $sen, $peering->{'sen'}{$sen});
 			
@@ -1095,10 +1100,10 @@ sub HM485_SetPeer($@) {
 				#	$adr = $old_set->{'act'}{'adr'};
 				#	$size = sprintf ('%02X' , $size + $old_set->{'act'}{'size'});
 					#$value .= sprintf ('%02X',$old_set->{'act'}{'value'});
-										
+				
+				HM485::Device::internalUpdateEEpromData($devHash,$adr . $size . $value);		
 				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);					
 				
-				#}
 					
 				$old_set->{'act'}{'adr'} = $adr;
 				$old_set->{'act'}{'size'} = $size;
@@ -1134,6 +1139,7 @@ sub HM485_SetPeer($@) {
 				
 				$adr = sprintf ('%04X' , $adr);
 				
+				HM485::Device::internalUpdateEEpromData($senDevHash,$adr . $size . $value);
 				HM485_SendCommand($senHash, $senHash->{'DEF'}, '57' . $adr . $size . $value);
 				
 				$old_set->{'sen'}{'adr'} = $adr;
@@ -1219,8 +1225,9 @@ sub HM485_SetUnpeer($@) {
 			);
 			
 			$adr = sprintf ('%04X' , $adr);
+			HM485::Device::internalUpdateEEpromData($actHash,$adr . $size . $value);
 			HM485_SendCommand($actHash, $actHmwId, '57' . $adr . $size . $value);
-
+			
 
 		}
 		
@@ -1250,7 +1257,9 @@ sub HM485_SetUnpeer($@) {
 			);
 			
 			$adr = sprintf ('%04X' , $adr);
-			HM485_SendCommand($hash, $senHmwId, '57' . $adr . $size . $value);					
+			HM485::Device::internalUpdateEEpromData($senHash,$adr . $size . $value);
+			HM485_SendCommand($hash, $senHmwId, '57' . $adr . $size . $value);
+							
 		}
 		
 		HM485_SendCommand($hash, $senHmwId, '43');
