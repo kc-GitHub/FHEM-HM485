@@ -596,12 +596,7 @@ sub getPhysicalAddress($$$$) {
 		$deviceKey . '/channels/' . $chType .'/'
 	);
 	
-	my $chId;
-	if (defined $hash->{'.helper'}{'peerNr'}) {
-		$chId = int($hash->{'.helper'}{'peerNr'});
-	} else {
-		$chId = int($chNr) - $chConfig->{'index'};
-	}
+	my $chId  = int($chNr) - $chConfig->{'index'};
 	
 	# we must check if special params exists.
 	# Then address_id and step retrieve from special params
