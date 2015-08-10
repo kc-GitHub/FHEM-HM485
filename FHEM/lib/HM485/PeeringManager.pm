@@ -183,18 +183,11 @@ sub getDevNameByHmwId($) {
 sub getHmwIdByDevName ($) {
 	my ($name) = @_;
 	
-	my $retVal = undef;
-	
-	foreach my $def (keys %{$main::modules{HM485}{defptr}}) {
-		
-		if ($main::modules{HM485}{defptr}{$def}{NAME} eq $name) {
-	
-			$retVal = $main::modules{HM485}{defptr}{$def}{DEF};
-			last;
-		}
+	my $hash = $main::defs{$name};
+	if($hash && $hash->{TYPE} eq 'HM485') {
+		return $hash->{DEF};
 	}
-	
-	return $retVal;
+	return undef;
 }
 
 sub getLinkParams($) {
