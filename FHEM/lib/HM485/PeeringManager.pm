@@ -599,12 +599,6 @@ sub updateBits ($$$$) {
 	return $retVal;
 }
 
-sub indexArray(@)
-{        
-         1 while $_[0] ne pop;
-          $#_;
-}
-
 sub loadDefaultPeerSettingsneu($) {
 	my ($configTypeHash) = @_;
 	my $retVal;
