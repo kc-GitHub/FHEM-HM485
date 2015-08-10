@@ -157,7 +157,12 @@ sub getPeerableChannels($) {
 	
 	$retVal->{peerable} = join(",",@peerable);
 	$retVal->{peered} = join(",",@peered);
-	$hash->{PeerList} = $retVal->{peered};
+	if ($retVal->{peered}) {
+		$hash->{PeerList} = $retVal->{peered};
+	} else {
+		delete $hash->{PeerList};
+	}
+	
 	
 	return $retVal;
 }
