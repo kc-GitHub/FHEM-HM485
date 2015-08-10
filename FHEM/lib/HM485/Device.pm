@@ -425,7 +425,6 @@ sub getFrameInfos($$;$$$) {
 	my @retVals;
 	
 	my $frames = getValueFromDefinitions($deviceKey . '/frames/');
-	print Dumper ("getValueFromDefinitions",$frames);
 	if(!$frames){ return {}; }; #Device has no Frames, give up 
 	
 	foreach my $frame (keys %{$frames}) {
