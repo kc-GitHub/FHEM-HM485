@@ -337,7 +337,7 @@ sub getLinksFromDevice($) {
 						$linkParams->{sensor}{address_step}
 					);
 					
-					if ($chHash->{value} && $chHash->{value} ne '255') {
+					if (defined($chHash->{value}) && $chHash->{value} ne '255') {
 						my $addrHash = HM485::ConfigurationManager::writeConfigParameter($devHash,
 							$linkParams->{sensor}{parameter}{sensor},
 							$adrStart,
