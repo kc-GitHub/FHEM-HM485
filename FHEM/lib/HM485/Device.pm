@@ -1549,7 +1549,7 @@ sub getAllowedSets($) {
 	my $model  = $hash->{'MODEL'};
 	
 	my %cmdOverwrite = (
-		'switch.state'	=> "on:noArg off:noArg"
+		'switch.state'	=> "on:noArg off:noArg toggle:noArg on-for-timer:textField"
 	);
 		
 	my %cmdArgs = (

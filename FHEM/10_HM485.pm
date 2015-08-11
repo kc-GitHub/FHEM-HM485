@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.15	
+	Version 0.7.16	
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -544,16 +544,17 @@ sub HM485_Set($@) {
 				readingsSingleUpdate($hash, $cmd, $value, 1);
 				$msg = HM485_SetChannelState($hash, $cmd, $value);			
 			} elsif ( $cmd eq 'on-for-timer') {
-				my $state = uc( ReadingsVal( $name, 'state', 'off'));
 				if ( $value && $value > 0) {
-					$state = 'on';
-					$msg = HM485_SetChannelState($hash, $state, $value);
-					HM485::Util::logger( HM485::LOGTAG_HM485, 3, 'set ' . $name . ' on-for-timer ' . $value);
-					$state = 'off';
-					InternalTimer( gettimeofday() + $value, 'fhem', 'set ' . $name . ' ' . $state, 0 );
+					# remove any internal timer, which switches the channel off
+					my $offcommand = 'set ' . $name . ' off';
+					RemoveInternalTimer($offcommand);
+					# switch channel on	
+					$msg = HM485_SetChannelState($hash, 'on', $value);
+					HM485::Util::logger( HM485::LOGTAG_HM485, 5, 'set ' . $name . ' on-for-timer ' . $value);
+					# set internal timer to switch channel off
+					InternalTimer( gettimeofday() + $value, 'fhem', $offcommand, 0 );
 				} else {
-					$state = 'off';
-					$msg = HM485_SetChannelState($hash, $state, $value);
+					$msg = HM485_SetChannelState($hash, 'off', $value);
 				}
 			} elsif ($cmd eq 'raw') {
 				HM485_SendCommand($hash, $hmwId, $value);
@@ -570,6 +571,7 @@ sub HM485_Set($@) {
 
 	return $msg;  
 }
+
 
 =head2
 	Implements getFn
