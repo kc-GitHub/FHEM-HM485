@@ -194,7 +194,34 @@ sub getModelList() {
 	return join(',', @modelList);
 }
 
+=head2 isBehaviour
+	Looks if channels behaviour is activ
+	@param	hash      hash of device addressed
+	
+	@return	boolean   behaviour enabled/disabled
+=cut
 
+sub isBehaviour($) {
+	my ($hash) = @_;
+	
+	my ($hmwId, $chNr)	= HM485::Util::getHmwIdAndChNrFromHash($hash);
+	my $deviceKey 		= getDeviceKeyFromHash($hash);
+	my $chType 			= getChannelType($deviceKey, $chNr);
+	my $config			= getValueFromDefinitions(
+		$deviceKey . '/channels/' .	$chType . '/paramset/master'
+	);
+	my $retVal;
+
+	if (ref($config->{parameter}{behaviour}) eq 'HASH') {
+		$retVal = HM485::ConfigurationManager::writeConfigParameter($hash,
+			$config->{parameter}{behaviour},
+			$config->{address_start},
+			$config->{address_step}
+		);
+	}
+
+	return $retVal->{value}
+}
 
 sub getBehaviour($) {
 	my ($hash) = @_;
