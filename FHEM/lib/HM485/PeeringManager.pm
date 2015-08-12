@@ -91,6 +91,23 @@ sub getPeerId ($$$$) {
 	return $retVal;
 }	
 
+sub actuatorPeerList($$) {
+	my ($hash,$peerLinks) = @_;
+	
+	my @peerlist;
+	my $retVal;
+	
+	foreach my $peerId (keys %{$peerLinks->{sensors}}) {
+		if ($peerLinks->{sensors}{$peerId}{channel} && 
+			$peerLinks->{sensors}{$peerId}{channel} eq substr($hash->{DEF}, 9, 2)) {
+			my $name = $peerLinks->{sensors}{$peerId}{sensor};
+			push @peerlist, getDevNameByHmwId($name);
+		}
+	}
+	
+	$hash->{PeerList} = join(',', @peerlist);
+	return $hash->{PeerList};
+}
 
 sub getPeerableChannels($) {
 	my ($hash) = @_;
@@ -129,8 +146,8 @@ sub getPeerableChannels($) {
 				my $alreadyPeered = 0;
 			
 				if ($num eq substr($hash->{DEF}, 9, 2) && substr($hash->{DEF}, 0, 8) eq $hmwId) {
-					#actor not sensor
-					return undef;
+					$retVal->{actpeered} = actuatorPeerList($hash,$peerLinks);
+					return $retVal;
 				}
 			
 				foreach my $actId (keys %{$peerLinks->{sensors}}) {
@@ -143,11 +160,9 @@ sub getPeerableChannels($) {
 				}
 						
 				if ($alreadyPeered) {
-					#push @peered, $hmwId.'_'.$num;
 					push @peered, getDevNameByHmwId($hmwId.'_'.$num);
 					next;
 				} else {
-					#push @peerable, $hmwId.'_'.$num;
 					push @peerable, getDevNameByHmwId($hmwId.'_'.$num);
 				}
 				
@@ -298,7 +313,7 @@ sub getLinksFromDevice($) {
 						$adrStart,
 						$linkParams->{actuator}{address_step}
 					);
-					if ($chHash->{value} < '255') {
+					if (defined($chHash->{value}) && $chHash->{value} < '255') {
 						my $addrHash = HM485::ConfigurationManager::writeConfigParameter($devHash,
 							$linkParams->{actuator}{parameter}{actuator},
 							$adrStart,
@@ -310,7 +325,7 @@ sub getLinksFromDevice($) {
 							my $peerHash = $main::modules{HM485}{defptr}{$peers->{actuators}{$peerId}{actuator}};
 							if (!$peerHash) { $peerHash->{NAME} = 'unknown'};
 							$devHash->{'peer_act_'.$peerId} = 'channel_'.$peers->{actuators}{$peerId}{channel}.
-								' → '. $peerHash->{NAME};  #$peers->{'actuators'}{$peerId}{'actuator'};
+								' → '. $peerHash->{NAME};
 						}	
 					} else {
 					    # remove empty peering
@@ -349,8 +364,9 @@ sub getLinksFromDevice($) {
 							
 							my $peerHash = $main::modules{HM485}{defptr}{$peers->{sensors}{$peerId}{sensor}};
 							if (!$peerHash) { $peerHash->{NAME} = 'unknown'};
+							
 							$devHash->{'peer_sen_'.$peerId} = 'channel_'.$peers->{sensors}{$peerId}{channel}.
-								' ← '. $peerHash->{NAME}; #$peers->{'sensors'}{$peerId}{'sensor'};
+								' ← '. $peerHash->{NAME};
 						}	
 					} else {
 					    # remove empty peering
@@ -600,7 +616,7 @@ sub updateBits ($$$$) {
 sub loadDefaultPeerSettingsneu($) {
 	my ($configTypeHash) = @_;
 	my $retVal;
-	
+	#Todo not ready (spezialparam ,uihint...) 
 	if (ref($configTypeHash->{logical}) eq 'HASH' && $configTypeHash->{physical}{interface} eq 'eeprom') {
 		if (defined $configTypeHash->{logical}{default}) {
 			$retVal = $configTypeHash->{logical}{default};

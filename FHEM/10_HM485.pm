@@ -480,6 +480,8 @@ sub HM485_Set($@) {
 		}
 		if ($peerList->{'peered'}) {
 			$sets{'unpeer'} = $peerList->{'peered'};
+		} elsif ($peerList->{'actpeered'}){
+			$sets{'unpeer'} = $peerList->{'actpeered'};
 		}
 	} else {
 		#HM485::PeeringManager::getLinksFromDevice($hash);
@@ -1159,7 +1161,7 @@ sub HM485_SetPeer($@) {
 			HM485_SendCommand($senHash, $senHash->{'DEF'}, '43');
 		}
 	} else {
-		$msg = 'set peer argument "' . $values[0] . '" must be one of ' . join(' ', @peerList);
+		$msg = 'set peer argument "' . $values[0] . '" must be one of ' . join(', ', $peerList[0],$peerList[1],$peerList[2],'...');
 	}
 	
 	return $msg;
@@ -1173,7 +1175,12 @@ sub HM485_SetUnpeer($@) {
 	
 
 	my $pList	 = HM485::PeeringManager::getPeerableChannels($hash);
-	my @peerList = split(',',$pList->{peered});
+	my @peerList;
+	if ($pList->{peered}) {
+		@peerList = split(',',$pList->{peered});
+	} elsif ($pList->{actpeered}) {
+		return ('unpeering from actuator not implemented');
+	}
 	
 	my $msg = '';
 	
@@ -1277,7 +1284,7 @@ sub HM485_SetUnpeer($@) {
 		
 		HM485_SendCommand($hash, $senHmwId, '43');
 	} else {
-		$msg = 'set unpeer argument "' . $values[0] . '" must be one of ' . join(' ', @peerList);
+		$msg = 'set unpeer argument "' . $values[0] . '" must be one of ' . join(',', @peerList);
 	}
 	
 	return $msg;
