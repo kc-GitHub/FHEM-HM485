@@ -4,7 +4,7 @@ our %definition = (
 		'version' => 	7,
 		'eep_size' => 	1024,
 		'supported_types' => 	{
-			"HMW-Sen-SC-12-DR" => {
+			"HMW_Sen_SC_12_DR" => {
 				"name" => "RS485 shutter contact 12-channel (DIN rails)",
 				"parameter" => {
 					0 => {
@@ -18,7 +18,7 @@ our %definition = (
 				},
 				"priority" => 2
 			},
-			"HMW-Sen-SC-12-FM" => {
+			"HMW_Sen_SC_12_FM" => {
 				"name" => "RS485 shutter contact 12-channel (flush-mount)",
 				"parameter" => {
 					0 => {

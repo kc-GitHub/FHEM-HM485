@@ -3,15 +3,18 @@ our %definition = (
 	'HMW_CENTRAL' => {
 		'version' => 	3,
 		'supported_types' => 	{
-			"type" => {
-				"Virtual Remote Control 50 Keys" => {
-					"id" => "HMW-RCV-50"
-				}
+			"CENTRAL" => {
+				"name" => "Virtual Remote Control 50 Keys"
+			},
+			"HMW_RCV_50" => {
+				"name" => "Virtual Remote Control 50 Keys"
 			}
 		},
 		'paramset' => 	{
-			"id" => "hmw_central_dev_master",
-			"type" => "master"
+			"hmw_central_dev_master" => {
+				"id" => "hmw_central_dev_master",
+				"type" => "master"
+			}
 		},
 		'frames' => 	{
 			"key_event_long" => {
