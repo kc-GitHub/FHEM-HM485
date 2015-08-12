@@ -236,8 +236,12 @@ sub getConfigSettings($) {
 				 	$deviceKey . '/paramset'
 				);
 			} else {
+				my $extension = HM485::Device::isBehaviour($hash) ? 
+						'/subconfig/paramset/hmw_io_ch_master' :
+						'/paramset/master';
+												   
 				$configSettings = HM485::Device::getValueFromDefinitions(
-				 	$deviceKey . '/channels/' . $chType .'/paramset/master'
+				 	$deviceKey . '/channels/' . $chType . $extension
 				);
 			}
 
@@ -293,8 +297,10 @@ sub convertSettingsToEepromData($$) {
 	if ($chNr > 0) { #im channel 0 gibt es nur address index kein address_start oder address_step
 		my $deviceKey    = HM485::Device::getDeviceKeyFromHash($hash);
 		my $chType       = HM485::Device::getChannelType($deviceKey, $chNr);
+		my $extension	 = HM485::Device::isBehaviour($hash) ? 
+						   '/subconfig/paramset/hmw_io_ch_master' : '/paramset/master';
 		my $masterConfig = HM485::Device::getValueFromDefinitions(
-			$deviceKey . '/channels/' . $chType . '/paramset/master'
+			$deviceKey . '/channels/' . $chType . $extension
 		);
 		#addres step in the other xml Version is serched in getPhysicalAddress
 		$adressStart = $masterConfig->{'address_start'} ? $masterConfig->{'address_start'} : 0;
