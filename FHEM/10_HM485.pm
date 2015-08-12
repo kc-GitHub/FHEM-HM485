@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.17	
+	Version 0.7.18
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -1566,16 +1566,10 @@ sub HM485_SetChannelState($$$) {
 	# (we are assuming that this routine is only called for sensible commands)
 	if(!$valueKey) { return $retVal; }
 		
-	my $onlyAck = 0;  # TODO this onlyAck stuff is not really used, is it?
 	my $valueHash  = $values->{$valueKey} ? $values->{$valueKey} : '';
 	my $control    = $valueHash->{'control'} ? $valueHash->{'control'} : '';
 	my $frameValue = undef;
 			
-	if ($control eq 'digital_analog_output.frequency')	{
-		#deviec sends ACK only no Info frame. Need a only_ack bit for this control
-		$onlyAck = 0;				
-	}
-
 	if (index('on:off:toggle:up:down', $cmd) != -1) {
 		if ($control eq 'switch.state' || $control eq 'blind.level' ||
 			$control eq 'dimmer.level' || $control eq 'valve.level') {
@@ -1595,7 +1589,7 @@ sub HM485_SetChannelState($$$) {
 			
 	my $frameType = $valueHash->{'physical'}{'set'}{'request'};
 	my $data      = HM485::Device::buildFrame($hash, $frameType, $frameData);
-	HM485_SendCommand($hash, $hmwId, $data, $onlyAck) if length $data;
+	HM485_SendCommand($hash, $hmwId, $data) if length $data;
 
 	return $retVal;
 }
@@ -1748,7 +1742,7 @@ sub HM485_SetWebCmd($;$) {
 		#todo activate press_long and press_short on peered channels only
 		foreach my $val (@Values) {
 			my ($cmd, $arg) = split(':',$val);
-			if ($cmd ne 'inhibit' && $cmd ne 'install_test' && $cmd ne 'frequency2' 
+			if ($cmd ne 'inhibit' && $cmd ne 'install_test'  
 			 && $cmd ne 'on'  && $cmd ne 'off') {
 			 	push (@webCmds, $cmd);
 			}
@@ -2145,14 +2139,13 @@ sub HM485_CheckForAutocreate($$;$$) {
 	@param	string  the HMW id
 	@param	string  the data to send
 =cut
-sub HM485_SendCommand($$$;$) {
-	my ($hash, $hmwId, $data, $onlyAck) = @_;
+sub HM485_SendCommand($$$) {
+	my ($hash, $hmwId, $data) = @_;
 	if ( !$hmwId) {
 		my @param = split(' ', $hash);
 		$hash     = $param[0];
 		$hmwId    = $param[1];
 		$data     = $param[2];
-		$onlyAck  = $param[3] ? $param[3] : 0;
 	}
 	$hmwId = substr($hmwId, 0, 8);
 	
@@ -2166,9 +2159,7 @@ sub HM485_SendCommand($$$;$) {
 			};
 		}
 	
-		$onlyAck = $onlyAck ? $onlyAck : 0;
-		
-		my %params = (hash => $devHash, hmwId => $hmwId, data => $data, ack => $onlyAck);
+		my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
 		InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
 		HM485::Util::logger( 'HM485_SendCommand',5, $data);
 	}
@@ -2187,7 +2178,6 @@ sub HM485_DoSendCommand($) {
 	my $requestType = substr( $data, 0, 2);  # z.B.: 53
 	my $hash        = $paramsHash->{hash};
 	my $ioHash      = $hash->{IODev};
-	my $onlyAck		= $paramsHash->{'ack'};
 
 	my %params      = (target => $hmwId, data   => $data);
 	
@@ -2202,7 +2192,7 @@ sub HM485_DoSendCommand($) {
 	# frame types which must be acked only
 	my @waitForAckTypes   = ('21', '43', '57', '67', '6C', '73');
 
-	if ($requestId && !$onlyAck && grep $_ eq $requestType, @validRequestTypes) {
+	if ($requestId && grep $_ eq $requestType, @validRequestTypes) {
 		$ioHash->{'.waitForResponse'}{$requestId}{requestType} = $requestType;
 		$ioHash->{'.waitForResponse'}{$requestId}{hmwId}       = $hmwId;
 		$ioHash->{'.waitForResponse'}{$requestId}{requestData} = substr($data, 2);
@@ -2423,11 +2413,10 @@ sub HM485_GetNewMsgQueue($$$$) {
 }
 
 # append command to queue
-sub HM485_QueueCommand($$$$;$) {
-	my ($queue, $hash, $hmwId, $data, $onlyAck) = @_;
+sub HM485_QueueCommand($$$$) {
+	my ($queue, $hash, $hmwId, $data) = @_;
 	HM485::Util::logger( 'HM485_QueueCommand',5, $data);
-	$onlyAck = $onlyAck ? $onlyAck : 0;
-	${$queue->{entries}}[$#{$queue->{entries}} +1] = {hash => $hash, hmwId => $hmwId, data => $data, onlyAck => $onlyAck};
+	${$queue->{entries}}[$#{$queue->{entries}} +1] = {hash => $hash, hmwId => $hmwId, data => $data};
 }	
 
 # This function is a wrapper to be able to call 
@@ -2476,7 +2465,7 @@ sub HM485_QueueProcessStep() {
   
   HM485::Util::logger( 'HM485_QueueProcessStep',5, $currentEntry);
   HM485_SendCommand($currentEntry->{hash}, $currentEntry->{hmwId}, 
-                    $currentEntry->{data}, $currentEntry->{onlyAck});
+                    $currentEntry->{data});
 }
 
 

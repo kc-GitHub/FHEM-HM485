@@ -1587,7 +1587,7 @@ sub getAllowedSets($) {
    		'valve.level' 	=> "slider,0,1,100 on:noArg off:noArg",
    		'button.long'	=> "noArg",
    		'button.short'	=> "noArg",
-   		'digital_analog_output.frequency' => "slider,0,1,50000 frequency2:textField",
+   		'digital_analog_output.frequency' => "slider,0,1,50000",
 	);
 	
 	my @cmdlist;
