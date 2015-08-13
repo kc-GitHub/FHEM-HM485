@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.20
+	Version 0.7.21
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -73,7 +73,7 @@ sub HM485_SetStateAck($$$);
 sub HM485_SetAttributeFromResponse($$$);
 sub HM485_ProcessEvent($$);
 sub HM485_CheckForAutocreate($$;$$);
-sub HM485_SendCommand($$$;$);
+sub HM485_SendCommand($$$);
 #sub HM485_SendCommandState($);
 sub HM485_DoSendCommand($);
 sub HM485_ProcessChannelState($$$$);
@@ -434,6 +434,58 @@ sub HM485_Parse($$) {
 	return $ioHash->{NAME};
 }
 
+
+# Toggle is special
+sub HM485_SetToggle($) {
+	my ($hash) = @_;
+	# Toggle seems to be a bit special.
+	# Channels where state/conversion/true = 200 scheinen 
+	# ein direktes Toggeln zu koennen
+	# andere (vielleicht nur HMW_IO12_SW14_DR) koennen das nicht
+	
+	# get the value hash
+	my ($valueKey, $valueHash) = HM485_GetValueHash($hash, 'toggle');
+	if(!$valueKey || !$valueHash) { return 'no toggle for this channel' };
+	
+	my $control    = $valueHash->{'control'} ? $valueHash->{'control'} : '';	
+	# nur devices mit control "switch.state" koennen toggle
+	if($control ne 'switch.state') {
+		return 'no toggle for this channel';
+	}
+	my $frameValue;
+	if(defined($valueHash->{conversion}{true}) && $valueHash->{conversion}{true} == 200) {
+		$frameValue = 0xFF;
+		readingsSingleUpdate($hash, 'state', 'set_toggle', 1);
+	} else {
+		# dieses Device braucht etwas Hilfe
+	    my $state = 'on';
+		if(defined($hash->{READINGS}{'state'}{VAL})) {
+			$state = $hash->{READINGS}{'state'}{VAL};
+		};			
+		my $newState;
+		if($state eq 'on' || $state eq 'set_on') {
+			$newState = 'off';
+		}else{
+			$newState = 'on';
+		}	
+		readingsSingleUpdate($hash, 'state', 'set_'.$newState, 1);
+		$frameValue = HM485::Device::onOffToState($valueHash, $newState);
+	}
+
+	my $frameData->{$valueKey} = {
+		value    => $frameValue,
+		physical => $valueHash->{'physical'}
+	};
+			
+	my $frameType = $valueHash->{'physical'}{'set'}{'request'};
+	my $data      = HM485::Device::buildFrame($hash, $frameType, $frameData);
+	HM485_SendCommand($hash, $hash->{DEF}, $data) if length $data;
+
+	return '';			
+				
+}
+
+
 =head2
 	Implements the SetFn
 	
@@ -485,12 +537,6 @@ sub HM485_Set($@) {
 		#HM485::PeeringManager::getLinksFromDevice($hash);
 		%sets = %setsDev;
 	}
-
-	# add config setter if config for this device or channel available
-	#my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
-	#if (scalar (keys %{$configHash})) {
-    #		$sets{'config'} = '';
-	#}
 	
 	if ($hash->{'.configManager'}) {
 		$sets{'config'} = '';
@@ -558,7 +604,10 @@ sub HM485_Set($@) {
 				}
 			} elsif ($cmd eq 'raw') {
 				HM485_SendCommand($hash, $hmwId, $value);
-			# "else" includes level, stop, on, off, toggle
+			} elsif ($cmd eq 'toggle') {
+				# toggle is a bit special
+				$msg = HM485_SetToggle($hash);
+			# "else" includes level, stop, on, off
 			} else {  
 				my $state = 'set_'.$cmd;
 				if($value) { $state .= '_'.$value; }
@@ -1520,11 +1569,10 @@ sub HM485_SetSettings($@) {
 }
 
 
-sub HM485_SetChannelState($$$) {
-	my ($hash, $cmd, $value) = @_;
+sub HM485_GetValueHash($$) {
+	my ($hash, $cmd) = @_;
 	
-	my $retVal            		= '';
-	my $frameData;
+
 	my ($hmwId, $chNr)    		= HM485::Util::getHmwIdAndChNrFromHash($hash);
 	my $devHash           		= $main::modules{'HM485'}{'defptr'}{substr($hmwId,0,8)};
 	my $deviceKey         		= HM485::Device::getDeviceKeyFromHash($devHash);
@@ -1564,13 +1612,26 @@ sub HM485_SetChannelState($$$) {
 	
 	# now $valueKey is something sensible or empty/undef
 	# (we are assuming that this routine is only called for sensible commands)
-	if(!$valueKey) { return $retVal; }
+	if(!$valueKey) { return undef; }
 		
-	my $valueHash  = $values->{$valueKey} ? $values->{$valueKey} : '';
+	return ($valueKey, $values->{$valueKey});
+
+}
+
+
+sub HM485_SetChannelState($$$) {
+	my ($hash, $cmd, $value) = @_;
+	
+	my $retVal            		= '';
+	my $frameData;
+	my ($hmwId, $chNr)    		= HM485::Util::getHmwIdAndChNrFromHash($hash);
+	my ($valueKey, $valueHash) = HM485_GetValueHash($hash, $cmd);
+	if(!$valueKey || !$valueHash) { return $retVal; }
+		
 	my $control    = $valueHash->{'control'} ? $valueHash->{'control'} : '';
 	my $frameValue = undef;
-			
-	if (index('on:off:toggle:up:down', $cmd) != -1) {
+	
+	if (index('on:off:up:down', $cmd) != -1) {
 		if ($control eq 'switch.state' || $control eq 'blind.level' ||
 			$control eq 'dimmer.level' || $control eq 'valve.level') {
 			$frameValue = HM485::Device::onOffToState($valueHash, $cmd);

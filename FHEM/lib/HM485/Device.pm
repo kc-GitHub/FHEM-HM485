@@ -862,10 +862,6 @@ sub onOffToState($$) {
 		} elsif ( $logicalHash->{'type'} eq 'float' || $logicalHash->{'type'} eq 'int') {
 			$state = $conversionHash->{'factor'} * $logicalHash->{'min'};
 		}
-	} elsif ($cmd eq 'toggle') {
-		if ($stateHash->{'control'} eq 'switch.state') {
-			$state = 0xFF;
-		}
 	}
 
 	return $state;
