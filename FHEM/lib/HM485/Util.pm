@@ -135,7 +135,7 @@ sub logger ($$$;$$) {
 		$retVal = $tag . ': ' . $txt . $logTxt;
 
 		if (!defined($return)) {
-			main::Log3('', $level, $tag . ': ' . $txt . $logTxt);					
+			main::Log3($tag, $level, "$tag : $txt $logTxt");					
 		}
 	}
 	

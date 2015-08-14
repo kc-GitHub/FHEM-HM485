@@ -105,8 +105,9 @@ sub actuatorPeerList($$) {
 		}
 	}
 	
-	$hash->{PeerList} = join(',', @peerlist);
-	return $hash->{PeerList};
+	$hash->{PeerList} = join(' ', @peerlist);
+	$retVal = join(',', @peerlist);
+	return $retVal;
 }
 
 sub getPeerableChannels($) {
@@ -173,7 +174,7 @@ sub getPeerableChannels($) {
 	$retVal->{peerable} = join(",",@peerable);
 	$retVal->{peered} = join(",",@peered);
 	if ($retVal->{peered}) {
-		$hash->{PeerList} = $retVal->{peered};
+		$hash->{PeerList} = join(" ",@peered);
 	} else {
 		delete $hash->{PeerList};
 	}
@@ -510,7 +511,7 @@ sub convertPeeringsToEepromData($$) {
 		
 	my $log = sprintf("0x%X",$adrStart);
 	
-	HM485::Util::logger ( HM485::LOGTAG_HM485, 5,
+	HM485::Util::logger ( HM485::LOGTAG_HM485, 4,
 		'convertPeeringsToEepromData peerId: ' .$configData->{'channel'}{'peerId'}.
 		' start: ' . $log . ' step: ' .$adressStep . ' offset: ' .$adressOffset
 	);
@@ -631,6 +632,105 @@ sub loadDefaultPeerSettingsneu($) {
 	}
 	
 	return $retVal;
+}
+
+sub sendUnpeer($$;$) {
+	my ($senHmwId,$actHmwId,$fromAct) = @_;
+	#my ($actHmwId,$senHmwId,$actCh,$senCh) = @_;
+	
+	my $msg = '';
+	my @sort = ('actuator', 'sensor');
+	
+	if ($fromAct) {
+		#turn around
+		@sort = ('sensor', 'actuator');
+		my $tmp = $senHmwId;
+		$senHmwId = $actHmwId;
+		$actHmwId = $tmp;
+	}
+	
+	print Dumper ("sentUnpeer $senHmwId,$actHmwId,$fromAct");
+	
+	foreach my $senAct (@sort) {
+			
+		my ($isAct, $hmwId, $phmwId);
+			
+		if ($senAct eq 'sensor') {
+			$hmwId  = $senHmwId;
+			$phmwId = $actHmwId;
+			$isAct  = 0;
+		} else { #actuator
+			$hmwId  = $actHmwId;
+			$phmwId = $senHmwId;
+			$isAct  = 1;
+		}
+		
+		my $ch 		 = (int(substr($phmwId,9,2)));
+		my $devHash  = $main::modules{'HM485'}{'defptr'}{substr($hmwId,0,8)};
+		my $pdevHash = $main::modules{'HM485'}{'defptr'}{substr($phmwId,0,8)};
+		my $params   = HM485::PeeringManager::getLinkParams($pdevHash);
+		my $peerId   = HM485::PeeringManager::getPeerId($pdevHash,$hmwId,$ch,$isAct);
+		
+		if (defined $peerId) {
+			#write FF into address and channel
+			my $config;
+			
+			$config->{$senAct}{'value'}    = 'FFFFFFFFFF';
+			$config->{$senAct}{'config'}   = $params->{$senAct}{'parameter'}{$senAct};
+			$config->{$senAct}{'chan'}     = $ch;
+			$config->{'channel'}{'value'}  = hex('FF');
+			$config->{'channel'}{'config'} = $params->{$senAct}{'parameter'}{'channel'};
+			$config->{'channel'}{'peerId'} = $peerId;
+			
+			my $settings = HM485::PeeringManager::convertPeeringsToEepromData(
+				$pdevHash, $config
+			);
+			
+			foreach my $adr (sort keys %$settings) {
+		
+				my $size  = $settings->{$adr}{'size'} ? $settings->{$adr}{'size'} : 1;
+				my $value = $settings->{$adr}{'value'};
+					
+				if ($settings->{$adr}{'le'}) {
+					if ($size >= 1) {
+						$value = sprintf ('%0' . ($size*2) . 'X' , $value);
+						$value = reverse( pack('H*', $value) );
+						$value = hex(unpack('H*', $value));
+					}
+				}
+				
+				$size     = sprintf ('%02X' , $size);
+				
+				if (index($settings->{$adr}{'text'}, $senAct) > -1) {						
+					$value = sprintf ('%s', $value);
+				} else {
+					$value = sprintf ('%0' . ($size * 2) . 'X', $value);
+				}
+				
+				HM485::Util::logger ( $pdevHash->{NAME}.'_'.substr($phmwId,9,2), 3,
+					HM485::LOGTAG_HM485.': Set unpeer for ' . $phmwId . ': ' .
+					$settings->{$adr}{'text'}
+				);
+			
+				$adr = sprintf ('%04X' , $adr);
+				#print Dumper ("send: $phmwId 57 . $adr . $size . $value");
+				HM485::Device::internalUpdateEEpromData($pdevHash,$adr . $size . $value);
+				main::HM485_SendCommand($pdevHash, $phmwId, '57' . $adr . $size . $value);
+			}
+		} else {
+			if ($senAct eq 'actuator') {
+				$msg = "$hmwId. no Eeprom data found, Please wait until eeprom reading is finished";
+			} else {
+				$msg = "$hmwId. brocken peer ?";
+			}
+		}
+		if (!$msg) {
+			main::HM485_SendCommand($pdevHash, $phmwId, '43');
+			print Dumper ("HM485_SendCommand($pdevHash, $phmwId, 43");
+		}
+	}
+	
+	return $msg;
 }
 
 sub loadDefaultPeerSettings($) {
