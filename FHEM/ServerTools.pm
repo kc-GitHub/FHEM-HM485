@@ -14,6 +14,8 @@ use vars qw(%attr);        # Attributes
 use vars qw(%hash);
 use vars qw($winService);  # the Windows Service object
 use vars qw($init_done);
+use vars qw(%defs);		   # supress errors in Eclipse EPIC
+
 
 ##################################################
 # Variables:

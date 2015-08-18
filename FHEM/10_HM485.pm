@@ -1174,13 +1174,13 @@ sub HM485_SetUnpeer($@) {
 	shift(@values);
 	
 	my $pList	 = HM485::PeeringManager::getPeerableChannels($hash);
+	
 	my @peerList;
 	my $fromAct = 0;
 	
 	if ($pList->{peered}) {
 		@peerList = split(',',$pList->{peered});
 	} elsif ($pList->{actpeered}) {
-		#return ('unpeering from actuator not implemented');
 		@peerList = split(',',$pList->{actpeered});
 		$fromAct = 1;
 		HM485::Util::logger ( $hash->{NAME}, 3,
@@ -2460,13 +2460,13 @@ sub HM485_QueueStepSuccess($) {
 #called from SetStateNack
 sub HM485_QueueStepFailed($) {
   my ($requestId) = @_;
-  HM485::Util::logger( 'HM485_QueueStepFailed',5, 'Request ID: '.$requestId);
+  HM485::Util::logger(HM485::LOGTAG_HM485, 5, 'HM485_QueueStepFailed Request ID: '.$requestId);
   if($currentQueueIndex < 0) { return };
   # get current queue
   my $currentQueue = $msgQueueList[$currentQueueIndex]; 
   # correct request?
   if($currentQueue->{currentRequestId} != $requestId) { 
-    HM485::Util::logger( 'HM485_QueueStepFailed',5, 'Foreign request ID');
+    HM485::Util::logger(HM485::LOGTAG_HM485, 5, 'HM485_QueueStepFailed Foreign request ID');
     return; 
   };  
   # remove complete queue
@@ -2474,7 +2474,7 @@ sub HM485_QueueStepFailed($) {
   $currentQueueIndex = -1;
   # next step, there might be multiple queues
   # call this now, just in case the callback creates a new queue
-  HM485::Util::logger( 'HM485_QueueStepFailed',3, 'Call step');
+  HM485::Util::logger(HM485::LOGTAG_HM485, 4, 'HM485_QueueStepFailed Call step');
   HM485_QueueProcessStep();
   # failure callback
   if($currentQueue->{failureFn}) {

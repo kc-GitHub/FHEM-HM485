@@ -5,7 +5,7 @@ use IO::File;
 
 my $DEV = '/dev/ttyUSB1';
 
-use Device::SerialPort;
+#use Device::SerialPort;
 use Time::HiRes qw(gettimeofday tv_interval);
 
 my $hs485 = Device::SerialPort->new($DEV) || die "Can't open $DEV: $!";

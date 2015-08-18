@@ -1510,7 +1510,7 @@ sub updateBits ($$$$) {
 			$retVal = $retVal & $bitMask;
 		}
 	}
-	#print Dumper ("updateBits $eepromValue, $value, $size, $index, $retVal");
+	
 	return $retVal;
 }
 

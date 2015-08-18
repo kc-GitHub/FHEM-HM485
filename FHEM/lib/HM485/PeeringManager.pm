@@ -12,6 +12,47 @@ use lib::HM485::Constants;
 use Data::Dumper;
 
 
+
+sub brokenPeers ($$) {
+	my ($hash, $chList) = @_;
+	
+	my @list = @{$chList};
+	my $retVal = undef;
+	
+	my $devHash = $main::modules{HM485}{defptr}{substr($hash->{DEF}, 0, 8)};
+	my $channel = substr($hash->{DEF}, 9, 2);
+	my $devchannels = $devHash->{cache}{peered_act};
+	my @chArray = ();
+	
+	#first we create a array of peers with the aprobiate channel,
+	#then compare two arrays
+	
+	foreach my $peerId (keys %{$devchannels}) {
+		if ($channel eq $devchannels->{$peerId}{channel}) {
+			my $name = getDevNameByHmwId($devchannels->{$peerId}{name});
+			push @chArray, $name;
+		}
+	}
+	
+	my (@intersection, @difference) = ();
+    
+    my %count = ();
+    my $element;
+    
+    foreach $element (@chArray, @list) { 
+    	$count{$element}++;
+    }
+    foreach $element (keys %count) {
+            push @{ $count{$element} > 1 ? \@intersection : \@difference }, $element;
+    }
+
+    if (@difference && $devHash->{CONFIG_STATUS} eq 'OK') {
+    	$retVal = \@difference;
+    }
+
+    return $retVal;
+}
+
 #get next free peerID from Device
 sub getFreePeerId ($$) {
 	my ($devhash,$peerType) = @_;
@@ -171,14 +212,25 @@ sub getPeerableChannels($) {
 		}					
 	}
 	
-	$retVal->{peerable} = join(",",@peerable);
-	$retVal->{peered} = join(",",@peered);
-	if ($retVal->{peered}) {
+	if (@peered) {
 		$hash->{PeerList} = join(" ",@peered);
 	} else {
 		delete $hash->{PeerList};
 	}
 	
+	$retVal->{peerable} = join(",",@peerable);
+	
+	# peered could be empty but broken could be set
+	# we concatenate broken and peered, so we can also
+	# delete broken peers
+	my $broken = brokenPeers($hash, \@peered);
+	if ($broken) {
+		push @peered, @{$broken};
+		$hash->{BrokenPeers} = join(" ",@{$broken});
+	} else {
+		delete $hash->{BrokenPeers};
+	}
+	$retVal->{peered} = join(",",@peered);
 	
 	return $retVal;
 }
@@ -327,6 +379,8 @@ sub getLinksFromDevice($) {
 							if (!$peerHash) { $peerHash->{NAME} = 'unknown'};
 							$devHash->{'peer_act_'.$peerId} = 'channel_'.$peers->{actuators}{$peerId}{channel}.
 								' → '. $peerHash->{NAME};
+							$devHash->{cache}{peered_act}{$peerId}{name} = $peers->{actuators}{$peerId}{actuator};
+							$devHash->{cache}{peered_act}{$peerId}{channel} = $peers->{actuators}{$peerId}{channel};
 						}	
 					} else {
 					    # remove empty peering
@@ -588,31 +642,6 @@ sub valueToSettings($$) {
 	return $retVal;
 }
 
-sub updateBits ($$$$) {
-	my ($eepromValue, $value, $size, $index) = @_;
-	#We handle everything as bits, also numbers are more bits
-	
-	my $bitIndex = ($index * 10) - (int($index) *10);
-	my $bitSize  = $size * 10;
-	my $retVal   = $eepromValue;
-	
-	#get the bit
-	$value = $value << $bitIndex;
-	for (my $i = 0; $i < $bitSize; $i++) {
-		
-		my $mask = 1 << $i + $bitIndex;
-		my $bit  = $value & $mask;
-		
-		if ($bit) { #bit 1
-			$retVal = $retVal | $mask;
-		} else {    #bit 0
-			my $bitMask = ~(1 << $i + $bitIndex);
-			$retVal = $retVal & $bitMask;
-		}
-	}
-	
-	return $retVal;
-}
 
 sub loadDefaultPeerSettingsneu($) {
 	my ($configTypeHash) = @_;
@@ -636,20 +665,18 @@ sub loadDefaultPeerSettingsneu($) {
 
 sub sendUnpeer($$;$) {
 	my ($senHmwId,$actHmwId,$fromAct) = @_;
-	#my ($actHmwId,$senHmwId,$actCh,$senCh) = @_;
 	
 	my $msg = '';
 	my @sort = ('actuator', 'sensor');
 	
 	if ($fromAct) {
-		#turn around
+		#unpeer from actuator, turn around
 		@sort = ('sensor', 'actuator');
 		my $tmp = $senHmwId;
 		$senHmwId = $actHmwId;
 		$actHmwId = $tmp;
 	}
 	
-	print Dumper ("sentUnpeer $senHmwId,$actHmwId,$fromAct");
 	
 	foreach my $senAct (@sort) {
 			
@@ -713,20 +740,19 @@ sub sendUnpeer($$;$) {
 				);
 			
 				$adr = sprintf ('%04X' , $adr);
-				#print Dumper ("send: $phmwId 57 . $adr . $size . $value");
 				HM485::Device::internalUpdateEEpromData($pdevHash,$adr . $size . $value);
 				main::HM485_SendCommand($pdevHash, $phmwId, '57' . $adr . $size . $value);
 			}
 		} else {
-			if ($senAct eq 'actuator') {
+			if ($senAct eq 'actuator' && $fromAct == 0) {
 				$msg = "$hmwId. no Eeprom data found, Please wait until eeprom reading is finished";
 			} else {
-				$msg = "$hmwId. brocken peer ?";
+				# delete a brocken peer";
+				main::HM485_SendCommand($pdevHash, $phmwId, '43');
 			}
 		}
 		if (!$msg) {
 			main::HM485_SendCommand($pdevHash, $phmwId, '43');
-			print Dumper ("HM485_SendCommand($pdevHash, $phmwId, 43");
 		}
 	}
 	
