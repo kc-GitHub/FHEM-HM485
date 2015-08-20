@@ -565,7 +565,7 @@ sub convertPeeringsToEepromData($$) {
 		
 	my $log = sprintf("0x%X",$adrStart);
 	
-	HM485::Util::logger ( HM485::LOGTAG_HM485, 4,
+	HM485::Util::logger ( HM485::LOGTAG_HM485, 3,
 		'convertPeeringsToEepromData peerId: ' .$configData->{'channel'}{'peerId'}.
 		' start: ' . $log . ' step: ' .$adressStep . ' offset: ' .$adressOffset
 	);
@@ -643,11 +643,12 @@ sub valueToSettings($$) {
 }
 
 
-sub loadDefaultPeerSettingsneu($) {
+sub loadDefaultPeerSettings($) {
 	my ($configTypeHash) = @_;
 	my $retVal;
-	#Todo not ready (spezialparam ,uihint...) 
-	if (ref($configTypeHash->{logical}) eq 'HASH' && $configTypeHash->{physical}{interface} eq 'eeprom') {
+	
+	if (ref($configTypeHash->{logical}) eq 'HASH' && 
+		    $configTypeHash->{physical}{interface} eq 'eeprom') {
 		if (defined $configTypeHash->{logical}{default}) {
 			$retVal = $configTypeHash->{logical}{default};
 		} elsif (defined $configTypeHash->{logical}{option}) {
@@ -759,143 +760,34 @@ sub sendUnpeer($$;$) {
 	return $msg;
 }
 
-sub loadDefaultPeerSettings($) {
+sub loadPeerSettingsfromFile($) {
 	my ($device) = @_;
 	
-	#todo get the defaults direct from xml
+	#todo get the Settings from a file
 	my $settings;
 	
 	if ($device eq 'switch' || $device eq 'input_output') {
-		$settings->{'short_action_type'} = 1;		#6.0
-													#6.2 gibts ned
-		$settings->{'short_toggle_use'} = 0;		#6.4
-		$settings->{'short_off_time_mode'} = 1;		#6.6
-		$settings->{'short_on_time_mode'} = 1;		#6.7
-	
-		$settings->{'long_action_type'} = 1;		#7.0
-		$settings->{'long_multiexecute'} = 1;		#7.2   30.4
-		$settings->{'long_toggle_use'} = 0;			#7.4
-		$settings->{'long_off_time_mode'} = 1;		#7.6
-		$settings->{'long_on_time_mode'} = 1;		#7.7  
-	
-		$settings->{'short_ondelay_time'} = 0;		#8     12
-		$settings->{'short_on_time'} = 49152;		#10    16
-		$settings->{'short_offdelay_time'} = 0;		#12    18
-		$settings->{'short_off_time'} = 49152;		#14    22
-	
-		$settings->{'short_jt_ondelay'} = 1;		#16.0  27
-		$settings->{'short_jt_on'} = 2;				#16.3  
-		$settings->{'short_jt_offdelay'} = 3;		#16.6
-		$settings->{'short_jt_off'} = 0;			#16.9
-	
-		$settings->{'long_ondelay_time'} = 0;		#18    36
-		$settings->{'long_on_time'} = 49152;		#20    40
-		$settings->{'long_offdelay_time'} = 0;		#22		42
-		$settings->{'long_off_time'} = 49152;		#24		46
-	
-		$settings->{'long_jt_ondelay'} = 1;			#26.0	51	
-		$settings->{'long_jt_on'} = 2;				#26.3
-		$settings->{'long_jt_offdelay'} = 3;		#26.6
-		$settings->{'long_jt_off'} = 0;				#26.9   53.4
+		#$settings->{'short_action_type'} = 1;		#6.0
+		#$settings->{'short_toggle_use'} = 0;		#6.4
+		#$settings->{'short_off_time_mode'} = 1;		#6.6
+		#...
 	}
 	
 	elsif ($device eq 'dimmer') {
 		
-		$settings->{'short_on_time_mode'} = 0;			#6.7
-		$settings->{'short_off_time_mode'} = 0;			#6.6
-		$settings->{'short_ondelay_mode'} = 0;			#6.5
-		$settings->{'short_action_type'} = 1;			#6.0
-		$settings->{'short_off_level'} = 0; 			#7
-		$settings->{'short_on_min_level'} = 0.1;		#8
-		$settings->{'short_on_level'} = 1;				#9
-		$settings->{'short_ramp_start_step'} = 0.05;	#10
-		$settings->{'short_offdelay_step'} = 0.05; 		#11
-		$settings->{'short_ondelay_time'} = 0;			#12
-		$settings->{'short_rampon_time'} = 0.5;			#14
-		$settings->{'short_on_time'} = 49152;			#16
-		$settings->{'short_offdelay_time'} = 0;			#18
-		$settings->{'short_rampoff_time'} = 0.5;		#20
-		$settings->{'short_off_time'} = 49152;			#22
-		$settings->{'short_dim_min_level'} = 0; 		#24
-		$settings->{'short_dim_max_level'} = 1;			#25
-		$settings->{'short_dim_step'} = 0.05;			#26
-		$settings->{'short_jt_ondelay'} = 1;			#27
-		$settings->{'short_jt_rampon'} = 2; 			#27.4
-		$settings->{'short_jt_on'} = 3;					#28
-		$settings->{'short_jt_offdelay'} = 4;			#28.4
-		$settings->{'short_jt_rampoff'} = 5;			#29
-		$settings->{'short_jt_off'} = 0;				#29.4
-		$settings->{'long_on_time_mode'} = 0;			#30.7
-		$settings->{'long_off_time_mode'} = 0;			#30.6
-		$settings->{'long_ondelay_mode'} = 0;			#30.5
-		$settings->{'long_multiexecute'} = 1;			#30.4
-		$settings->{'long_action_type'} = 6;			#30
-		$settings->{'long_off_level'} = 0;				#31
-		$settings->{'long_on_min_level'} = 0.1; 		#32
-		$settings->{'long_on_level'} = 1; 				#33
-		$settings->{'long_ramp_start_step'} = 0.05;		#34
-		$settings->{'long_offdelay_step'} = 0.05;		#35
-		$settings->{'long_ondelay_time'} = 0;			#36
-		$settings->{'long_rampon_time'} = 0.5;  		#38
-		$settings->{'long_on_time'} = 49152;			#40
-		$settings->{'long_offdelay_time'} = 0;			#42
-		$settings->{'long_rampoff_time'} = 0.5; 		#44
-		$settings->{'long_off_time'} = 49152;			#46
-		$settings->{'long_dim_min_level'} = 0; 			#48
-		$settings->{'long_dim_max_level'} = 1;  		#49
-		$settings->{'long_dim_step'} = 0.05;			#50
-		$settings->{'long_jt_ondelay'} = 1;				#51
-		$settings->{'long_jt_rampon'} = 2; 				#51.4
-		$settings->{'long_jt_on'} = 3;					#52
-		$settings->{'long_jt_offdelay'} = 4;			#52.4
-		$settings->{'long_jt_rampoff'} = 5;				#53
-		$settings->{'long_jt_off'} = 0;					#53.4
+		#$settings->{'short_on_time_mode'} = 0;			#6.7
+		#$settings->{'short_off_time_mode'} = 0;			#6.6
+		#$settings->{'short_ondelay_mode'} = 0;			#6.5
+		#...
 	}
 	
 	elsif ($device eq 'blind') {
 		
-		$settings->{'short_on_time_mode'} = 1;
-		$settings->{'short_off_time_mode'} = 1;
-		$settings->{'short_driving_mode'} = 3;
-		$settings->{'short_toggle_use'} = 1;
-		$settings->{'short_action_type'} = 1;
-		$settings->{'short_off_level'} = 0;
-		$settings->{'short_on_level'} = 1;
-		$settings->{'short_ondelay_time'} = 0;
-		$settings->{'short_offdelay_time'} = 0;
-		$settings->{'short_on_time'} = 49152;
-		$settings->{'short_off_time'} = 49152;
-		$settings->{'short_max_time_first_dir'} = 25.5;
-		$settings->{'short_jt_ondelay'} = 1;
-		$settings->{'short_jt_refon'} = 3;
-		$settings->{'short_jt_rampon'} = 3;
-		$settings->{'short_jt_on'} = 4;
-		$settings->{'short_jt_offdelay'} = 5;
-		$settings->{'short_jt_refoff'} = 7;
-		$settings->{'short_jt_rampoff'} = 7;
-		$settings->{'short_jt_off'} = 0;
+		#$settings->{'short_on_time_mode'} = 1;
+		#$settings->{'short_off_time_mode'} = 1;
+		#$settings->{'short_driving_mode'} = 3;
+		#....
 		
-		$settings->{'long_on_time_mode'} = 1;
-		$settings->{'long_off_time_mode'} = 1;
-		$settings->{'long_driving_mode'} = 3;
-		$settings->{'long_toggle_use'} = 1;
-		$settings->{'long_multiexecute'} = 1;
-		$settings->{'long_action_type'} = 1;
-		$settings->{'long_off_level'} = 0;
-		$settings->{'long_on_level'} = 1;
-		$settings->{'long_ondelay_time'} = 0;
-		$settings->{'long_offdelay_time'} = 0;
-		$settings->{'long_on_time'} = 49152;
-		$settings->{'long_off_time'} = 49152;
-		$settings->{'long_max_time_first_dir'} = 0.5;
-		$settings->{'long_jt_ondelay'} = 1;
-		$settings->{'long_jt_refon'} = 3;
-		$settings->{'long_jt_rampon'} = 3;
-		$settings->{'long_jt_on'} = 4;
-		$settings->{'long_jt_offdelay'} = 5;
-		$settings->{'long_jt_refoff'} = 7;
-		$settings->{'long_jt_rampoff'} = 7;
-		$settings->{'long_jt_off'} = 0;
 	}
 	
 	return $settings;

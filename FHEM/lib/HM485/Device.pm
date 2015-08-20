@@ -1051,7 +1051,6 @@ sub dataConvertValue ($$$) {
 						
 				if ($dir eq 'to_device' && $convertConfig->{'value_map'}{'to_device'}) {
 					$retVal = ($value == $valParam) ? $valDevice : $retVal;
-					
 				} elsif ($dir eq 'from_device' && $convertConfig->{'value_map'}{'from_device'}) {
 					$retVal = ($value == $valDevice) ? $valParam : $retVal;
 				}
@@ -1116,10 +1115,9 @@ sub dataConvertValue ($$$) {
 		my @factors = split (',',$convertConfig->{'factors'});
 		
 		if ($dir eq 'to_device') {
-			#Todo 
 			if ($factor == 3) {
 				#special_value
-				$retVal = $value;
+				$retVal = $mask;
 			} else {
 				$retVal = int ($value / $factors[$factor]);
 			}

@@ -1060,14 +1060,12 @@ sub HM485_SetPeer($@) {
 		my $chType         = HM485::Device::getChannelType($deviceKey, $actCh);
 		
 		my $peering;
-		
-		
-		
-		
+				
 		$peering->{'act'}{'channel'} 	= int ($chNr - 1);
 		$peering->{'act'}{'actuator'} 	= $actHmwId;
 		$peering->{'act'}{'sensor'} 	= substr($hash->{'DEF'},0,8);
-		$peering->{'sen'} = HM485::PeeringManager::loadDefaultPeerSettings($chType);
+		#TODO here we can load predefined settings from a file (treppenhauslicht, blinklicht...)
+		$peering->{'sen'} = HM485::PeeringManager::loadPeerSettingsfromFile($chType);
 		$peering->{'sen'}{'channel'} 	= int ($actCh -1);
 		$peering->{'sen'}{'actuator'} 	= $hmwId;
 		$peering->{'sen'}{'sensor'} 	= substr($hash->{'DEF'},0,8);
@@ -1076,6 +1074,11 @@ sub HM485_SetPeer($@) {
 		my $senParams = HM485::PeeringManager::getLinkParams($senDevHash);
 		my $freeAct   = HM485::PeeringManager::getFreePeerId($devHash,'actuator');
 		my $freeSen   = HM485::PeeringManager::getFreePeerId($senDevHash,'sensor');
+		
+		if (!defined($freeAct) || !defined($freeSen)) {
+			$msg = 'set peer ' . $values[0] .' no free PeerId found';
+			return $msg;
+		}
 		
 		my $configTypeHash;
 		my $validatedConfig;
@@ -1100,8 +1103,7 @@ sub HM485_SetPeer($@) {
 			
 			$configTypeHash = $senParams->{'sensor'}{'parameter'}{$sen};
 			if (!defined($peering->{'sen'}{$sen})) {
-				$peering->{'sen'}{$sen} = HM485::PeeringManager::loadDefaultPeerSettingsneu($configTypeHash);
-				#print Dumper ("validate $sen",$configTypeHash->{logical}{default},$peering->{'sen'}{$sen});
+				$peering->{'sen'}{$sen} = HM485::PeeringManager::loadDefaultPeerSettings($configTypeHash);
 			}
 			
 			#todo validate address data
@@ -1129,7 +1131,7 @@ sub HM485_SetPeer($@) {
 				
 			foreach my $adr (sort keys %$convActSettings) {
 				HM485::Util::logger (
-						HM485::LOGTAG_HM485, 4,
+						HM485::LOGTAG_HM485, 3,
 						'Set peersetting for ' . $hash->{'NAME'} . ': ' . $convActSettings->{$adr}{'text'}
 					);
 
@@ -1160,18 +1162,17 @@ sub HM485_SetPeer($@) {
 					#$value .= sprintf ('%02X',$old_set->{'act'}{'value'});
 				
 				HM485::Device::internalUpdateEEpromData($devHash,$adr . $size . $value);		
-				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);					
-				
+				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);
 					
 				$old_set->{'act'}{'adr'} = $adr;
 				$old_set->{'act'}{'size'} = $size;
 				$old_set->{'act'}{'value'} = $value;
 			}
-			#}
+			
 			foreach my $adr (sort keys %$convSenSettings) {
 				
 				HM485::Util::logger (
-						HM485::LOGTAG_HM485, 4,
+						HM485::LOGTAG_HM485, 3,
 						'Set peersetting for ' . $senHash->{'NAME'} . ': ' . $convSenSettings->{$adr}{'text'}
 					);
 		
