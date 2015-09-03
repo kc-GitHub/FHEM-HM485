@@ -210,7 +210,7 @@ sub HM485_LAN_Read($) {
 	my $buffer = DevIo_SimpleRead($hash);
 
 	if ($buffer) {
-		# Remove timer to avoid duplicates
+ 	    # Remove timer to avoid duplicates
 		RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
 		RemoveInternalTimer(KEEPALIVE_TIMER   . $name);
 		
@@ -844,7 +844,9 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	# the server knows what is what...
 	# for Nacks, the queue has already been removed
 	# if ($currentQueueId) {
-	if ($currentQueueId && defined($hash->{sendQueue}{$currentQueueId}{msgId}) && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId) {
+	if ($currentQueueId && defined($hash->{sendQueue}{$currentQueueId}{msgId}) 
+	       && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId
+		   && $msgCmd != HM485::CMD_ALIVE) {  # probably not needed, but no harm either
 	#PFE END
 	    HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Removing Queue '.$currentQueueId);
 		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
@@ -1217,20 +1219,16 @@ sub HM485_LAN_HM485dStart($) {
 <h3>HM485_LAN</h3>
 <ul>
 	HM485_LAN FHEM module is the interface for controlling eQ-3 HomeMatic-Wired devices<br>
-	The folowing hardware interfaces can used with this modul.
+	The folowing hardware interfaces can be used with this module.
 	<ul>
 		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
-		<li>Ethernet to RS485 converter like WIZ108SR.<br>
-			See http://forum.fhem.de/index.php?t=msg&th=14096&start=0&rid=42</li>
+		<li>Ethernet to RS485 converter like <a href="http://forum.fhem.de/index.php/topic,14096.msg88557.html#msg88557">WIZ108SR</a>.</li>
 		<li>RS232/USB to RS485 converter like DIGITUS DA-70157</li>
 	</ul>
 	
-	For HomeMatic Wired RS485 LAN Gateway, the module communicate with the interface.
-	The HM485 protocol was built in the interface<br><br>
-	
-	For Ethernet to RS485 or RS232/USB to RS485 converter the module starts a 
-	dedicated server process (HM485d.pl) The HM485d.pl is part of this module and
-	assumes translation of the HM485 protokol to serial data.<br><br>
+	For the HomeMatic Wired RS485 LAN Gateway, module HM485_LAN communicates directly with the gateway.<br>
+	For the Ethernet to RS485 or RS232/USB to RS485 converter, module HM485_LAN automatically starts a 
+	dedicated server process (HM485d.pl), which emulates the Gateway.<br>
 	<ul>
 		<li>...</li>
 		<li>...</li>

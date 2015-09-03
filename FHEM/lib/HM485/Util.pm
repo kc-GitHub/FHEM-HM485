@@ -286,6 +286,20 @@ sub getHashKeyBySubkey($$$) {
 	return $retVal;
 }
 
+sub convertIdToHash($) {
+	my ($configSettings) = @_;
+	
+	my $ConvertHash = {};
+	my $id = $configSettings->{'id'};
+
+	if ($id) {
+			$ConvertHash->{$id} = $configSettings;
+			#delete $ConvertHash->{$id}{'id'}; wenn ich die id lösche gehts nimmer Warum?
+	}
+	return $ConvertHash;
+}
+
+
 sub HM485_Log($){
 	my ( $LogText) = @_;
 	my $ZeitStr = strftime( "%Y-%m-%d\x5f%H:%M:%S", localtime);

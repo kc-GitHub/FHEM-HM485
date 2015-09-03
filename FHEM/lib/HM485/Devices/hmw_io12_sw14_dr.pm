@@ -7,11 +7,11 @@ our %definition = (
 			"HMW_IO_12_Sw14_DR" => {
 				"name" => "RS485 I/O module 12-channel in and switch actuator 14-channel (DIN rails)",
 				"parameter" => {
-					"0" => {
+					0 => {
 						"const_value" => 28,
 						"size" => 1
 					},
-					"1" => {
+					1 => {
 						"const_value" => 0,
 						"size" => 1
 					}
@@ -98,12 +98,15 @@ our %definition = (
 						"parameter" => {
 							"behaviour" => {
 								"logical" => {
-									"option" => {
-										"analog_input" => {},
-										"digital_input" => {
-											"default" => true
-										}
+									"option" => [
+									{
+										"id" => "analog_input"
 									},
+									{
+										"default" => true,
+										"id" => "digital_input"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -115,11 +118,11 @@ our %definition = (
 							},
 							"calibration" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"offset" => 127,
 										"type" => "integer_integer_scale"
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xFF,
@@ -234,12 +237,15 @@ our %definition = (
 								"behaviour" => {
 									"id" => "behaviour",
 									"logical" => {
-										"option" => {
-											"analog_input" => {},
-											"digital_input" => {
-												"default" => true
-											}
+										"option" => [
+										{
+											"id" => "analog_input"
 										},
+										{
+											"default" => true,
+											"id" => "digital_input"
+										}
+										],
 										"type" => "option"
 									},
 									"physical" => {
@@ -264,12 +270,15 @@ our %definition = (
 						"parameter" => {
 							"behaviour" => {
 								"logical" => {
-									"option" => {
-										"analog_output" => {},
-										"digital_output" => {
-											"default" => true
-										}
+									"option" => [
+									{
+										"id" => "analog_output"
 									},
+									{
+										"default" => true,
+										"id" => "digital_output"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -281,12 +290,12 @@ our %definition = (
 							},
 							"pulsetime" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factor" => 100,
 										"offset" => 0.0,
 										"type" => "float_integer_scale"
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xFFFF,
@@ -410,12 +419,15 @@ our %definition = (
 								"behaviour" => {
 									"id" => "behaviour",
 									"logical" => {
-										"option" => {
-											"analog_output" => {},
-											"digital_output" => {
-												"default" => true
-											}
+										"option" => [
+										{
+											"id" => "analog_output"
 										},
+										{
+											"default" => true,
+											"id" => "digital_output"
+										}
+										],
 										"type" => "option"
 									},
 									"physical" => {
@@ -441,12 +453,15 @@ our %definition = (
 							"behaviour" => {
 								"id" => "behaviour",
 								"logical" => {
-									"option" => {
-										"digital_input" => {
-											"default" => true
-										},
-										"frequency_input" => {}
+									"option" => [
+									{
+										"id" => "frequency_input"
 									},
+									{
+										"default" => true,
+										"id" => "digital_input"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -547,12 +562,15 @@ our %definition = (
 								"behaviour" => {
 									"id" => "behaviour",
 									"logical" => {
-										"option" => {
-											"digital_input" => {
-												"default" => true
-											},
-											"frequency_input" => {}
+										"option" => [
+										{
+											"id" => "frequency_input"
 										},
+										{
+											"default" => true,
+											"id" => "digital_input"
+										}
+										],
 										"type" => "option"
 									},
 									"physical" => {

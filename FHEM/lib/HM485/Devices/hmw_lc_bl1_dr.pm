@@ -7,15 +7,15 @@ our %definition = (
 			"HMW_LC_Bl1_DR" => {
 				"name" => "RS485 blind actuator 1-channel (DIN rails)",
 				"parameter" => {
-					"0" => {
+					0 => {
 						"const_value" => 21,
 						"size" => 1
 					},
-					"1" => {
+					1 => {
 						"const_value" => 0,
 						"size" => 1
 					},
-					"2" => {
+					2 => {
 						"cond_op" => "GE",
 						"const_value" => 0x0303,
 						"size" => 2
@@ -266,12 +266,15 @@ our %definition = (
 							},
 							"long_action_type" => {
 								"logical" => {
-									"option" => {
-										"active" => {
-											"default" => true
-										},
-										"inactive" => {}
+									"option" => [
+									{
+										"id" => "inactive"
 									},
+									{
+										"default" => true,
+										"id" => "active"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -285,14 +288,21 @@ our %definition = (
 							},
 							"long_driving_mode" => {
 								"logical" => {
-									"option" => {
-										"drive_directly" => {
-											"default" => true
-										},
-										"drive_via_lower_end_position" => {},
-										"drive_via_next_end_position" => {},
-										"drive_via_upper_end_position" => {}
+									"option" => [
+									{
+										"id" => "drive_via_next_end_position"
 									},
+									{
+										"id" => "drive_via_upper_end_position"
+									},
+									{
+										"id" => "drive_via_lower_end_position"
+									},
+									{
+										"default" => true,
+										"id" => "drive_directly"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -306,19 +316,36 @@ our %definition = (
 							},
 							"long_jt_off" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {
-											"default" => true
-										},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"default" => true,
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -334,19 +361,36 @@ our %definition = (
 							},
 							"long_jt_offdelay" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {
-											"default" => true
-										},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"default" => true,
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -362,19 +406,36 @@ our %definition = (
 							},
 							"long_jt_on" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {
-											"default" => true
-										},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"default" => true,
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -390,19 +451,36 @@ our %definition = (
 							},
 							"long_jt_ondelay" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {
-											"default" => true
-										}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"default" => true,
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -418,19 +496,36 @@ our %definition = (
 							},
 							"long_jt_rampoff" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {
-											"default" => true
-										},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"default" => true,
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -446,19 +541,36 @@ our %definition = (
 							},
 							"long_jt_rampon" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {
-											"default" => true
-										},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"default" => true,
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -474,19 +586,36 @@ our %definition = (
 							},
 							"long_jt_refoff" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {
-											"default" => true
-										},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"default" => true,
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -502,19 +631,36 @@ our %definition = (
 							},
 							"long_jt_refon" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {
-											"default" => true
-										},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"default" => true,
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -571,12 +717,12 @@ our %definition = (
 							},
 							"long_offdelay_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factors" => "0.1,1,60,1000",
 										"type" => "float_configtime",
 										"value_size" => 1.6
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xC000,
@@ -625,12 +771,12 @@ our %definition = (
 							},
 							"long_off_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factors" => "0.1,1,60,1000",
 										"type" => "float_configtime",
 										"value_size" => 1.6
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xC000,
@@ -662,12 +808,15 @@ our %definition = (
 							},
 							"long_off_time_mode" => {
 								"logical" => {
-									"option" => {
-										"absolute" => {
-											"default" => true
-										},
-										"minimal" => {}
+									"option" => [
+									{
+										"id" => "minimal"
 									},
+									{
+										"default" => true,
+										"id" => "absolute"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -681,12 +830,12 @@ our %definition = (
 							},
 							"long_ondelay_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factors" => "0.1,1,60,1000",
 										"type" => "float_configtime",
 										"value_size" => 1.6
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xC000,
@@ -735,12 +884,12 @@ our %definition = (
 							},
 							"long_on_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factors" => "0.1,1,60,1000",
 										"type" => "float_configtime",
 										"value_size" => 1.6
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xC000,
@@ -772,12 +921,15 @@ our %definition = (
 							},
 							"long_on_time_mode" => {
 								"logical" => {
-									"option" => {
-										"absolute" => {
-											"default" => true
-										},
-										"minimal" => {}
+									"option" => [
+									{
+										"id" => "minimal"
 									},
+									{
+										"default" => true,
+										"id" => "absolute"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -791,12 +943,15 @@ our %definition = (
 							},
 							"long_toggle_use" => {
 								"logical" => {
-									"option" => {
-										"dont_use" => {
-											"default" => true
-										},
-										"use" => {}
+									"option" => [
+									{
+										"id" => "use"
 									},
+									{
+										"default" => true,
+										"id" => "dont_use"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -835,12 +990,15 @@ our %definition = (
 							},
 							"short_action_type" => {
 								"logical" => {
-									"option" => {
-										"active" => {
-											"default" => true
-										},
-										"inactive" => {}
+									"option" => [
+									{
+										"id" => "inactive"
 									},
+									{
+										"default" => true,
+										"id" => "active"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -854,14 +1012,21 @@ our %definition = (
 							},
 							"short_driving_mode" => {
 								"logical" => {
-									"option" => {
-										"drive_directly" => {
-											"default" => true
-										},
-										"drive_via_lower_end_position" => {},
-										"drive_via_next_end_position" => {},
-										"drive_via_upper_end_position" => {}
+									"option" => [
+									{
+										"id" => "drive_via_next_end_position"
 									},
+									{
+										"id" => "drive_via_upper_end_position"
+									},
+									{
+										"id" => "drive_via_lower_end_position"
+									},
+									{
+										"default" => true,
+										"id" => "drive_directly"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -875,19 +1040,36 @@ our %definition = (
 							},
 							"short_jt_off" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {
-											"default" => true
-										},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"default" => true,
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -903,19 +1085,36 @@ our %definition = (
 							},
 							"short_jt_offdelay" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {
-											"default" => true
-										},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"default" => true,
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -931,19 +1130,36 @@ our %definition = (
 							},
 							"short_jt_on" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {
-											"default" => true
-										},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"default" => true,
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -959,19 +1175,36 @@ our %definition = (
 							},
 							"short_jt_ondelay" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {
-											"default" => true
-										}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"default" => true,
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -987,19 +1220,36 @@ our %definition = (
 							},
 							"short_jt_rampoff" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {
-											"default" => true
-										},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"default" => true,
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1015,19 +1265,36 @@ our %definition = (
 							},
 							"short_jt_rampon" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {
-											"default" => true
-										},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"default" => true,
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1043,19 +1310,36 @@ our %definition = (
 							},
 							"short_jt_refoff" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {
-											"default" => true
-										},
-										"offdelay" => {},
-										"on" => {},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"default" => true,
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1071,19 +1355,36 @@ our %definition = (
 							},
 							"short_jt_refon" => {
 								"logical" => {
-									"option" => {
-										"no_jump_ignore_command" => {},
-										"off" => {},
-										"offdelay" => {},
-										"on" => {
-											"default" => true
-										},
-										"ondelay" => {},
-										"rampoff" => {},
-										"rampon" => {},
-										"refoff" => {},
-										"refon" => {}
+									"option" => [
+									{
+										"id" => "ondelay"
 									},
+									{
+										"id" => "refon"
+									},
+									{
+										"id" => "rampon"
+									},
+									{
+										"default" => true,
+										"id" => "on"
+									},
+									{
+										"id" => "offdelay"
+									},
+									{
+										"id" => "refoff"
+									},
+									{
+										"id" => "rampoff"
+									},
+									{
+										"id" => "off"
+									},
+									{
+										"id" => "no_jump_ignore_command"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1126,12 +1427,12 @@ our %definition = (
 							},
 							"short_offdelay_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factors" => "0.1,1,60,1000",
 										"type" => "float_configtime",
 										"value_size" => 1.6
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xC000,
@@ -1180,12 +1481,12 @@ our %definition = (
 							},
 							"short_off_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factors" => "0.1,1,60,1000",
 										"type" => "float_configtime",
 										"value_size" => 1.6
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xC000,
@@ -1217,12 +1518,15 @@ our %definition = (
 							},
 							"short_off_time_mode" => {
 								"logical" => {
-									"option" => {
-										"absolute" => {
-											"default" => true
-										},
-										"minimal" => {}
+									"option" => [
+									{
+										"id" => "minimal"
 									},
+									{
+										"default" => true,
+										"id" => "absolute"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1236,12 +1540,12 @@ our %definition = (
 							},
 							"short_ondelay_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factors" => "0.1,1,60,1000",
 										"type" => "float_configtime",
 										"value_size" => 1.6
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xC000,
@@ -1290,12 +1594,12 @@ our %definition = (
 							},
 							"short_on_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factors" => "0.1,1,60,1000",
 										"type" => "float_configtime",
 										"value_size" => 1.6
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xC000,
@@ -1327,12 +1631,15 @@ our %definition = (
 							},
 							"short_on_time_mode" => {
 								"logical" => {
-									"option" => {
-										"absolute" => {
-											"default" => true
-										},
-										"minimal" => {}
+									"option" => [
+									{
+										"id" => "minimal"
 									},
+									{
+										"default" => true,
+										"id" => "absolute"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1346,12 +1653,15 @@ our %definition = (
 							},
 							"short_toggle_use" => {
 								"logical" => {
-									"option" => {
-										"dont_use" => {
-											"default" => true
-										},
-										"use" => {}
+									"option" => [
+									{
+										"id" => "use"
 									},
+									{
+										"default" => true,
+										"id" => "dont_use"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1408,12 +1718,15 @@ our %definition = (
 							},
 							"logging" => {
 								"logical" => {
-									"option" => {
-										"off" => {},
-										"on" => {
-											"default" => true
-										}
+									"option" => [
+									{
+										"id" => "off"
 									},
+									{
+										"default" => true,
+										"id" => "on"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1496,42 +1809,49 @@ our %definition = (
 								"conversion" => {
 									"type" => "option_integer",
 									"value_map" => {
-										"1" => {
+										1 => {
 											"device_value" => 0x00,
 											"parameter_value" => 0
 										},
-										"2" => {
+										2 => {
 											"device_value" => 0x01,
 											"parameter_value" => 1
 										},
-										"3" => {
+										3 => {
 											"device_value" => 0x02,
 											"parameter_value" => 2
 										},
-										"4" => {
+										4 => {
 											"device_value" => 0x03,
 											"parameter_value" => 3
 										}
 									}
 								},
 								"logical" => {
-									"option" => {
-										"down" => {},
-										"none" => {
-											"default" => true
-										},
-										"undefined" => {},
-										"up" => {}
+									"option" => [
+									{
+										"default" => true,
+										"id" => "none"
 									},
+									{
+										"id" => "up"
+									},
+									{
+										"id" => "down"
+									},
+									{
+										"id" => "undefined"
+									}
+									],
 									"type" => "option"
 								},
 								"operations" => "read,event",
 								"physical" => {
 									"event" => {
-										"1" => {
+										1 => {
 											"frame" => "info_level"
 										},
-										"2" => {
+										2 => {
 											"frame" => "ack_status"
 										}
 									},
@@ -1629,30 +1949,30 @@ our %definition = (
 							},
 							"working" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"type" => "boolean_integer"
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
-											"1" => {
+											1 => {
 												"device_value" => 0x04,
 												"mask" => 0x04,
 												"parameter_value" => 1
 											},
-											"2" => {
+											2 => {
 												"device_value" => 0x00,
 												"parameter_value" => 0
 											},
-											"3" => {
+											3 => {
 												"device_value" => 0x01,
 												"parameter_value" => 1
 											},
-											"4" => {
+											4 => {
 												"device_value" => 0x02,
 												"parameter_value" => 1
 											},
-											"5" => {
+											5 => {
 												"device_value" => 0x03,
 												"parameter_value" => 0
 											}
@@ -1666,10 +1986,10 @@ our %definition = (
 								"operations" => "read,event",
 								"physical" => {
 									"event" => {
-										"1" => {
+										1 => {
 											"frame" => "info_level"
 										},
-										"2" => {
+										2 => {
 											"frame" => "ack_status"
 										}
 									},
@@ -1775,12 +2095,15 @@ our %definition = (
 							},
 							"input_type" => {
 								"logical" => {
-									"option" => {
-										"pushbutton" => {
-											"default" => true
-										},
-										"switch" => {}
+									"option" => [
+									{
+										"id" => "switch"
 									},
+									{
+										"default" => true,
+										"id" => "pushbutton"
+									}
+									],
 									"type" => "option"
 								},
 								"physical" => {
@@ -1794,11 +2117,11 @@ our %definition = (
 							},
 							"longpress_time" => {
 								"conversion" => {
-									"1" => {
+									1 => {
 										"factor" => 10,
 										"type" => "float_integer_scale"
 									},
-									"2" => {
+									2 => {
 										"type" => "integer_integer_map",
 										"value_map" => {
 											"device_value" => 0xFF,
@@ -1836,10 +2159,10 @@ our %definition = (
 								"operations" => "event",
 								"physical" => {
 									"event" => {
-										"1" => {
+										1 => {
 											"frame" => "key_event_short"
 										},
-										"2" => {
+										2 => {
 											"frame" => "key_event_long"
 										}
 									},

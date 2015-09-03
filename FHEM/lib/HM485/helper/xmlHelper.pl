@@ -6,7 +6,7 @@ XMLHelper.pl Version 0.12 vom 03.04.2015
 
 =head1 SYNOPSIS
 
-XMLHelper.pl -imputFile </input/path> -outputPath </output/path> [-indentStyle <0..2>]
+XMLHelper.pl -inputFile </input/path> -outputPath </output/path> [-indentStyle <0..2>]
 
 =head1 OPTIONS
 
@@ -119,7 +119,8 @@ sub convertFile($$) {
 	
 	print $inputFile . ' -> ' . $outputFile . "\n";
 	
-	my $xml = XMLin($inputFile);
+	my $xml = XMLin("$inputFile", KeyAttr => {});
+	# my $xml = XMLin("$inputFile", KeyAttr => {'logical type'=>"option"});
 	$xml = reMap($xml);
 	$xml->{'frames'} = $xml->{'frames'}->{'frame'};
 	$xml->{'channels'} = $xml->{'channels'}->{'channel'};
@@ -162,18 +163,7 @@ sub convertFile($$) {
 	
 	open(FH, ">$outputFile") or die('Error opening "' . $outputFile . '"');
 	print FH $content;
-	#print FH "@{[ %($xml) ]}\n";
-	#foreach my $key (keys %{$xml}) {
-	#	if (ref($xml->{$key}) eq 'HASH') {
-	#		my $x1 = $xml->{$key};
-	#		print FH "$key -->\n";
-	#		foreach my $k1 (keys %{$x1}) {
-	#			print FH "$k1 => $x1->{$k1}\n";
-	#		}
-	#	} else {
-	#		print FH "$key => $xml->{$key}\n";
-	#	}
-	#}
+
 	close(FH);
 }
 
@@ -241,8 +231,10 @@ sub reMap($) {
 				delete ($hash->{$param});
 
 			} else {
-				if (defined($hash->{$param}{'type'}) && ($hash->{$param}{'type'} eq 'array')) {
-					#delete ($hash->{$param}{'type'});	
+				if (defined($hash->{$param}{'type'}) && ($hash->{$param}{'type'} eq 'option')) {
+
+				} elsif (defined($hash->{$param}{'type'}) && ($hash->{$param}{'type'} eq 'array')) {
+
 					$hash->{$param} = $hash->{$param}{$param};
 				} else {
 					$hash->{$param} = reMap($hash->{$param});
@@ -250,38 +242,10 @@ sub reMap($) {
 				
 			}
 			if ( $param eq 'supported_types') {
-				my $typeHash = $hash->{$param};
-				my $newHash = {};
-				my $conv	= 0;
-				foreach my $type (keys %{$typeHash}) {
-					if ( ref($typeHash->{$type}) eq 'HASH') {
-						my $idHash = $typeHash->{$type};
-						#Convert_Log( 'reMap: Anzahl = ' . scalar (keys %{$idHash}));
-						if ( (scalar (keys %{$idHash})) < 3) {
-						$conv = 1;
-						foreach my $id1 (keys %{$idHash}) {
-							#Convert_Log( 'reMap: id1 = ' . $id1);
-							if ( index( $id1, ' ') > -1) {
-								my $t = $idHash->{$id1};
-								if ( defined( $t->{'id'}) && $t->{'id'}) {
-									my $id = $t->{'id'};
-									$id =~ s/-/_/g;
-									delete( $t->{'id'});
-									my $name = $id1;
-									
-									$newHash->{$id} = $idHash->{$id1};
-									$newHash->{$id}->{name} = $name;
-									
-								}
-							}
-						}
-						}
-					}
-				}	
-				if ( $conv) {
-				#Convert_Log( 'reMap: conv = ' . $conv);
-				$hash->{$param} = reMap($newHash);
+				if(defined($hash->{$param}{'type'})) {
+					$hash->{$param} = $hash->{$param}{'type'};
 				}
+				$hash->{$param} = reMap($hash->{$param});
 			}
 			
 		} elsif (ref($hash->{$param}) eq 'ARRAY') {
@@ -297,6 +261,7 @@ sub reMap($) {
 				if (defined($item->{$idField})) {
 					$id = $item->{$idField};
 					delete ($item->{$idField});
+					$id =~ s/-/_/g;
 				} else {
 					$id ++;
 				}

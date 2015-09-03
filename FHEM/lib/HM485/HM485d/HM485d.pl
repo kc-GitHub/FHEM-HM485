@@ -176,9 +176,7 @@ sub init() {
 	my $scriptPath = '';
 	$scriptPath = dirname(abs_path($0)) . '/';
 
-	my $pathFHEM = $scriptPath . '../../../';
-
-	require $pathFHEM . 'ServerTools.pm';
+	require $scriptPath.'ServerTools.pm';
 
 	my $help = 0;
 	my $man = 0;
@@ -214,6 +212,8 @@ sub init() {
 	if (!defined($hmwId) || $hmwId !~ m/^[A-F0-9]{8}$/i || hex($hmwId) > 255 || hex($hmwId) < 1) {
 		$res = 'Wrong hmwId given. hmwId must be 8 digit hex address within 00000001 and 000000FF';
 	}
+
+	my $pathFHEM = $scriptPath . '../../../';
 
 	ServerTools_init(
 		HM485D_NAME,

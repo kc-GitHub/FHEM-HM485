@@ -10,8 +10,10 @@ our %definition = (
 			}
 		},
 		'paramset' => 	{
-			"id" => "hmw-generic_dev_master",
-			"type" => "master"
+			"hmw-generic_dev_master" => {
+				"id" => "hmw-generic_dev_master",
+				"type" => "master"
+			}
 		},
 		'channels' => 	{},
 	}
