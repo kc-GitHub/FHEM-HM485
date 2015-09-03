@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.21
+	Version 0.7.22
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -1131,7 +1131,7 @@ sub HM485_SetPeer($@) {
 				
 			foreach my $adr (sort keys %$convActSettings) {
 				HM485::Util::logger (
-						HM485::LOGTAG_HM485, 3,
+						HM485::LOGTAG_HM485, 4,
 						'Set peersetting for ' . $hash->{'NAME'} . ': ' . $convActSettings->{$adr}{'text'}
 					);
 
@@ -1172,7 +1172,7 @@ sub HM485_SetPeer($@) {
 			foreach my $adr (sort keys %$convSenSettings) {
 				
 				HM485::Util::logger (
-						HM485::LOGTAG_HM485, 3,
+						HM485::LOGTAG_HM485, 4,
 						'Set peersetting for ' . $senHash->{'NAME'} . ': ' . $convSenSettings->{$adr}{'text'}
 					);
 		
@@ -1233,7 +1233,7 @@ sub HM485_SetUnpeer($@) {
 	} elsif ($pList->{actpeered}) {
 		@peerList = split(',',$pList->{actpeered});
 		$fromAct = 1;
-		HM485::Util::logger ( $hash->{NAME}, 3,
+		HM485::Util::logger ( $hash->{NAME}, 4,
 			HM485::LOGTAG_HM485.': Set unpeer from actuator');
 	}
 	
@@ -2525,7 +2525,7 @@ sub HM485_QueueStepFailed($) {
   $currentQueueIndex = -1;
   # next step, there might be multiple queues
   # call this now, just in case the callback creates a new queue
-  HM485::Util::logger(HM485::LOGTAG_HM485, 4, 'HM485_QueueStepFailed Call step');
+  HM485::Util::logger(HM485::LOGTAG_HM485, 3, 'HM485_QueueStepFailed Call step');
   HM485_QueueProcessStep();
   # failure callback
   if($currentQueue->{failureFn}) {
