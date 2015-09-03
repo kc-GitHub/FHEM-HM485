@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.23
+	Version 0.7.24
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -985,13 +985,12 @@ sub HM485_CreateChannels($) {
 						}
 						CommandAttr(undef, $devName . ' subType ' . $subType);
 						
-						if ($subType eq 'key') {
-								# Key subtypes don't have a state
-								delete($modules{HM485}{defptr}{$chHmwId}{STATE});
-						}
 						if($subType eq 'blind') {
-							# Blinds go up and down
-							CommandAttr(undef, $devName . ' webCmd up:down');
+							# Blinds go up and down by default (but only by default)
+							my $val = AttrVal($devName, 'webCmd', undef);
+							if(!defined($val)){
+								CommandAttr(undef, $devName . ' webCmd up:down');
+							};
 						}
 						# copy definded attributes to channel
 						foreach my $attrBindCh (@attrListBindCh) {
