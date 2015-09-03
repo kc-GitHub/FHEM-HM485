@@ -532,6 +532,8 @@ sub HM485_Set($@) {
 		}
 		if ($peerList->{'peered'}) {
 			$sets{'unpeer'} = $peerList->{'peered'};
+		} elsif ($peerList->{'actpeered'}){
+			$sets{'unpeer'} = $peerList->{'actpeered'};
 		}
 	} else {
 		#HM485::PeeringManager::getLinksFromDevice($hash);
@@ -1058,14 +1060,12 @@ sub HM485_SetPeer($@) {
 		my $chType         = HM485::Device::getChannelType($deviceKey, $actCh);
 		
 		my $peering;
-		
-		
-		
-		
+				
 		$peering->{'act'}{'channel'} 	= int ($chNr - 1);
 		$peering->{'act'}{'actuator'} 	= $actHmwId;
 		$peering->{'act'}{'sensor'} 	= substr($hash->{'DEF'},0,8);
-		$peering->{'sen'} = HM485::PeeringManager::loadDefaultPeerSettings($chType);
+		#TODO here we can load predefined settings from a file (treppenhauslicht, blinklicht...)
+		$peering->{'sen'} = HM485::PeeringManager::loadPeerSettingsfromFile($chType);
 		$peering->{'sen'}{'channel'} 	= int ($actCh -1);
 		$peering->{'sen'}{'actuator'} 	= $hmwId;
 		$peering->{'sen'}{'sensor'} 	= substr($hash->{'DEF'},0,8);
@@ -1074,6 +1074,11 @@ sub HM485_SetPeer($@) {
 		my $senParams = HM485::PeeringManager::getLinkParams($senDevHash);
 		my $freeAct   = HM485::PeeringManager::getFreePeerId($devHash,'actuator');
 		my $freeSen   = HM485::PeeringManager::getFreePeerId($senDevHash,'sensor');
+		
+		if (!defined($freeAct) || !defined($freeSen)) {
+			$msg = 'set peer ' . $values[0] .' no free PeerId found';
+			return $msg;
+		}
 		
 		my $configTypeHash;
 		my $validatedConfig;
@@ -1098,8 +1103,7 @@ sub HM485_SetPeer($@) {
 			
 			$configTypeHash = $senParams->{'sensor'}{'parameter'}{$sen};
 			if (!defined($peering->{'sen'}{$sen})) {
-				$peering->{'sen'}{$sen} = HM485::PeeringManager::loadDefaultPeerSettingsneu($configTypeHash);
-				#print Dumper ("validate $sen",$configTypeHash->{logical}{default},$peering->{'sen'}{$sen});
+				$peering->{'sen'}{$sen} = HM485::PeeringManager::loadDefaultPeerSettings($configTypeHash);
 			}
 			
 			#todo validate address data
@@ -1127,7 +1131,7 @@ sub HM485_SetPeer($@) {
 				
 			foreach my $adr (sort keys %$convActSettings) {
 				HM485::Util::logger (
-						HM485::LOGTAG_HM485, 4,
+						HM485::LOGTAG_HM485, 3,
 						'Set peersetting for ' . $hash->{'NAME'} . ': ' . $convActSettings->{$adr}{'text'}
 					);
 
@@ -1158,18 +1162,17 @@ sub HM485_SetPeer($@) {
 					#$value .= sprintf ('%02X',$old_set->{'act'}{'value'});
 				
 				HM485::Device::internalUpdateEEpromData($devHash,$adr . $size . $value);		
-				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);					
-				
+				HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);
 					
 				$old_set->{'act'}{'adr'} = $adr;
 				$old_set->{'act'}{'size'} = $size;
 				$old_set->{'act'}{'value'} = $value;
 			}
-			#}
+			
 			foreach my $adr (sort keys %$convSenSettings) {
 				
 				HM485::Util::logger (
-						HM485::LOGTAG_HM485, 4,
+						HM485::LOGTAG_HM485, 3,
 						'Set peersetting for ' . $senHash->{'NAME'} . ': ' . $convSenSettings->{$adr}{'text'}
 					);
 		
@@ -1208,7 +1211,7 @@ sub HM485_SetPeer($@) {
 			HM485_SendCommand($senHash, $senHash->{'DEF'}, '43');
 		}
 	} else {
-		$msg = 'set peer argument "' . $values[0] . '" must be one of ' . join(' ', @peerList);
+		$msg = 'set peer argument "' . $values[0] . '" must be one of ' . join(', ', $peerList[0],$peerList[1],$peerList[2],'...');
 	}
 	
 	return $msg;
@@ -1220,113 +1223,31 @@ sub HM485_SetUnpeer($@) {
 	shift(@values);
 	shift(@values);
 	
-
 	my $pList	 = HM485::PeeringManager::getPeerableChannels($hash);
-	my @peerList = split(',',$pList->{peered});
+	
+	my @peerList;
+	my $fromAct = 0;
+	
+	if ($pList->{peered}) {
+		@peerList = split(',',$pList->{peered});
+	} elsif ($pList->{actpeered}) {
+		@peerList = split(',',$pList->{actpeered});
+		$fromAct = 1;
+		HM485::Util::logger ( $hash->{NAME}, 3,
+			HM485::LOGTAG_HM485.': Set unpeer from actuator');
+	}
 	
 	my $msg = '';
 	
 	if (@values == 1 && grep {$_ eq $values[0]} @peerList) {
 		
-		my $config;
 		my ($senHmwId, $senCh) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 		my $actHmwId 	   	   = HM485::PeeringManager::getHmwIdByDevName($values[0]);
-		my $actCh 		  	   = int(substr($actHmwId,9,2));
 		
-		my $actHash   = $main::modules{'HM485'}{'defptr'}{substr($actHmwId,0,8)};
-		my $senHash   = $main::modules{'HM485'}{'defptr'}{substr($hash->{'DEF'},0,8)};
+		$msg = HM485::PeeringManager::sendUnpeer($senHmwId, $actHmwId, $fromAct);
 		
-		my $actParams = HM485::PeeringManager::getLinkParams($actHash);
-		my $senParams = HM485::PeeringManager::getLinkParams($senHash);
-		my $actPeerId = HM485::PeeringManager::getPeerId($actHash,$senHmwId,$actCh,0);
-		my $senPeerId = HM485::PeeringManager::getPeerId($senHash,$actHmwId,int($senCh),1);
-		
-		$config->{'sen'}{'sensor'}{'value'} = 'FFFFFFFFFF';
-		$config->{'sen'}{'sensor'}{'config'} = $actParams->{'sensor'}{'parameter'}{'sensor'};
-		$config->{'sen'}{'sensor'}{'chan'} = $actCh;
-		$config->{'sen'}{'channel'}{'value'} = hex('FF');
-		$config->{'sen'}{'channel'}{'config'} = $actParams->{'sensor'}{'parameter'}{'channel'};
-		$config->{'sen'}{'channel'}{'peerId'} = $actPeerId;
-		
-		$config->{'act'}{'actuator'}{'value'} = 'FFFFFFFFFF';
-		$config->{'act'}{'actuator'}{'config'} = $senParams->{'actuator'}{'parameter'}{'actuator'};
-		$config->{'act'}{'actuator'}{'chan'} = $senCh;
-		$config->{'act'}{'channel'}{'value'} = hex('FF');
-		$config->{'act'}{'channel'}{'config'} = $senParams->{'actuator'}{'parameter'}{'channel'};
-		$config->{'act'}{'channel'}{'peerId'} = $senPeerId;
-		
-		my $senSettings = HM485::PeeringManager::convertPeeringsToEepromData(
-					$actHash, $config->{'sen'});
-		my $actSettings = HM485::PeeringManager::convertPeeringsToEepromData(
-					$senHash, $config->{'act'});
-		
-		foreach my $adr (sort keys %$senSettings) {
-		
-			my $size  = $senSettings->{$adr}{'size'} ? $senSettings->{$adr}{'size'} : 1;
-			my $value = $senSettings->{$adr}{'value'};
-			
-			if ($senSettings->{$adr}{'le'}) {
-					if ($size >= 1) {
-						$value = sprintf ('%0' . ($size*2) . 'X' , $value);
-						$value = reverse( pack('H*', $value) );
-						$value = hex(unpack('H*', $value));
-					}
-				}
-				
-			$size     = sprintf ('%02X' , $size);
-				
-			if (index($senSettings->{$adr}{'text'}, 'sensor') > -1) {						
-				$value = sprintf ('%s', $value);
-			} else {
-				$value = sprintf ('%0' . ($size * 2) . 'X', $value);
-			}
-				
-			HM485::Util::logger ( HM485::LOGTAG_HM485, 4,
-				'Set unpeer for ' . $actHmwId . ': ' .
-				$senSettings->{$adr}{'text'}
-			);
-			
-			$adr = sprintf ('%04X' , $adr);
-			HM485::Device::internalUpdateEEpromData($actHash,$adr . $size . $value);
-			HM485_SendCommand($actHash, $actHmwId, '57' . $adr . $size . $value);
-			
-
-		}
-		
-		foreach my $adr (sort keys %$actSettings) {
-			
-			my $size  = $actSettings->{$adr}{'size'} ? $actSettings->{$adr}{'size'} : 1;
-			my $value = $actSettings->{$adr}{'value'};
-			
-			if ($actSettings->{$adr}{'le'}) {
-				if ($size >= 1) {
-					$value = sprintf ('%0' . ($size*2) . 'X' , $value);
-					$value = reverse( pack('H*', $value) );
-					$value = hex(unpack('H*', $value));
-				}
-			}
-					
-			$size = sprintf ('%02X' , $size);
-			if (index($actSettings->{$adr}{'text'}, 'actuator') > -1) {						
-				$value = sprintf ('%s', $value);
-			} else {
-				$value = sprintf ('%0' . ($size * 2) . 'X', $value);
-			}
-			
-			HM485::Util::logger ( HM485::LOGTAG_HM485, 4,
-				'Set unpeer for ' . $senHmwId . ': ' . 
-				$actSettings->{$adr}{'text'}
-			);
-			
-			$adr = sprintf ('%04X' , $adr);
-			HM485::Device::internalUpdateEEpromData($senHash,$adr . $size . $value);
-			HM485_SendCommand($hash, $senHmwId, '57' . $adr . $size . $value);
-							
-		}
-		
-		HM485_SendCommand($hash, $senHmwId, '43');
 	} else {
-		$msg = 'set unpeer argument "' . $values[0] . '" must be one of ' . join(' ', @peerList);
+		$msg = 'set unpeer argument "' . $values[0] . '" must be one of ' . join(',', @peerList);
 	}
 	
 	return $msg;
@@ -2590,13 +2511,13 @@ sub HM485_QueueStepSuccess($) {
 #called from SetStateNack
 sub HM485_QueueStepFailed($) {
   my ($requestId) = @_;
-  HM485::Util::logger( 'HM485_QueueStepFailed',5, 'Request ID: '.$requestId);
+  HM485::Util::logger(HM485::LOGTAG_HM485, 5, 'HM485_QueueStepFailed Request ID: '.$requestId);
   if($currentQueueIndex < 0) { return };
   # get current queue
   my $currentQueue = $msgQueueList[$currentQueueIndex]; 
   # correct request?
   if($currentQueue->{currentRequestId} != $requestId) { 
-    HM485::Util::logger( 'HM485_QueueStepFailed',5, 'Foreign request ID');
+    HM485::Util::logger(HM485::LOGTAG_HM485, 5, 'HM485_QueueStepFailed Foreign request ID');
     return; 
   };  
   # remove complete queue
@@ -2604,7 +2525,7 @@ sub HM485_QueueStepFailed($) {
   $currentQueueIndex = -1;
   # next step, there might be multiple queues
   # call this now, just in case the callback creates a new queue
-  HM485::Util::logger( 'HM485_QueueStepFailed',3, 'Call step');
+  HM485::Util::logger(HM485::LOGTAG_HM485, 4, 'HM485_QueueStepFailed Call step');
   HM485_QueueProcessStep();
   # failure callback
   if($currentQueue->{failureFn}) {
