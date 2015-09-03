@@ -69,15 +69,17 @@ sub ServerTools_init($$$$$$) {
 	$hash{$serverName}->{NAME} = $serverName;
 	ServerTools_serverInit($hash{$serverName}, $localPort);
 
-	$hash{'SERIAL'}->{NAME} = 'SERIAL';
-	ServerTools_serialInit($hash{'SERIAL'}, $serialDevice, $initFnSerial);
-	
 	# Go to background if the logfile is a real file (not stdout)
+	# This needs to be done before init of the serial interface.
+	# Otherwise stopping the foreground process can reset the 
+	# serial interface.
 	if($currlogfile ne "-") {
 		defined(my $pid = fork) || die "Can't fork: $!";
 		exit(0) if $pid;
 	}
 	
+	$hash{'SERIAL'}->{NAME} = 'SERIAL';
+	ServerTools_serialInit($hash{'SERIAL'}, $serialDevice, $initFnSerial);
 }
 
 sub ServerTools_initLogging() {
