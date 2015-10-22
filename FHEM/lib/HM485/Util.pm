@@ -315,4 +315,11 @@ sub HM485_Log($){
 	}
 }
 
+# Make Log3 a bit simpler
+sub Log3($$$){
+  my ($hash,$level,$text) = @_;
+  my $name = defined($hash->{NAME}) ? $hash->{NAME} : 'HM485';
+  main::Log3($hash,$level,$name.': '.$text);
+}
+
 1;

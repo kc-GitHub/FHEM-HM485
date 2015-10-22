@@ -10,9 +10,6 @@ use lib::HM485::Util;
 sub getConfigFromDevice($$) {
 	my ($hash, $chNr) = @_;
 	
-	#Todo Log 5
-	#print Dumper("getConfigFromDevice Channel: $chNr");
-	
 	my $retVal = {};
 	my $configHash = getConfigSettings($hash);
 	#print Dumper("getConfigFromDevice Channel: $chNr",$configHash);
@@ -306,12 +303,7 @@ sub convertSettingsToEepromData($$) {
 		$adressStart = $masterConfig->{'address_start'} ? $masterConfig->{'address_start'} : 0;
 		$adressStep  = $masterConfig->{'address_step'}  ? $masterConfig->{'address_step'} : 1;
 		$adressOffset = $adressStart + ($chNr - 1) * $adressStep;
-		
-	#my $dbg = sprintf("0x%X",$adressStart);
-	#print Dumper ("convertSettingsToEepromData $deviceKey $chType start :$dbg step:$adressStep offset:$adressOffset");
-		
 	}
-	
 	
 	my $addressData = {};
 	foreach my $config (keys %{$configData}) {
@@ -325,9 +317,6 @@ sub convertSettingsToEepromData($$) {
 		
 		if ($configData->{$config}{'config'}{'logical'}{'type'} && 
 			$configData->{$config}{'config'}{'logical'}{'type'} eq 'option') {
-			# $value = convertOptionToValue(
-			# 	$configData->{$config}{'config'}{'logical'}{'option'}, $value
-			# );
 		} else {
 			$value = HM485::Device::dataConversion(
 				$value, $configData->{$config}{'config'}{'conversion'}, 'to_device'
@@ -355,11 +344,11 @@ sub convertSettingsToEepromData($$) {
 			$addressData->{$adrKey}{'_value_old'} = $addressData->{$adrKey}{'value'};
 			$addressData->{$adrKey}{'_value'} = $value;
 			
-			HM485::Util::logger('ConfigManager:convSetToEepromData', 3,' eepromval = ' . $addressData->{$adrKey}{'value'} . ' value = ' . $value . ' size = ' . $size . ' adrid = ' . $adrId);
+			HM485::Util::Log3($hash, 5, 'ConfigManager:convSetToEepromData: eepromval = ' . $addressData->{$adrKey}{'value'} . ' value = ' . $value . ' size = ' . $size . ' adrid = ' . $adrId);
 		
 			$value = HM485::Device::updateBits($addressData->{$adrKey}{'value'},$value,$size,$adrId);
 			
-			HM485::Util::logger('ConfigManager:convertSettingsToEepromData', 3, ' value nach updateBits = ' . $value);
+			HM485::Util::Log3($hash, 5, 'ConfigManager:convertSettingsToEepromData: value nach updateBits = ' . $value);
 			
 			if ($optText) {
 				$addressData->{$adrKey}{'text'} .= ' '. $config . '=' . $optText;

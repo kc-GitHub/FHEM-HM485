@@ -448,6 +448,9 @@ sub getPeerSettingsFromDevice($$) {
 	my ($arg, $sensor) = @_;
 	
 	my $hmwid 		= getHmwIdByDevName($arg);
+	# if the get command was rubbish or the peer does not exist anymore,
+	# the coding below would create issues
+	if(!defined($hmwid)) { return undef; };
 	my $hash		= $main::modules{HM485}{defptr}{substr($hmwid, 0, 8)};
 	my $linkParams	= getLinkParams($hash);
 	my $peerId		= getPeerId($hash, $sensor, substr($hmwid, 9, 2), 0);
@@ -565,7 +568,7 @@ sub convertPeeringsToEepromData($$) {
 		
 	my $log = sprintf("0x%X",$adrStart);
 	
-	HM485::Util::logger ( HM485::LOGTAG_HM485, 3,
+	HM485::Util::Log3($devHash, 4,
 		'convertPeeringsToEepromData peerId: ' .$configData->{'channel'}{'peerId'}.
 		' start: ' . $log . ' step: ' .$adressStep . ' offset: ' .$adressOffset
 	);
@@ -638,7 +641,6 @@ sub valueToSettings($$) {
 				$retVal = $value / 100;
 			}
 	
-	#Todo Log 5 print Dumper ("ValueToControl Ret",$retVal);
 	return $retVal;
 }
 
@@ -735,10 +737,7 @@ sub sendUnpeer($$;$) {
 					$value = sprintf ('%0' . ($size * 2) . 'X', $value);
 				}
 				
-				HM485::Util::logger ( $pdevHash->{NAME}.'_'.substr($phmwId,9,2), 3,
-					HM485::LOGTAG_HM485.': Set unpeer for ' . $phmwId . ': ' .
-					$settings->{$adr}{'text'}
-				);
+				HM485::Util::Log3($pdevHash, 4, 'Set unpeer for ' . $phmwId . ': '.$settings->{$adr}{'text'});
 			
 				$adr = sprintf ('%04X' , $adr);
 				HM485::Device::internalUpdateEEpromData($pdevHash,$adr . $size . $value);

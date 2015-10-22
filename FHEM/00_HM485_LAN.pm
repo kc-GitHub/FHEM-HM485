@@ -75,7 +75,7 @@ sub HM485_LAN_Initialize($) {
 	my $initResult = HM485::Device::init();
 
 	if ($initResult) {
-		HM485::Util::logger($name, 1, $initResult);
+		HM485::Util::Log3($hash, 1, $initResult);
 	} else {
 
 		require $attr{global}{modpath} . '/FHEM/DevIo.pm';
@@ -129,14 +129,14 @@ sub HM485_LAN_Define($$) {
 		$hash->{DEF} = $a[2];
 
 		if($hash->{DEF} eq 'none') {
-			HM485::Util::logger($name, 1, 'HM485 device is none, commands will be echoed only');
+			HM485::Util::Log3($hash, 1, 'HM485 device is none, commands will be echoed only');
 		} else {
 			# Make shure HM485_LAN_Connect starts after HM485_LAN_Define is ready 
 			InternalTimer(gettimeofday(), 'HM485_LAN_ConnectOrStartHM485d', $hash, 0);
 		}
 				
 	} else {
-		HM485::Util::logger($name, 1, $ret);
+		HM485::Util::Log3($hash, 1, $ret);
 	}
 
 	$hash->{msgCounter} = 0;
@@ -228,15 +228,7 @@ sub HM485_LAN_Read($) {
 				foreach my $message (@messages) {
 					if ($message) {
 						$message = chr(HM485::FRAME_START_LONG) . $message;
-			
 						$message = HM485::Util::unescapeMessage($message);
-	
-						### Debug ###
-	#					my $m = $message;
-	#					my $l = uc( unpack ('H*', $m) );
-	##					$m =~ s/^.*CRLF//g;
-	#					Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
-	
 						HM485_LAN_parseIncommingCommand($hash, $message);
 					}
 				}
@@ -268,11 +260,11 @@ sub HM485_LAN_InitInterface($$) {
 	$hash->{SerialNumber}    = $serialNumber;
 	$hash->{msgCounter}      = hex(substr($msgCounter,1));
 
-	HM485::Util::logger($name, 3, 'Lan Device Information');
-	HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
-	HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
-	HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
-	HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
+	HM485::Util::Log3($hash, 3, 'Lan Device Information');
+	HM485::Util::Log3($hash, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
+	HM485::Util::Log3($hash, 3, 'Interface-Type: '   . $interfaceType);
+	HM485::Util::Log3($hash, 3, 'Firmware-Version: ' . $version);
+	HM485::Util::Log3($hash, 3, 'Serial-Number: '    . $serialNumber);
 
 	# initialize keepalive flags
 	$hash->{keepalive}{ok}    = 1;
@@ -298,7 +290,7 @@ sub HM485_LAN_Write($$;$) {
 	my $name = $hash->{NAME};
 	my $msgId = $hash->{msgCounter} ? $hash->{msgCounter} : 1;
 
-	HM485::Util::logger('HM485_LAN_Write', 5, 'TX: ' . $msgId );
+	HM485::Util::Log3($hash, 5, 'HM485_LAN_Write TX: ' . $msgId );
 	
 	if ($cmd == HM485::CMD_SEND || $cmd == HM485::CMD_DISCOVERY ||
 		$cmd == HM485::CMD_KEEPALIVE || HM485::CMD_INITIALIZE) {
@@ -356,12 +348,11 @@ sub HM485_LAN_Write($$;$) {
 
 		} elsif ($cmd == HM485::CMD_KEEPALIVE) {
 			$sendData = pack('H*',sprintf('%02X%02X', $msgId, $cmd));
-			# HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgId);
 
 		} elsif ($cmd == HM485::CMD_INITIALIZE) {
 			my $txtMsgId = unpack('H4', sprintf('%02X', $msgId));
 			$sendData = pack('H*',sprintf('%02X%s%s', $cmd, $txtMsgId, '2C303030300D0A'));
-			HM485::Util::logger ($name, 3, 'Initialize the interface');
+			HM485::Util::Log3($hash, 3, 'Initialize the interface');
 		}
 
 		if ($sendData) {
@@ -413,14 +404,14 @@ sub HM485_LAN_SendQueueNextItem($) {
 	my $queueCount = scalar(keys (%{$hash->{sendQueue}}));
 	if ($queueCount > 0) {
 		my $currentQueueId = (sort keys %{$hash->{sendQueue}})[0];
-        HM485::Util::logger('HM485_LAN_SendQueueNextItem', 5, 'QID: '.$currentQueueId );
+        HM485::Util::Log3($hash,  5, 'HM485_LAN_SendQueueNextItem: QID: '.$currentQueueId );
 		$hash->{currentQueueId} = $currentQueueId;
 
 		my $sendData = $hash->{sendQueue}{$currentQueueId}{data};
 		
 		DevIo_SimpleWrite($hash, $sendData, 0);
 		if ($hash->{sendQueue}{$currentQueueId}{dataLog}) {
-			Log3 ($hash, 4, $hash->{sendQueue}{$currentQueueId}{dataLog});
+			HM485::Util::Log3($hash, 4, $hash->{sendQueue}{$currentQueueId}{dataLog});
 		}
 		
 		my $checkResendQueueItemsDelay = 1;
@@ -449,16 +440,13 @@ sub HM485_LAN_CheckResendQueueItems($) {
 
 	my($name, $timerName, $currentQueueId) = split(':', $param);
 	
-	HM485::Util::logger('HM485_LAN_CheckResendQueueItems', 5, 'QID: '.$currentQueueId );
 	if ($timerName eq 'queueTimer') {
 		my $hash = $defs{$name};
-	
-#		print Dumper($hash->{sendQueue}{$currentQueueId});
+ 	    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: QID: '.$currentQueueId );
 		if (exists($hash->{sendQueue}{$currentQueueId})) {
-		    HM485::Util::logger('HM485_LAN_CheckResendQueueItems', 5, 'DispatchNack' );
+		    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: DispatchNack' );
 			HM485_LAN_DispatchNack($hash, $currentQueueId);
 		}
-	
 		# prozess next queue item.
 		HM485_LAN_SendQueueNextItem($hash);
 	}
@@ -657,12 +645,7 @@ sub HM485_LAN_cancelDiscovery($) {
 	my $hash = $defs{$name};
 
 	RemoveInternalTimer('discoveryCheckRunning:' . $name);
-	HM485::Util::logger(
-		$name,
-		2,
-		'Discovery - canceled. No results found within ' . DISCOVERY_TIMEOUT . ' seconds!'
-	);
-	
+	HM485::Util::Log3($hash, 2, 'Discovery - canceled. No results found within ' . DISCOVERY_TIMEOUT . ' seconds!');
 	HM485_LAN_setBroadcastSleepMode($hash, 0);
 	$hash->{discoveryRunning} = 0;	
 }
@@ -707,9 +690,8 @@ sub HM485_LAN_discoveryEnd($) {
 				my $m = $message;
 				my $l = uc( unpack ('H*', $m) );
 				$m =~ s/^.*CRLF//g;
-				HM485::Util::logger($name, 4, $l . ' (RX: ' . $m . ')');
-		
-	 			HM485::Util::logger($name, 4, 'Dispatch: ' . $discoverdAddress);
+				HM485::Util::Log3($hash, 4, $l . ' (RX: ' . $m . ')');
+	 			HM485::Util::Log3($hash, 4, 'Dispatch: ' . $discoverdAddress);
 				Dispatch($hash, $message, '');
 			}
 		}
@@ -753,7 +735,7 @@ sub HM485_LAN_Init($) {
 	my $dev  = $hash->{DEF};
 	my $name = $hash->{NAME};
 
-	HM485::Util::logger($name, 3, 'connected to device ' . $dev);
+	HM485::Util::Log3($hash, 3, 'connected to device ' . $dev);
 	$hash->{STATE} = 'open';
 	
 	delete ($hash->{HM485dStartTimeout});
@@ -778,24 +760,22 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	my $currentQueueId = $hash->{currentQueueId};
 	my $canDispatch    = 0;
 	
-	HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'MsgId: '.$msgId.' Cmd: '.$msgCmd);
+	HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: MsgId: '.$msgId.' Cmd: '.$msgCmd);
 	
 	if ($msgCmd == HM485::CMD_DISCOVERY_END) {
 		my $foundDevices = hex($msgData);
-		HM485::Util::logger($name, 4, 'Do action after discovery Found Devices: ' . $foundDevices);
-		
+		HM485::Util::Log3($hash, 4, 'Do action after discovery Found Devices: ' . $foundDevices);
 		InternalTimer(gettimeofday() + 0, 'HM485_LAN_discoveryEnd', $hash, 0);
 
 	} elsif ($msgCmd == HM485::CMD_DISCOVERY_RESULT) {
 		HM485_LAN_setDiscoveryCancelTimer($hash);
 		
-		HM485::Util::logger($name, 3, 'Discovery - found device: ' . $msgData);
+		HM485::Util::Log3($hash, 3, 'Discovery - found device: ' . $msgData);
 		$hash->{discoveryFound}{$msgData} = 1;
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $aliveStatus = substr($msgData, 0, 2);
-		# HM485::Util::logger('HM485_LAN_parseIncommingCommand', 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
-		HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Alive: (' . $msgId . ') ' . $msgData.' AliveStatus: '.$aliveStatus);
+		HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: Alive: (' . $msgId . ') ' . $msgData.' AliveStatus: '.$aliveStatus);
 		if ($aliveStatus == '00') {
 			# we got a response from keepalive
 			$hash->{keepalive}{ok}    = 1;
@@ -803,23 +783,11 @@ sub HM485_LAN_parseIncommingCommand($$) {
 		} else {
 			HM485_LAN_DispatchNack($hash, $currentQueueId);
 		}
-		# Es ist sinnvoll die channels abzufragen, die noch nicht definiert sind
-		# my $mhash = $modules{HM485}{defptr}{'0000A528_01'};
-		# HM485::Util::logger( 'HM485_LAN_parseIncommingCommand', 3, ' mhash = ' . $mhash);
-		#if (!$mhash) {
-		#	$mhash = $modules{HM485}{defptr}{'0000A528'};
-		#	HM485_GetInfos($mhash, '0000A528', 0b111);
-		#	# HM485::Util::logger( 'HM485_LAN_parseIncommingCommand', 3, ' mhash = ' . $mhash);
-		#}
-		
-		
+
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$canDispatch = 1;
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
-		# HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ')');
-
-		# Debug
-		HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
+		HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: Response: (' . $msgId . ') ' . substr($msgData, 2));
 
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
 		$canDispatch = 1;
@@ -832,14 +800,13 @@ sub HM485_LAN_parseIncommingCommand($$) {
 			datalen => $msgLen,
 			data    => pack('H*', substr($msgData, 18)),
 		);
-		HM485::Util::logger($name, 4, 'Event:', \%RD);
+		HM485::Util::Log3($hash, 4, 'Event:'. \%RD);
 	}		
 
 	if ($canDispatch && length($message) > 3) {
 		Dispatch($hash, $message, '');
 	}
 
-	#PFE BEGIN
 	# we should not confuse events with answers
 	# the server knows what is what...
 	# for Nacks, the queue has already been removed
@@ -847,8 +814,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	if ($currentQueueId && defined($hash->{sendQueue}{$currentQueueId}{msgId}) 
 	       && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId
 		   && $msgCmd != HM485::CMD_ALIVE) {  # probably not needed, but no harm either
-	#PFE END
-	    HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Removing Queue '.$currentQueueId);
+	    HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: Removing Queue '.$currentQueueId);
 		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
 		HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
 		HM485_LAN_CheckResendQueueItems($name . ':queueTimer:' . $currentQueueId);
@@ -959,7 +925,7 @@ sub HM485_LAN_DispatchNack($$) {
 	my ($hash, $currentQueueId) = @_;	
 	my $name = $hash->{NAME};
 
-	HM485::Util::logger('HM485_LAN_DispatchNack', 5, 'Start');
+	HM485::Util::Log3($hash, 5, 'HM485_LAN_DispatchNack: Start');
 	
 	$hash->{Last_Sent_RAW_CMD_State} = 'NACK';
 
@@ -977,10 +943,10 @@ sub HM485_LAN_DispatchNack($$) {
 							HM485::FRAME_START_LONG, 3, $msgId, HM485::CMD_ALIVE, 1, $hmwId
 						)
 					);
-					HM485::Util::logger('HM485_LAN_DispatchNack', 5, 'Message: '.$message);
+					HM485::Util::Log3($hash, 5, 'HM485_LAN_DispatchNack: Message: '.$message);
 					Dispatch($hash, $message, '');
 				} else {
-					HM485::Util::logger($name, 3, 'NACK: (' . $msgId . ') ' . $hmwId);
+					HM485::Util::Log3($hash, 3, 'NACK: (' . $msgId . ') ' . $hmwId);
 				}
 			}
 		}
@@ -1070,10 +1036,7 @@ sub HM485_LAN_checkAndCreateHM485d($) {
 
 		$hash->{HM485d_PID} = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine); 
 		if ($hash->{HM485d_PID}) {
-			HM485::Util::logger($name, 1,
-				'HM485d already running with PID ' . $hash->{HM485d_PID}. '. We re use this process!'
-			);
-
+			HM485::Util::Log3($hash, 1, 'HM485d already running with PID ' . $hash->{HM485d_PID}. '. We are using this process!');
 			InternalTimer(gettimeofday() + 0.1, 'HM485_LAN_openDev', $hash, 0);
 			
 		} else {
@@ -1083,7 +1046,7 @@ sub HM485_LAN_checkAndCreateHM485d($) {
 
 	} elsif ($HM485dBind && !$HM485dDevice) {
 		my $msg = 'HM485d not started. Attr "HM485d_device" for ' . $name . ' is not set!';
-		HM485::Util::logger($name, 1, $msg);
+		HM485::Util::Log3($hash, 1, $msg);
 		$hash->{ERROR} = $msg;
 	} else {
 
@@ -1153,7 +1116,7 @@ sub HM485_LAN_HM485dStop($) {
 			
 		}
 		
-		HM485::Util::logger($name, 3, $msg);
+		HM485::Util::Log3($hash, 3, $msg);
 	}
 	
 	return $msg;
@@ -1186,9 +1149,7 @@ sub HM485_LAN_HM485dStart($) {
 			
 			my $HM485dStartTimeout = int(AttrVal($name, 'HM485d_startTimeout', '2'));
 			if ($HM485dStartTimeout) {
-				HM485::Util::logger(
-					$name, 3, 'Connect to HM485d delayed for ' . $HM485dStartTimeout . ' seconds'
-				);
+				HM485::Util::Log3($hash, 3, 'Connect to HM485d delayed for ' . $HM485dStartTimeout . ' seconds');
 				$hash->{HM485dStartTimeout} = $HM485dStartTimeout;
 			}
 
@@ -1203,7 +1164,7 @@ sub HM485_LAN_HM485dStart($) {
 	}
 	
 	foreach my $msgItem (split("\n", $msg)) {
-		HM485::Util::logger($name, 3, $msgItem);
+		HM485::Util::Log3($hash, 3, $msgItem);
 	}
 
 	return $msg;
