@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.25
+	Version 0.7.26
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -111,8 +111,6 @@ my %getsDev = (
 # Default get comands for channel
 my %getsCh = ('state' => 'noArg');
 
-# Bei vielen Modulen ist eine Wartezeit beim Define erforderlich
-my $defWait  = 0;
 my $defStart = 5;
 
 # List of "message queues" for e.g. reading config 
@@ -175,7 +173,7 @@ sub HM485_Define($$) {
 	my $addr   = substr($hmwId, 0, 8);
 	my $msg    = undef;
 
-	RemoveInternalTimer($hash);  # TODO: Wofuer? honk fragen?
+	RemoveInternalTimer($hash);  
 	if (int(@a)!=3 || (defined($a[2]) && $a[2] !~ m/^[A-F0-9]{8}_{0,1}[A-F0-9]{0,2}$/i)) {
 		$msg = 'wrong syntax: define <name> HM485 <8-digit-hex-code>[_<2-digit-hex-code>]';
 
@@ -203,7 +201,7 @@ sub HM485_Define($$) {
 			} 
 			
 		} else {
-			# We defined a the device
+			# We defined the device
 			AssignIoPort($hash);
 			HM485::Util::Log3($hash->{IODev}, 2, 'Assigned '.$addr.' as '.$name);
 		}
@@ -214,14 +212,9 @@ sub HM485_Define($$) {
 			$hash->{'DEF'} = $hmwId;
 			
 			if ( defined($hash->{'IODev'}{'STATE'}) && length($hmwId) == 8) {
-			
 				$hash->{CONFIG_STATUS} = 'PENDING';
 # We can always use WaitForConfig. It will do it's job eventually in any case.	
-# TODO: Do we really still need .waitforConfig	
-				$hash->{'.waitforConfig'}{'hmwId'} 		= $addr;
-				$hash->{'.waitforConfig'}{'counter'}	= 10;
 				HM485_WaitForConfig($hash);	
-				$defWait++;
 			}
 		}
 	}
@@ -295,8 +288,7 @@ sub HM485_Rename($$) {
 sub HM485_WaitForConfig($) {
 	my ($hash) = @_;
 	
-	my $hmwId = $hash->{'.waitforConfig'}{'hmwId'};
-	my $counter = $hash->{'.waitforConfig'}{'counter'};
+	my $hmwId = $hash->{DEF};
 	
 	if (defined($hash->{'IODev'}{'STATE'})) {
 		if ($hash->{'IODev'}{'STATE'} eq 'open') {
@@ -307,19 +299,11 @@ sub HM485_WaitForConfig($) {
 				my $queue = HM485_GetNewMsgQueue($hash->{'IODev'}, 'HM485_GetConfig',[$hash,$hmwId],
 				                                 'HM485_SetConfigStatus',[$hash,'FAILED']);
 				HM485_GetInfos($hash, $hmwId, 0b111, $queue);
-				delete $hash->{'.waitforConfig'};
-				RemoveInternalTimer($hash);
 				HM485::Util::Log3($hash->{'IODev'}, 3, 'Initialisierung von Modul ' . $hmwId);
 			}
 		} else {
 			HM485::Util::Log3($hash->{'IODev'}, 3, 'Warte auf Initialisierung Gateway');
-			if ($counter >= 0) {
-				$hash->{'.waitforConfig'}{'counter'} = $counter--;
-				InternalTimer (gettimeofday() + $defStart, 'HM485_WaitForConfig', $hash, 0);
-			} else {
-				delete $hash->{'.waitforConfig'};
-				RemoveInternalTimer($hash);
-			}
+			InternalTimer (gettimeofday() + $defStart, 'HM485_WaitForConfig', $hash, 0);
 		}
 	}
 }
@@ -351,17 +335,6 @@ sub HM485_Parse($$) {
 	    # Stop queue if running
 	    HM485_QueueStepFailed($ioHash, $msgId);
 		HM485_SetStateNack($ioHash, $msgData);
-		my $requestType = $ioHash->{'.waitForResponse'}{$msgId}{requestType};
-		my $hmwId = substr( $msgData, 2, 8);
-		my $devHash = HM485_GetHashByHmwid( $hmwId);
-		if ( $requestType && $requestType eq '52') {
-			if ( !exists( $devHash->{'.waitforConfig'}{'counter'})) {
-				# Konfiguration des Moduls erneut abfragen in Speicher uebernehmen und Channels anlegen und einlesen
-				InternalTimer( gettimeofday() + 17, 'HM485_GetInfos', $devHash . ' ' . $hmwId . ' 7', 0);
-				InternalTimer( gettimeofday() + 20, 'HM485_GetConfig', $devHash . ' ' . $hmwId, 0);
-				HM485::Util::Log3( $ioHash, 3, 'HM485_Parse: fuer Modul = ' . $hmwId . ' wird Configuration erneut abgefragt');
-			}
-		}
 	}
 	
 	return $ioHash->{NAME};
@@ -741,6 +714,22 @@ sub HM485_GetInfos($$$;$) {
 #Last step of config, after reading of EEPROM
 sub HM485_CreateAndReadChannels($$) {
 	my ($devHash, $hmwId) = @_;
+	
+	# Wenn diese Funktion aufgerufen wird, dann wurden vorher die aktuellen
+	# Daten vom EEPROM geholt, d.h. wir koennen Readings setzen, die davon
+	# abhaengen
+	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($devHash, 0);
+	my $central_address = $configHash->{central_address}{value};
+	$central_address = sprintf('%08X',$central_address);
+    # if this is not the address of the IO-Device, try to change it
+	# TODO: This should probably be queued as well, but we cannot queue ACK-only commands
+	if($central_address ne $devHash->{IODev}{hmwId}){
+		HM485_SetConfig($devHash, (0,0,'central_address',hex($devHash->{IODev}{hmwId})));
+	};	
+	# TODO: The update should happen after the change of the address
+	#       ...or better another update at the end of the SetConfig (queued)
+	readingsSingleUpdate($devHash, 'R-central_address', $central_address, 1);
+	
 	# Channels anlegen
 	my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($devHash));
 	HM485::Util::Log3($devHash, 4, 'Channels initialisieren ' . substr($hmwId, 0, 8));
@@ -802,7 +791,10 @@ sub HM485_GetConfig($$) {
 		foreach my $adrStart (sort keys %{$eepromMap}) {
 			setReadingsVal($devHash, '.eeprom_' . $adrStart, $eepromMap->{$adrStart}, TimeNow());
 		}
-				
+		
+		# TODO: Es sieht so aus als ob zumindest manche Geraete ihre eigenen Defaults nicht 
+		#       kennen. Vielleicht sollte die Zentrale automatisch Default-Werte ins EEPROM
+		#       schreiben, wenn dort 0xFF steht.
 		HM485::Util::Log3($devHash, 3, 'Lese Eeprom ' . substr($hmwId, 0, 8));
 		
 		# Tell them that we are reading config
@@ -822,13 +814,10 @@ sub HM485_GetConfig($$) {
 	#	delete( $devHash->{'.Reconfig'});
 	} else {
 		HM485::Util::Log3($devHash, 3, 'Initialisierungsfehler ' . substr( $hmwId, 0, 8) . ' ModelName noch nicht vorhanden');
-		if ( !exists( $devHash->{'.waitforConfig'}{'counter'})) {
-			$devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
-			$devHash->{'.waitforConfig'}{'counter'}	= 10;
-			HM485_WaitForConfig($devHash);
-		}
+		HM485_WaitForConfig($devHash);
 	}
 }
+
 
 
 =head2
@@ -899,20 +888,11 @@ sub HM485_CreateChannels($) {
 sub HM485_SetReset($@) {
 	my ($hash, @values) =@_;
 	
-	my $value;
+	my $value = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF';
 	my $emtyMap = HM485::Device::getEmptyEEpromMap($hash);
 	
-	#todo get default settings from xml
 	foreach my $adr (keys %{$emtyMap}) {
-		if ($adr eq '0000') {
-			$value = 'FF1400000001FEFFFFFFFFFFFFFFFFFF';
-			HM485_SendCommand($hash, $hash->{'DEF'}, '57' . $adr . 10 . $value);
-		} else {
-			
-			$value = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF';
-			HM485_SendCommand($hash, $hash->{'DEF'}, '57' . $adr . 10 . $value);
-		}
-		
+    	HM485_SendCommand($hash, $hash->{'DEF'}, '57' . $adr . 10 . $value);
 	}
 	
 	HM485_SendCommand($hash, $hash->{'DEF'}, '43');
@@ -1138,10 +1118,12 @@ sub HM485_SetConfig($@) {
 	shift(@values);
 	shift(@values);
 
+	# print(Dumper(@values));
+	
 	my $msg = '';
 	my ($hmwId1, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId1,0,8)};
-	# my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
+
 	if (@values > 1) {
 		# Split list of configurations
 		my $cc = 0;
@@ -1165,7 +1147,7 @@ sub HM485_SetConfig($@) {
 		if (scalar (keys %{$setConfigHash})) {
 			$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
 			$configHash = $configHash->{parameter};
-			
+			# print(Dumper($configHash));
 			foreach my $setConfig (keys %{$setConfigHash}) {
 				my $configTypeHash = $configHash->{$setConfig};	# hash von behaviour
 				$msg = HM485_ValidateSettings(
@@ -1765,11 +1747,7 @@ sub HM485_SetStateNack($$) {
 	readingsSingleUpdate($devHash, 'state', $txt, 1);
 
 	HM485::Util::Log3($devHash, 3, $txt . ' for ' . $hmwId);
-	if ( !exists( $devHash->{'.waitforConfig'}{'counter'})) {
-		$devHash->{'.waitforConfig'}{'hmwId'} 	= $hmwId;
-		$devHash->{'.waitforConfig'}{'counter'}	= 10;
-		InternalTimer( gettimeofday() + $defStart + $defWait, 'HM485_WaitForConfig', $devHash, 0);
-	}
+	InternalTimer( gettimeofday() + $defStart, 'HM485_WaitForConfig', $devHash, 0);
 }
 
 =head2

@@ -131,9 +131,13 @@ sub makeConfigTable($$) {
 	my $title = 'Configuration';
 	my $className = 'config';
 	
-	
+	# print(Dumper($configHash));
 	foreach my $cKey (sort keys %{$configHash}) {
 		my $config = $configHash->{$cKey};
+		
+		# we don't show hidden parameters
+		if($config->{hidden}) { next; };
+		
 		my $rowContent.= wrapTd($cKey . ':');
 		
 		my $value = '';

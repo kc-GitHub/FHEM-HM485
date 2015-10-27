@@ -60,6 +60,7 @@ sub writeConfigParameter($$;$$) {
 
 	$retVal->{'type'}  = $type;
 	$retVal->{'unit'}  = $unit;
+	$retVal->{hidden} = defined($parameterHash->{hidden}) ? $parameterHash->{hidden} : 0;
 	
 	if ($type && $type ne 'option') {
 		#todo da gibts da noch mehr ?
@@ -254,7 +255,7 @@ sub getConfigSettings($) {
 				}
 				# delete hidden configs (Hashes mit dem Attribut hidden werden geloescht )
 				# TODO: Warum macht honk das nicht?
-				$configSettings = removeHiddenConfig($configSettings);
+				# $configSettings = removeHiddenConfig($configSettings);
 			}
 		}
 	return $configSettings;
@@ -284,7 +285,7 @@ sub removeHiddenConfig($) {
 
 sub convertSettingsToEepromData($$) {
 	my ($hash, $configData) = @_;
-	#print Dumper ("convertSettingsToEepromData",$configData);
+	# print Dumper ("convertSettingsToEepromData",$configData);
 
 	my $adressStart = 0;
 	my $adressStep  = 0;
@@ -306,6 +307,7 @@ sub convertSettingsToEepromData($$) {
 	}
 	
 	my $addressData = {};
+
 	foreach my $config (keys %{$configData}) {
 		my $configHash     = $configData->{$config}{'config'};
 		my ($adrId, $size, $littleEndian) = HM485::Device::getPhysicalAddress(
