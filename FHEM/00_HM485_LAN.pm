@@ -94,7 +94,8 @@ sub HM485_LAN_Initialize($) {
 		                     'HM485d_serialNumber HM485d_logfile ' .
 		                     'HM485d_detatch:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
 		                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
-		                     'HM485d_gpioTxenCmd1';
+		                     'HM485d_gpioTxenCmd1 '.
+							 'autoReadConfig:atstartup,always';
 		
 		my %mc = ('1:HM485' => '^.*');
 		$hash->{Clients}    = ':HM485:';

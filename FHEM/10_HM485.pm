@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.26
+	Version 0.7.27
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -118,6 +118,21 @@ my @msgQueueList = ();
 my $currentQueueIndex = -1; #index of current queue
 
 
+# Helper function to set a single reading asynchronously
+# It seems that it only works properly like this
+sub HM485_ReadingUpdate($$$) {
+	my ($hash, $name, $value) = @_;
+	
+    if($name){  # do it later
+		InternalTimer(gettimeofday(),'HM485_ReadingUpdate',[$hash,$name, $value],0);
+	}else{	# this is the "later" call
+	    ($hash, $name, $value) = @$hash;
+		readingsSingleUpdate($hash, $name, $value, 1);
+	}
+}
+
+
+
 ###############################################################################
 # Interface related functions
 ###############################################################################
@@ -142,7 +157,8 @@ sub HM485_Initialize($) {
 	# For FHEMWEB
 	$hash->{'FW_detailFn'}    = 'HM485_FhemwebShowConfig';
 
-	$hash->{'AttrList'}       = 'do_not_notify:0,1 ' .
+	$hash->{'AttrList'}       =	'autoReadConfig:atstartup,always '. 
+							  'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
 	                          'model:' . HM485::Device::getModelList() . ' ' .
 	                          'subType stateFormat firmwareVersion setList ' .
@@ -212,7 +228,7 @@ sub HM485_Define($$) {
 			$hash->{'DEF'} = $hmwId;
 			
 			if ( defined($hash->{'IODev'}{'STATE'}) && length($hmwId) == 8) {
-				$hash->{CONFIG_STATUS} = 'PENDING';
+				HM485_ReadingUpdate($hash, 'configStatus', 'PENDING');
 # We can always use WaitForConfig. It will do it's job eventually in any case.	
 				HM485_WaitForConfig($hash);	
 			}
@@ -361,7 +377,7 @@ sub HM485_SetToggle($) {
 	my $frameValue;
 	if(defined($valueHash->{conversion}{true}) && $valueHash->{conversion}{true} == 200) {
 		$frameValue = 0xFF;
-		readingsSingleUpdate($hash, 'state', 'set_toggle', 1);
+		HM485_ReadingUpdate($hash, 'state', 'set_toggle');
 	} else {
 		# dieses Device braucht etwas Hilfe
 	    my $state = 'on';
@@ -374,7 +390,7 @@ sub HM485_SetToggle($) {
 		}else{
 			$newState = 'on';
 		}	
-		readingsSingleUpdate($hash, 'state', 'set_'.$newState, 1);
+		HM485_ReadingUpdate($hash, 'state', 'set_'.$newState);
 		$frameValue = HM485::Device::onOffToState($valueHash, $newState);
 	}
 
@@ -463,7 +479,7 @@ sub HM485_Set($@) {
 		    if ($cmd eq 'press_long' || $cmd eq 'press_short') {
 				my $counter = $hash->{'READINGS'}{'sim_counter'}{'VAL'} ?
 							  $hash->{'READINGS'}{'sim_counter'}{'VAL'} : 0;
-				readingsSingleUpdate($hash, 'state', $cmd .' '.$counter, 1);
+				HM485_ReadingUpdate($hash, 'state', $cmd .' '.$counter);
 				$msg = HM485_SetKeyEvent($hash, $cmd);
 
 			} elsif ($cmd eq 'peer') {
@@ -483,7 +499,7 @@ sub HM485_Set($@) {
 				$msg = HM485_SetSettings($hash, @params);
 			
 			} elsif ($cmd eq 'frequency') {
-				readingsSingleUpdate($hash, $cmd, $value, 1);
+				HM485_ReadingUpdate($hash, $cmd, $value);
 				$msg = HM485_SetChannelState($hash, $cmd, $value);			
 			} elsif ( $cmd eq 'on-for-timer') {
 				if ( $value && $value > 0) {
@@ -507,7 +523,7 @@ sub HM485_Set($@) {
 			} else {  
 				my $state = 'set_'.$cmd;
 				if($value) { $state .= '_'.$value; }
-				readingsSingleUpdate($hash, 'state', $state, 1);
+				HM485_ReadingUpdate($hash, 'state', $state);
 				$msg = HM485_SetChannelState($hash, $cmd, $value);
 			}
 			return ($msg,1);  # do not trigger events from set commands
@@ -658,9 +674,8 @@ sub HM485_FhemwebShowConfig($$$) {
 =cut
 
 sub HM485_SetConfigStatus($$) {
-  my ($hash, $status) = @_;
-  HM485::Util::Log3( $hash, 5, 'HM485_SetConfigStatus: Hash: '.$hash);
-  $hash->{CONFIG_STATUS} = $status;
+	my ($hash, $status) = @_;
+	HM485_ReadingUpdate($hash, 'configStatus', $status);
 }
 
 
@@ -728,7 +743,7 @@ sub HM485_CreateAndReadChannels($$) {
 	};	
 	# TODO: The update should happen after the change of the address
 	#       ...or better another update at the end of the SetConfig (queued)
-	readingsSingleUpdate($devHash, 'R-central_address', $central_address, 1);
+	HM485_ReadingUpdate($devHash, 'R-central_address', $central_address);
 	
 	# Channels anlegen
 	my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($devHash));
@@ -817,7 +832,6 @@ sub HM485_GetConfig($$) {
 		HM485_WaitForConfig($devHash);
 	}
 }
-
 
 
 =head2
@@ -1470,7 +1484,7 @@ sub HM485_SetKeyEvent($$) {
 								my $data = HM485::Device::buildFrame($hash, 
 									$frameType, $frameData, $peerHash->{'actuators'}{$peerId}{'actuator'});
 									
-								readingsSingleUpdate($hash, 'sim_counter', $frameValue, 1);
+								HM485_ReadingUpdate($hash, 'sim_counter', $frameValue);
 								
 								HM485::Util::Log3( $hash, 3, 'Send ' .$frameType. ': ' .$peerHash->{'actuators'}{$peerId}{'actuator'});
 								
@@ -1744,10 +1758,28 @@ sub HM485_SetStateNack($$) {
 	my $devHash = HM485_GetHashByHmwid($hmwId);
 	
 	my $txt = 'RESPONSE TIMEOUT';
-	readingsSingleUpdate($devHash, 'state', $txt, 1);
+	HM485_ReadingUpdate($devHash, 'state', $txt);
 
 	HM485::Util::Log3($devHash, 3, $txt . ' for ' . $hmwId);
-	InternalTimer( gettimeofday() + $defStart, 'HM485_WaitForConfig', $devHash, 0);
+	
+	# config wird in folgenden Faellen neu gelesen:
+	#  - CONFIG_STATUS is nicht OK (d.h. wahrscheinlich abgebrochener get config Versuch)
+	#  - Attribut autoReadConfig ist auf "always"
+	my $doIt = 0;
+	# if($devHash->{CONFIG_STATUS} ne 'OK') {
+	if($devHash->{READINGS}{configStatus}{VAL} ne 'OK'){
+		$doIt = 1;
+	}else{
+		my $autoReadConfig = AttrVal($devHash->{NAME},'autoReadConfig','');   # vom Device selbst
+	    if($autoReadConfig eq 'always') {
+			$doIt = 1;
+		}elsif($autoReadConfig eq '' && AttrVal($devHash->{IODev}{NAME},'autoReadConfig','') eq 'always'){  # vom IO-Device
+			$doIt = 1;
+		}	
+	}
+	if($doIt) {
+		InternalTimer( gettimeofday() + $defStart, 'HM485_WaitForConfig', $devHash, 0);
+	}
 }
 
 =head2
@@ -1771,7 +1803,7 @@ sub HM485_SetStateAck($$$) {
 	if ($hmwId) {
 		my $devHash = HM485_GetHashByHmwid($hmwId);
 		if ($devHash->{NAME}) {
-			readingsSingleUpdate($devHash, 'state', 'ACK', 1);
+			HM485_ReadingUpdate($devHash, 'state', 'ACK');
 		}
 	}
 }
@@ -2184,7 +2216,7 @@ sub HM485_QueueStart($$) {
   if($#{$queue->{entries}} == -1) {     
 	if($queue->{successFn}) {
 	  # the success function is called via internal timer
-	  # because it is usually called asynchrnously for non-empty queues
+	  # because it is usually called asynchronously for non-empty queues
 	  InternalTimer(gettimeofday(), 'HM485_QueueSuccessViaTimer', $queue, 0);
 	};  
 	return;
