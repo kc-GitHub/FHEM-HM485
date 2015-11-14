@@ -92,7 +92,7 @@ sub HM485_LAN_Initialize($) {
 		$hash->{AttrList}   = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
 		                     'HM485d_startTimeout HM485d_device ' . 
 		                     'HM485d_serialNumber HM485d_logfile ' .
-		                     'HM485d_detatch:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
+		                     'HM485d_detach:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
 		                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
 		                     'HM485d_gpioTxenCmd1 '.
 							 'autoReadConfig:atstartup,always';
@@ -141,7 +141,7 @@ sub HM485_LAN_Define($$) {
 	}
 
 	$hash->{msgCounter} = 0;
-	$hash->{STATE} = '';
+	# $hash->{STATE} = '';
 
 	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday();
 
@@ -156,6 +156,25 @@ sub HM485_LAN_Define($$) {
 sub HM485_LAN_Ready($) {
 	my ($hash) = @_;
 
+	HM485::Util::Log3($hash, 5, 'HM485_LAN_Ready called');
+	
+	if ( ! $hash->{STATE} eq "disconnected" ) {
+		return undef;  # nothing to do in this case
+	};
+	# It seems we are disconnected (not closed intentionally)
+	# If we handle the Daemon ourselves, then check whether it is still running
+	# and try to restart, if not
+	my $name = $hash->{NAME};
+	my $HM485dBind   = AttrVal($name, 'HM485d_bind', 0);
+	my $HM485dDevice = AttrVal($name, 'HM485d_device', undef);
+	if ($HM485dBind && $HM485dDevice) {
+		my $pid = HM485_LAN_HM485dGetPid($hash, $hash->{HM485d_CommandLine});
+		if(!($pid && kill(0, $pid))) {
+			# seems it is not really running, try to start it
+			HM485_LAN_HM485dStart($hash);
+			return undef;  # in this case, an immediate openDev does not make sense
+		}		
+	};	
 	return HM485_LAN_openDev($hash, 1);
 }
 
@@ -174,7 +193,7 @@ sub HM485_LAN_Undef($$) {
 
 	DevIo_CloseDev($hash);
 	
-	if (!AttrVal($name, 'HM485d_detatch', 0)) {
+	if (!AttrVal($name, 'HM485d_detach', 0)) {
 		HM485_LAN_HM485dStop($hash);
 	}
 
@@ -190,7 +209,7 @@ sub HM485_LAN_Shutdown($) {
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 
-	if (!AttrVal($name, 'HM485d_detatch', 0)) {
+	if (!AttrVal($name, 'HM485d_detach', 0)) {
 		HM485_LAN_HM485dStop($hash);
 	}
 }
@@ -728,7 +747,7 @@ sub HM485_LAN_Init($) {
 	my $name = $hash->{NAME};
 
 	HM485::Util::Log3($hash, 3, 'connected to device ' . $dev);
-	$hash->{STATE} = 'open';
+	# $hash->{STATE} = 'open';
 	
 	delete ($hash->{HM485dStartTimeout});
 
@@ -951,8 +970,8 @@ sub HM485_LAN_openDev($;$) {
 	$reconnect = defined($reconnect) ? $reconnect : 0;
 	$hash->{DeviceName} = $hash->{DEF}; 
 
-	if ($hash->{STATE} ne 'open') {
-		# if we must reconnect, connection can reappered after 60 seconds 
+	if ($hash->{STATE} ne 'opened') {
+		# if we must reconnect, connection can reappear after 60 seconds 
 		$retVal = DevIo_OpenDev($hash, $reconnect, 'HM485_LAN_Init');
 	}
 
@@ -974,7 +993,7 @@ sub HM485_LAN_updateHM485dCommandLine($) {
 	};	
 	my (undef, $HM485dPort) = split(':', $hash->{DEF});
 	my $HM485dSerialNumber = AttrVal($name, 'HM485d_serialNumber', SERIALNUMBER_DEF);
-	my $HM485dDetatch      = AttrVal($name, 'HM485d_detatch',      undef);
+	my $HM485dDetach      = AttrVal($name, 'HM485d_detach',      undef);
 	my $HM485dGpioTxenInit = AttrVal($name, 'HM485d_gpioTxenInit', undef);
 	my $HM485dGpioTxenCmd0 = AttrVal($name, 'HM485d_gpioTxenCmd0', undef);
 	my $HM485dGpioTxenCmd1 = AttrVal($name, 'HM485d_gpioTxenCmd1', undef);
@@ -985,7 +1004,7 @@ sub HM485_LAN_updateHM485dCommandLine($) {
 	$HM485dCommandLine.= ($HM485dSerialNumber) ? ' --serialNumber ' . $HM485dSerialNumber : '';
 	$HM485dCommandLine.= ($HM485dDevice)       ? ' --device '       . $HM485dDevice       : '';
 	$HM485dCommandLine.= ($HM485dPort)         ? ' --localPort '    . $HM485dPort         : '';
-	$HM485dCommandLine.= ($HM485dDetatch)      ? ' --daemon '       . $HM485dDetatch      : '';
+	$HM485dCommandLine.= ($HM485dDetach)       ? ' --daemon '       . $HM485dDetach       : '';
 	$HM485dCommandLine.= ($HM485dGpioTxenInit) ? ' --gpioTxenInit ' . $HM485dGpioTxenInit : '';
 	$HM485dCommandLine.= ($HM485dGpioTxenCmd0) ? ' --gpioTxenCmd0 ' . $HM485dGpioTxenCmd0 : '';
 	$HM485dCommandLine.= ($HM485dGpioTxenCmd1) ? ' --gpioTxenCmd1 ' . $HM485dGpioTxenCmd1 : '';
@@ -1039,7 +1058,6 @@ sub HM485_LAN_HM485dGetPid($$) {
 	my ($hash, $HM485dCommandLine) = @_;
 	my $retVal = 0;
 	
-	# my $ps = 'ps axo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
 	my $ps = 'ps axwwo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
 	my @result = `$ps`;
 	foreach my $psResult (@result) {
@@ -1116,7 +1134,7 @@ sub HM485_LAN_HM485dStart($) {
 	$hash->{HM485d_PID} = $pid;
 	HM485::Util::Log3($hash, 3, 'HM485d was started with PID: ' . $pid);
 	$hash->{HM485d_STATE} = 'started';
-	my $HM485dStartTimeout = int(AttrVal($hash->{NAME}, 'HM485d_startTimeout', '2'));
+	my $HM485dStartTimeout = int(AttrVal($hash->{NAME}, 'HM485d_startTimeout', '5'));
 	if ($HM485dStartTimeout) {
 		HM485::Util::Log3($hash, 3, 'Connect to HM485d delayed for ' . $HM485dStartTimeout . ' seconds');
 		$hash->{HM485dStartTimeout} = $HM485dStartTimeout;
@@ -1146,6 +1164,28 @@ sub HM485_LAN_HM485dStart($) {
 	For the HomeMatic Wired RS485 LAN Gateway, HM485_LAN communicates directly with the gateway.<br>
 	For the Ethernet to RS485 or RS232/USB to RS485 converter, module HM485_LAN automatically starts a server process (HM485d.pl), which emulates the Gateway.<br>
     <br><br>
+	<b>Minimum configuration examples</b>
+	<ul>
+		<li>HomeMatic Wired RS485 LAN Gateway<br>
+			<code>
+			define hm485 HM485_LAN 192.168.178.164:1000
+			</code>
+		</li>
+		<li>Ethernet to RS485 converter<br>
+			<code>
+			define hm485 HM485_LAN localhost:2000
+			attr hm485 HM485d_bind 1
+			attr hm485 HM485d_device 192.168.178.165:5000
+			</code>
+		</li>
+		<li>USB to RS485 converter<br>
+			<code>
+			define hm485 HM485_LAN localhost:2000
+			attr hm485 HM485d_bind 1
+			attr hm485 HM485d_device /dev/ttyUSB0
+			</code>
+		</li>
+	</ul>
 	
     <b>Define</b>
     <ul>
@@ -1182,23 +1222,44 @@ sub HM485_LAN_HM485dStart($) {
 	<b>Attributes</b>
 	<ul>
 	<li>hmwId
+			hmwId Hier muss die HMW-ID angegeben werden. Standardmäßig wird die 00000001 benutzt.
 	</li>
-	<li>do_not_notify:0,1
-	</li>
-	<li>HM485d_bind:0,1
-	</li>
-	<li>HM485d_startTimeout
-	</li>
-	<li>HM485d_device
-	</li>
-	<li>HM485d_serialNumber</li> 
-	<li>HM485d_logfile</li> 
-	<li>HM485d_detatch:0,1</li>
-	<li>HM485d_logVerbose:0,1,2,3,4,5</li>
-	<li>HM485d_gpioTxenInit</li>
-	<li>HM485d_gpioTxenCmd0</li>
-	<li>HM485d_gpioTxenCmd1</li>
 	<li>autoReadConfig:atstartup,always</li>
+	<li>do_not_notify:0,1
+	## do_not_notify FileLog/notify/inform Benachrichtigung für das Gerät ist abgeschaltet.
+	</li>
+	<li>HM485d_bind:0,1<br>
+		Set HM485d_bind to 1 to allow FHEM to handle HM485d. This means that you are then able to start, stop and restart the HM485d process. FHEM then also starts HM485d automatically and restarts it if it crashes. If you are using the HomeMatic Wired RS485 LAN Gateway, you should not set HM485d_bind. Otherwise, it most likely makes sense to set HM485d_bind to 1.  		
+	</li>
+	The following attributes only make sense when FHEM controls the HM485d process (HM485d_bind = 1). You can always set these attributes, but they are only used when FHEM starts the HM485d process.
+	<li>HM485d_startTimeout<br>
+		Especially on slow machines (e.g. Raspberry Pi 1), it takes a few seconds until the HM485d process accepts a connection. By default, FHEM waits 5 seconds after starting the HM485d before attempting to connect to it. You can change this time using attribute HM485d_startTimeout. In case FHEM is not able to connect at the first attempt, it usually takes about 60 seconds until the next try. I.e. if HM485d_startTimeout is too small, you might only see the device state as "opened" 60 seconds later. 
+	</li>
+	<li>HM485d_device<br>
+		This is the device the HM485d process is supposed to connect to, i.e. either an ip address or the file name of a serial device, like USB. See above for examples.
+		This attribute must be set when HM485d_bind is 1. Otherwise, FHEM cannot start the HN485d process.
+	</li>
+	<li>HM485d_serialNumber<br>
+		This is the serial number which HM485d process uses as an identification with FHEM. It is mainly used to differentiate between multiple HM485d processes. This makes sense when you have more than one RS485 converters. Otherwise, you don't need to set it. (The default serial number is SGW0123456.)
+	<li>HM485d_logfile<br>
+		The HM485d process can write an own log file with &lt;HM485d_logfile&gt; as filename.
+	</li> 
+	<li>HM485d_detach:0,1
+	 HM485d_detatch Wenn der hm485d mit FHEM zusammen gestartet wird (siehe HM485d_bind) so kann der Prozess hier von FHEM entkoppelt werden. Der Prozess wird dann auch nicht zusammen mit FHEM beendet.
+	</li>
+	<li>HM485d_logVerbose:0,1,2,3,4,5
+	 HM485d_logVerbose Der Loglevel vom hm485d.
+	</li>
+	Die folgenden drei Attribute können verwendet werden, wenn der hm485d über einen einfachen UART ohne Flusskontrolle z.B. über den UART des Raspberry Pi, an einen RS485 Tranceiver angeschlossen wird. Dafür müssen ggf. GPIO-Pins zur Steuerung des RS485 Tranceivers (Senden/Empfangen) definiert werden: 
+	<li>HM485d_gpioTxenInit
+	 HM485d_gpioTxenInit Shell-Befehl zum initialisieren des benutzten GPIO-Pins für die Sendekontrolle
+	</li>
+	<li>HM485d_gpioTxenCmd0
+	 HM485d_gpioTxenCmd0 Shell-Befehl um den Sende-GPIO-Pin zurück zu setzen
+	</li>
+	<li>HM485d_gpioTxenCmd1
+	 HM485d_gpioTxenCmd1 Shell-Befehl um den Sende-GPIO-Pin zu setzen
+	</li>
 	</ul>
 </ul>
 

@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.28
+	Version 0.7.29
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -307,7 +307,7 @@ sub HM485_WaitForConfig($) {
 	my $hmwId = $hash->{DEF};
 	
 	if (defined($hash->{'IODev'}{'STATE'})) {
-		if ($hash->{'IODev'}{'STATE'} eq 'open') {
+		if ($hash->{'IODev'}{'STATE'} eq 'opened') {
 			if ( $hmwId) {
 			    # Tell them that we are reading config
 			    HM485_SetConfigStatus($hash, 'READING');
