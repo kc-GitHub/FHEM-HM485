@@ -6,15 +6,14 @@ use Data::Dumper;
 
 use vars qw($FW_ss);      # is smallscreen, needed by 97_GROUP/95_VIEW
 use vars qw(%FW_hiddenroom); # hash of hidden rooms, used by weblink
-use vars qw {%defs};
+
 
 sub showConfig($$$) {
 	my ($hash, $configHash, $linkHash) = @_;
-	my $name = $hash->{NAME};
 
 	# if the config is not synched, then we only display the config
 	# but it cannot be changed
-    my $devHash = (defined($hash->{device}) ? $defs{$hash->{device}} : $hash);
+	my $devHash = (defined($hash->{device}) ? $main::defs{$hash->{device}} : $hash);
 	my $configReady = ($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
 	
 	my $content = '';
@@ -57,7 +56,7 @@ sub makePeeringsTable($$$) {
 		if ($config->{'type'} eq 'option') {
 			my $possibleValusList = HM485::ConfigurationManager::optionsToList($config->{'possibleValues'});
 			$value = configSelect(
-				$cKey, $possibleValusList, $config->{'value'}, $className
+				$cKey, $possibleValusList, $config->{'value'}, $className, $configReady
 			);
 			
 		} elsif ($config->{'type'} eq 'boolean') {

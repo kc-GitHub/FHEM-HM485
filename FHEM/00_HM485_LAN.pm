@@ -1160,24 +1160,26 @@ sub HM485_LAN_HM485dStart($) {
 		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
 		<li>Ethernet to RS485 converter like <a href="http://forum.fhem.de/index.php/topic,14096.msg88557.html#msg88557">WIZ108SR</a>.</li>
 		<li>RS232/USB to RS485 converter like DIGITUS DA-70157</li>
+		<li>A RS485 Tranceiver, which is e.g. directly connected to the UART of a Raspberry Pi</li> 
 	</ul>
+	<br>
 	For the HomeMatic Wired RS485 LAN Gateway, HM485_LAN communicates directly with the gateway.<br>
 	For the Ethernet to RS485 or RS232/USB to RS485 converter, module HM485_LAN automatically starts a server process (HM485d.pl), which emulates the Gateway.<br>
     <br><br>
-	<b>Minimum configuration examples</b>
+	<b>Minimum configuration examples</b><br>
 	<ul>
 		<li>HomeMatic Wired RS485 LAN Gateway<br>
 			<code>
 			define hm485 HM485_LAN 192.168.178.164:1000
 			</code>
-		</li>
+		</li><br>
 		<li>Ethernet to RS485 converter<br>
 			<code>
 			define hm485 HM485_LAN localhost:2000
 			attr hm485 HM485d_bind 1
 			attr hm485 HM485d_device 192.168.178.165:5000
 			</code>
-		</li>
+		</li><br>
 		<li>USB to RS485 converter<br>
 			<code>
 			define hm485 HM485_LAN localhost:2000
@@ -1186,36 +1188,64 @@ sub HM485_LAN_HM485dStart($) {
 			</code>
 		</li>
 	</ul>
-	
+	<br>
     <b>Define</b>
     <ul>
       <code>define &lt;name&gt; HM485_LAN &lt;hostname&gt;:&lt;port&gt;</code>
-	  <br><br>
+	  <br>
 	  <ul>
-	  <li>When using the HMW RS485 LAN Gateway, then hostname is the address of the gateway itself. As port, usually 1000 or 5000 is used. 
+	  <li>When using the HMW RS485 LAN Gateway, then &lt;hostname&gt; is the address of the gateway itself. As port, usually 1000 or 5000 is used. 
 	  Example: <code>define hm485 HM485_LAN 192.168.178.164:5000</code>
 	  </li> 
-	  <li>When using anything else, then hostname is the address of the machine the HM485d process runs on. "port" is the port the HM485d process listens at. Usually, the HM485d process is controlled by FHEM and runs on the same machine as FHEM. This means that something like this usually makes sense: 
+	  <li>When using anything else, then &lt;hostname&gt; is the address of the machine the HM485d process runs on. &lt;port&gt; is the port the HM485d process listens at. Usually, the HM485d process is controlled by FHEM and runs on the same machine as FHEM. This means that something like this usually makes sense: 
 	  <code>define hm485 HM485_LAN localhost:2000</code>
 	  </li>
 	  </ul>
 	</ul>
-	
+	<br>
 	<b>Set</b>
+	<br>
 	<ul>
-	<li><code>set &lt;name&gt; HM485d status|stop|start|restart</code>
+	<li><code>set &lt;name&gt; HM485d status|stop|start|restart</code><br>
+	This controls the HM485d process. It only works if attribute HM485d_bind is set to 1.
+	<ul>
+	<li><b>status</b> shows whether the process is running. If it is running, then it also displays its PID.</li>
+	<li><b>stop</b> stops the HM485d process. Unlike in the situation when HM485d crashes, FHEM won't restart the HM485d process automatically. You need to start it again explicitly.</li>
+	<li><b>start</b> starts the HM485d process. In normal circumstances, this should not be needed as FHEM manages it automatically. You need to use this command if you have used the "stop" command before and want to restart the process now.</li>
+	<li><b>restart</b> does the same as a "stop" followed by a "start".</li>
+	</ul>
 	</li>
-	<li><code>set &lt;name&gt; RAW &lt;target&gt; &lt;control&gt; &lt;central_address&gt; &lt;data&gt;</code>
+	<br>
+	<li><code>set &lt;name&gt; RAW &lt;target&gt; &lt;control&gt; &lt;sender_address&gt; &lt;data&gt;</code><br>
+	This sends a "raw" message to an HMW device using the HM485_LAN device &lt;name&gt;. This is usually not needed and requires deeper knowledge about the HMW protocol. It can be useful for devices, which are not properly supported by FHEM. However, it is usually easier to use the "set raw" command directly with the connected device. See the documentation for HM485 for details.<br>
+	The meaning of the parameters are as follows:
+	<ul>
+	<li><b>target</b> is the address of the device the message is sent to. It is an 8-character hex code.</li>
+	<li><b>control</b> is the control-byte of the message.</li>
+	<li><b>sender_address</b> is the address of the sender of the message. Usually, this is the address of the central, i.e. the HM485_LAN device itself. Also see attribute hmwId.</li>
+    <li><b>data</b> is the data, which is sent to the device.</li> 	
+	</ul>
 	</li>
-	<li><code>set &lt;name&gt; broadcastSleepMode off</code>
+	<br>
+	<li><code>set &lt;name&gt; discovery start</code><br>
+	This starts the discovery mode. The system then searches for unknown devices on the RS485 bus connected to the HM485_LAN device &lt;name&gt;. New devices are automatically created in FHEM and paired with &lt;name&gt;. Refer to the documentation for HM485 devices for details.<br>
+	The discovery mode might not find all HM485 devices. E.g. some "Homebrew" devices do not send an answer on discovery messages. In this case, some message needs to be triggered by the device itself in order to detect and auto-create it.
 	</li>
-	<li><code>set &lt;name&gt; discovery start</code>
+	<br>
+	<li><code>set &lt;name&gt; broadcastSleepMode off</code><br>
+	When entering the discovery mode, HM485 devices are not allowed to transmit anything except answers to discovery messages. This is done by the central (the HM485_LAN device) sending a "sleep mode" message. After discovery, the central sends a "sleep mode off" message. However, if something goes wrong, some devices might not receive the latter properly. For this case, the "sleep mode off" message can be triggered manually.
 	</li>
 	</ul>
-
+	<br>	
 	<b>Readings</b>
 	<ul>
-	<li>state
+	<li>state<br>
+	This shows the status of the interface. The following values can occur:
+	<ul>
+	<li><b>opened</b> the device is connected and ready to read or write.</li>	
+	<li><b>failed</b> the system expected to read something from the device, but could not receive anything</li>
+	<li><b>disconnected</b> the system tried to connect to the device, but could not do so successfully.</li>
+	</ul>
 	</li>
 	</ul>
 		
