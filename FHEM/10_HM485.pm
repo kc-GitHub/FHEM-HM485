@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.31
+	Version 0.7.32
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -2324,3 +2324,26 @@ sub HM485_QueueStepFailed($$) {
 }
 
 1;
+
+=pod
+=begin html
+
+<a name="HM485"></a>
+<h3>HM485</h3>
+<ul>
+	HM485 is the support for eQ-3 HomeMaticWired (HMW) devices<br>
+	If you want to connect HMW devices to FHEM, at least one <a href="#HM485_LAN">HM485_LAN</a> is needed as IO-Device.
+	<br><br>
+	<b>How to create an HMW device in FHEM</b><br>
+	Usually, it is not needed to create any HMW device manually. You should either use the discovery mode (see <a href="#HM485_LAN">HM485_LAN</a>) or you make the device send any message over the bus by e.g. pressing a button on the device. In both cases, FHEM automatically detects the new device and creates it in FHEM.<br>
+	The device is also automatically paired, i.e. the physical device itself then knows that it is connected to a central device and sends messages directed to this device accordingly. 
+	<br><br>
+    <b>Define</b>
+	<ul>
+		<code>define &lt;name&gt; HM485 &lt;hmwid&gt;</code><br>
+		&lt;hmwid&gt; is the address of the device. This is an 8-digit hex code, which is unique to each device. For original HMW devices, this is set at the factory and cannot be changed.
+	</ul>	
+</ul>
+
+=end html
+=cut

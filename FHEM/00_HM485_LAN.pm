@@ -141,7 +141,9 @@ sub HM485_LAN_Define($$) {
 	}
 
 	$hash->{msgCounter} = 0;
-	# $hash->{STATE} = '';
+	# The following line is needed. Otherwise, it can happen that "opened" is set 
+	# via fhem.save. This means that the device will never be really opened.
+	$hash->{STATE} = '';
 
 	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday();
 
@@ -1156,15 +1158,16 @@ sub HM485_LAN_HM485dStart($) {
 	HM485_LAN is the interface for HomeMatic-Wired (HMW) devices<br>
 	If you want to connect HMW devices to FHEM, at least one HM485_LAN is needed.
 	The following hardware interfaces can be used with this module.
+	<br>
 	<ul>
 		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
-		<li>Ethernet to RS485 converter like <a href="http://forum.fhem.de/index.php/topic,14096.msg88557.html#msg88557">WIZ108SR</a>.</li>
+		<li>Ethernet to RS485 converter like WIZ108SR.</li>
 		<li>RS232/USB to RS485 converter like DIGITUS DA-70157</li>
 		<li>A RS485 Tranceiver, which is e.g. directly connected to the UART of a Raspberry Pi</li> 
 	</ul>
-	<br>
+	<br>	
 	For the HomeMatic Wired RS485 LAN Gateway, HM485_LAN communicates directly with the gateway.<br>
-	For the Ethernet to RS485 or RS232/USB to RS485 converter, module HM485_LAN automatically starts a server process (HM485d.pl), which emulates the Gateway.<br>
+	For the Ethernet to RS485 or RS232/USB to RS485 converter, module HM485_LAN automatically starts a server process (HM485d), which emulates the Gateway.<br>
     <br><br>
 	<b>Minimum configuration examples</b><br>
 	<ul>
@@ -1175,15 +1178,15 @@ sub HM485_LAN_HM485dStart($) {
 		</li><br>
 		<li>Ethernet to RS485 converter<br>
 			<code>
-			define hm485 HM485_LAN localhost:2000
-			attr hm485 HM485d_bind 1
+			define hm485 HM485_LAN localhost:2000<br>
+			attr hm485 HM485d_bind 1<br>
 			attr hm485 HM485d_device 192.168.178.165:5000
 			</code>
 		</li><br>
 		<li>USB to RS485 converter<br>
 			<code>
-			define hm485 HM485_LAN localhost:2000
-			attr hm485 HM485d_bind 1
+			define hm485 HM485_LAN localhost:2000<br>
+			attr hm485 HM485d_bind 1<br>
 			attr hm485 HM485d_device /dev/ttyUSB0
 			</code>
 		</li>
@@ -1206,7 +1209,7 @@ sub HM485_LAN_HM485dStart($) {
 	<b>Set</b>
 	<br>
 	<ul>
-	<li><code>set &lt;name&gt; HM485d status|stop|start|restart</code><br>
+	<li><code>set &lt;name&gt; <b>HM485d</b> status|stop|start|restart</code><br>
 	This controls the HM485d process. It only works if attribute HM485d_bind is set to 1.
 	<ul>
 	<li><b>status</b> shows whether the process is running. If it is running, then it also displays its PID.</li>
@@ -1216,7 +1219,7 @@ sub HM485_LAN_HM485dStart($) {
 	</ul>
 	</li>
 	<br>
-	<li><code>set &lt;name&gt; RAW &lt;target&gt; &lt;control&gt; &lt;sender_address&gt; &lt;data&gt;</code><br>
+	<li><code>set &lt;name&gt; <b>RAW</b> &lt;target&gt; &lt;control&gt; &lt;sender_address&gt; &lt;data&gt;</code><br>
 	This sends a "raw" message to an HMW device using the HM485_LAN device &lt;name&gt;. This is usually not needed and requires deeper knowledge about the HMW protocol. It can be useful for devices, which are not properly supported by FHEM. However, it is usually easier to use the "set raw" command directly with the connected device. See the documentation for HM485 for details.<br>
 	The meaning of the parameters are as follows:
 	<ul>
@@ -1227,19 +1230,19 @@ sub HM485_LAN_HM485dStart($) {
 	</ul>
 	</li>
 	<br>
-	<li><code>set &lt;name&gt; discovery start</code><br>
+	<li><code>set &lt;name&gt; <b>discovery</b> start</code><br>
 	This starts the discovery mode. The system then searches for unknown devices on the RS485 bus connected to the HM485_LAN device &lt;name&gt;. New devices are automatically created in FHEM and paired with &lt;name&gt;. Refer to the documentation for HM485 devices for details.<br>
 	The discovery mode might not find all HM485 devices. E.g. some "Homebrew" devices do not send an answer on discovery messages. In this case, some message needs to be triggered by the device itself in order to detect and auto-create it.
 	</li>
 	<br>
-	<li><code>set &lt;name&gt; broadcastSleepMode off</code><br>
+	<li><code>set &lt;name&gt; <b>broadcastSleepMode</b> off</code><br>
 	When entering the discovery mode, HM485 devices are not allowed to transmit anything except answers to discovery messages. This is done by the central (the HM485_LAN device) sending a "sleep mode" message. After discovery, the central sends a "sleep mode off" message. However, if something goes wrong, some devices might not receive the latter properly. For this case, the "sleep mode off" message can be triggered manually.
 	</li>
 	</ul>
 	<br>	
 	<b>Readings</b>
 	<ul>
-	<li>state<br>
+	<li><b>state</b><br>
 	This shows the status of the interface. The following values can occur:
 	<ul>
 	<li><b>opened</b> the device is connected and ready to read or write.</li>	
@@ -1248,47 +1251,80 @@ sub HM485_LAN_HM485dStart($) {
 	</ul>
 	</li>
 	</ul>
-		
+    <br>		
 	<b>Attributes</b>
 	<ul>
-	<li>hmwId
-			hmwId Hier muss die HMW-ID angegeben werden. Standardmäßig wird die 00000001 benutzt.
+	<br>
+	<li><b>hmwId</b>: Homematic Wired Address<br>
+		This is the Homematic Wired address of the central device, i.e. the HM485_LAN. It must be a 8-digit hex number between 00000001 and 000000FF. By default, it is set to 00000001. It only needs to be changed if there are multiple Homematic Wired adapters connected.
 	</li>
-	<li>autoReadConfig:atstartup,always</li>
-	<li>do_not_notify:0,1
-	## do_not_notify FileLog/notify/inform Benachrichtigung für das Gerät ist abgeschaltet.
+	<br>
+	<li><b>autoReadConfig</b>: When to read device configuration<br>
+		This is a default setting for the same attribute for HMW-devices (module HM485), which are connected to this HM485_LAN instance. It controls whether the device configuration is only read once at startup or everytime the device is disconnected.<br>
+		The following values are possible:
+		<ul>
+		<li><b>atstartup</b>: The configuration is only read from the device when it is created. This includes restarting FHEM. 
+		</li>
+		<li><b>always</b>: Everytime the device does not answer to a message, FHEM tries to re-read the configuration. This is done until the configuration can be read successfully.
+		</li>
+		</ul>
+		The standard value is "atstartup". Changing the dafault only makes sense in special cases.
+	</li>	
+	<br>
+	<li><b>do_not_notify</b>: Switch off events from this device<br>
+		If this attribute is set, the device won't create any events.
 	</li>
-	<li>HM485d_bind:0,1<br>
+	<br>	
+	<li><b>HM485d_bind</b>: Control the HM485d process<br>
+		Possible values are 0 and 1.
 		Set HM485d_bind to 1 to allow FHEM to handle HM485d. This means that you are then able to start, stop and restart the HM485d process. FHEM then also starts HM485d automatically and restarts it if it crashes. If you are using the HomeMatic Wired RS485 LAN Gateway, you should not set HM485d_bind. Otherwise, it most likely makes sense to set HM485d_bind to 1.  		
 	</li>
-	The following attributes only make sense when FHEM controls the HM485d process (HM485d_bind = 1). You can always set these attributes, but they are only used when FHEM starts the HM485d process.
-	<li>HM485d_startTimeout<br>
+	</ul>
+	<br>	
+	The following attributes only make sense when FHEM controls the HM485d process (HM485d_bind = 1). You can always set these attributes, but they are only used when FHEM starts the HM485d process. After changing one of these attributes, you need to restart the HM485d process, e.g. using <code>set &lt;name&gt; HM485d restart</code>.	
+	<ul>
+	<br>
+	<li><b>HM485d_startTimeout</b>: Time before connecting to HM485d<br>
 		Especially on slow machines (e.g. Raspberry Pi 1), it takes a few seconds until the HM485d process accepts a connection. By default, FHEM waits 5 seconds after starting the HM485d before attempting to connect to it. You can change this time using attribute HM485d_startTimeout. In case FHEM is not able to connect at the first attempt, it usually takes about 60 seconds until the next try. I.e. if HM485d_startTimeout is too small, you might only see the device state as "opened" 60 seconds later. 
 	</li>
-	<li>HM485d_device<br>
+	<br>	
+	<li><b>HM485d_device</b>: Adress or file name of the physical device<br>
 		This is the device the HM485d process is supposed to connect to, i.e. either an ip address or the file name of a serial device, like USB. See above for examples.
 		This attribute must be set when HM485d_bind is 1. Otherwise, FHEM cannot start the HN485d process.
 	</li>
-	<li>HM485d_serialNumber<br>
+	<br>	
+	<li><b>HM485d_serialNumber</b>: Emulated serial number<br>
 		This is the serial number which HM485d process uses as an identification with FHEM. It is mainly used to differentiate between multiple HM485d processes. This makes sense when you have more than one RS485 converters. Otherwise, you don't need to set it. (The default serial number is SGW0123456.)
-	<li>HM485d_logfile<br>
+	</li>
+	<br>	
+	<li><b>HM485d_detach</b>: Don not stop HM485d with FHEM<br>
+	    Possible values are 0 and 1.
+	    If this attribute is set to 1, then the HM485d process does not stop when FHEM shuts down. It is usually not needed to set this attribute.
+	</li>
+	<br>	
+	<li><b>HM485d_logVerbose</b>: Log level of HM485d <br>
+		Possible values are 0,1,2,3,4 and 5. 
+		If this is set to a nonzero value, then the output from the HM485d process goes into the main FHEM logfile or into the HM485d logfile, if the next attribute is set.
+	</li>
+	<br>	
+	<li><b>HM485d_logfile</b>: Logfile for HM485d<br>
 		The HM485d process can write an own log file with &lt;HM485d_logfile&gt; as filename.
 	</li> 
-	<li>HM485d_detach:0,1
-	 HM485d_detatch Wenn der hm485d mit FHEM zusammen gestartet wird (siehe HM485d_bind) so kann der Prozess hier von FHEM entkoppelt werden. Der Prozess wird dann auch nicht zusammen mit FHEM beendet.
+	</ul>
+	<br>	
+	The following three attributes can be used if the HM485 bus is connected via a simple UART, e.g. the one of a Raspberry Pi. In addition, there is a RS485 transceiver needed, of which the the "transmit enable" input needs to be controlled. This can e.g. be done using a GPIO pin of the Raspberry Pi. The following attributes can be used to control this pin. 
+	<ul>
+	<br>	
+	<li><b>HM485d_gpioTxenInit</b>: Initialize transmit control<br>
+		This can be used to set a shell command to initialize the pin for the transmit control.
 	</li>
-	<li>HM485d_logVerbose:0,1,2,3,4,5
-	 HM485d_logVerbose Der Loglevel vom hm485d.
+	<br>	
+	<li><b>HM485d_gpioTxenCmd0</b>: Reset the transmit enable pin<br>
+		This can be used to set a shell command to reset the transmit enable pin.
 	</li>
-	Die folgenden drei Attribute können verwendet werden, wenn der hm485d über einen einfachen UART ohne Flusskontrolle z.B. über den UART des Raspberry Pi, an einen RS485 Tranceiver angeschlossen wird. Dafür müssen ggf. GPIO-Pins zur Steuerung des RS485 Tranceivers (Senden/Empfangen) definiert werden: 
-	<li>HM485d_gpioTxenInit
-	 HM485d_gpioTxenInit Shell-Befehl zum initialisieren des benutzten GPIO-Pins für die Sendekontrolle
-	</li>
-	<li>HM485d_gpioTxenCmd0
-	 HM485d_gpioTxenCmd0 Shell-Befehl um den Sende-GPIO-Pin zurück zu setzen
-	</li>
-	<li>HM485d_gpioTxenCmd1
-	 HM485d_gpioTxenCmd1 Shell-Befehl um den Sende-GPIO-Pin zu setzen
+	<br>	
+	<li><b>HM485d_gpioTxenCmd1</b>: Set the transmit enable pin<br>
+		This can be used to set a shell command to set the transmit enable pin.
 	</li>
 	</ul>
 </ul>
