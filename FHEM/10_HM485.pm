@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.32
+	Version 0.7.33
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -93,7 +93,6 @@ sub HM485_QueueStepSuccess($$);
 
 
 my @attrListRO     = ();
-my @attrListBindCh = ('model', 'serialNr', 'firmwareVersion', 'room', 'comment');
 
 # Default set comands for device
 my %setsDev = ('reset' => 'noArg');
@@ -108,7 +107,7 @@ my %getsDev = (
 	'state'   => 'noArg',
 );
 
-# Default get comands for channel
+# Default get commands for channel
 my %getsCh = ('state' => 'noArg');
 
 my $defStart = 5;
@@ -209,6 +208,7 @@ sub HM485_Define($$) {
 				
 				$devHash->{'channel_' .  $chNr} = $name;
 				$hash->{device}    = $devName;                  # reference this channel to the device entity
+				$hash->{devHash} = $devHash;
 				$hash->{chanNo}    = $chNr;						# reference the device to this channel
 				
 
@@ -247,28 +247,20 @@ sub HM485_Define($$) {
 	@return	undef
 =cut
 sub HM485_Undefine($$) {
-	my ($hash, $name) = @_;
+	my ($hash, undef) = @_;
 
-	my $devName        = $hash->{device};
-	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-
-	if ($chNr > 0) {
-		my $devHash = $defs{$devName};
-		
-		if ($devName) {
-			# We delete a device with all channels
-			delete $devHash->{'channel_' . $chNr} if ($devName);
-		}
-
+	my ($hmwid, $chnr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+	
+	if ($chnr > 0 ){  
+		# this is a channel, delete it from the device
+		delete $hash->{devHash}{'channel_' . $chnr};
 	} else {
 		# Delete each channel of device
 		foreach my $devName (grep(/^channel_/, keys %{$hash})) {
 			CommandDelete(undef, $hash->{$devName})
 		} 
 	}
-	
-	delete($modules{HM485}{defptr}{$hmwId});
-	
+	delete($modules{HM485}{defptr}{$hmwid});
 	return undef;
 }
 
@@ -286,11 +278,9 @@ sub HM485_Rename($$) {
 
 	if ($chNr > 0){
 		# we are channel, inform the device
-		$hash->{chanNo} = $chNr;
-		my $devHash = HM485_GetHashByHmwid( substr( $hmwId, 0, 8));
+		my $devHash = $hash->{devHash};
 		$hash->{device} = $devHash->{NAME};
-		$devHash->{'channel_' . $hash->{chanNo}} = $name;
-
+		$devHash->{'channel_' . $chNr} = $name;
 	} else{
 		# we are a device - inform channels if exist
 		foreach my $devName ( grep(/^channel_/, keys %{$hash})) {
@@ -716,7 +706,43 @@ sub HM485_GetInfos($$$;$) {
 	
 	HM485_QueueStart($hash, $queue);
 }
-#PFE END
+
+
+# UpdateConfigReadings updates the R-Readings determined from 
+# device config (EEPROM)
+sub HM485_UpdateConfigReadings($) {
+	# TODO: Performance: This always reads and sets everything
+	# TODO: Performance: Use bulk update for readings
+	
+	my ($hash) = @_;
+	
+	if(ref($hash) eq "ARRAY") {
+		# This is a call from a timer (ACK of writing EEPROM)
+		($hash, undef) = @$hash;
+		# Remove timer-tag
+		delete $hash->{".updateConfigReadingsTimer"};
+	};
+	
+	HM485::Util::Log3($hash, 4, 'HM485_UpdateConfigReadings called');
+	
+	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, 0);
+	
+	foreach my $cKey (keys %{$configHash}) {
+		my $config = $configHash->{$cKey};
+		next if($config->{hidden} && $cKey ne 'central_address');
+		HM485_ReadingUpdate($hash, 'R-'.$cKey, HM485::ConfigurationManager::convertValueToDisplay($cKey, $config));
+	}
+	foreach my $chName (grep(/^channel_/, keys %{$hash})) {
+		my $cHash = $defs{$hash->{$chName}};		
+		$configHash = HM485::ConfigurationManager::getConfigFromDevice($cHash, 0);
+		foreach my $cKey (keys %{$configHash}) {
+			my $config = $configHash->{$cKey};
+			next if($config->{hidden});
+			HM485_ReadingUpdate($cHash, 'R-'.$cKey, HM485::ConfigurationManager::convertValueToDisplay($cKey, $config));
+		}
+	}
+}
+
 
 
 =head2
@@ -734,6 +760,7 @@ sub HM485_CreateAndReadChannels($$) {
 	# Daten vom EEPROM geholt, d.h. wir koennen Readings setzen, die davon
 	# abhaengen
 	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($devHash, 0);
+
 	my $central_address = $configHash->{central_address}{value};
 	$central_address = sprintf('%08X',$central_address);
     # if this is not the address of the IO-Device, try to change it
@@ -741,16 +768,17 @@ sub HM485_CreateAndReadChannels($$) {
 	if($central_address ne $devHash->{IODev}{hmwId}){
 		HM485_SetConfig($devHash, (0,0,'central_address',hex($devHash->{IODev}{hmwId})));
 	};	
-	# TODO: The update should happen after the change of the address
-	#       ...or better another update at the end of the SetConfig (queued)
-	HM485_ReadingUpdate($devHash, 'R-central_address', $central_address);
 	
 	# Channels anlegen
 	my $deviceKey = uc( HM485::Device::getDeviceKeyFromHash($devHash));
 	HM485::Util::Log3($devHash, 4, 'Channels initialisieren ' . substr($hmwId, 0, 8));
 	HM485_CreateChannels( $devHash);
+	
+	# Create R-Readings
+	HM485_UpdateConfigReadings($devHash); 
+	
 	# State der Channels ermitteln
-	my $configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
+	$configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
 	HM485::Util::Log3($devHash, 4, 'State der Channels ermitteln ' . substr($hmwId, 0, 8));
 	#create a queue, so we can set the config status afterwards
 	my $queue = HM485_GetNewMsgQueue($devHash->{'IODev'}, 'HM485_SetConfigStatus',[$devHash,'OK'],
@@ -852,47 +880,46 @@ sub HM485_CreateChannels($) {
 
 	my $subTypes = HM485::Device::getValueFromDefinitions($deviceKey . '/channels/');
 	
-	if (ref($subTypes) eq 'HASH') {
-		foreach my $subType (sort keys %{$subTypes}) {
-			if ( $subType && uc( $subType) ne 'MAINTENANCE') {
-				if ( defined($subTypes->{$subType}{count}) && $subTypes->{$subType}{count} > 0) {
-					my $chStart = $subTypes->{$subType}{index};
-					my $chCount = $subTypes->{$subType}{count};
-					for(my $ch = $chStart; $ch < ($chStart + $chCount); $ch++) {
-						my $txtCh = sprintf ('%02d' , $ch);
-						my $room = AttrVal($name, 'room', '');
-						my $devName = $name . '_' . $txtCh;
-						my $chHmwId = $hmwId . '_' . $txtCh;
+	return if (ref($subTypes) ne 'HASH');
+	foreach my $subType (sort keys %{$subTypes}) {
+		if ( $subType && uc( $subType) ne 'MAINTENANCE') {
+			if ( defined($subTypes->{$subType}{count}) && $subTypes->{$subType}{count} > 0) {
+				my $chStart = $subTypes->{$subType}{index};
+				my $chCount = $subTypes->{$subType}{count};
+				for(my $ch = $chStart; $ch < ($chStart + $chCount); $ch++) {
+					my $txtCh = sprintf ('%02d' , $ch);
+					my $room = AttrVal($name, 'room', '');
+					my $devName = $name . '_' . $txtCh;
+					my $chHmwId = $hmwId . '_' . $txtCh;
 						
-						if (!$modules{HM485}{defptr}{$chHmwId}) {
-							CommandDefine(undef, $devName . ' ' . ' HM485 ' . $chHmwId); # HM485_Define wird aufgerufen
-						} else {
-							# Channel- Name aus define wird gesucht, um weitere Attr zuzuweisen
-							my $devHash = $modules{HM485}{defptr}{$chHmwId};
-							$devName    = $devHash->{NAME};
-						}
-						CommandAttr(undef, $devName . ' subType ' . $subType);
+					if (!$modules{HM485}{defptr}{$chHmwId}) {
+						CommandDefine(undef, $devName . ' ' . ' HM485 ' . $chHmwId); # HM485_Define wird aufgerufen
+					} else {
+						# Channel- Name aus define wird gesucht, um weitere Attr zuzuweisen
+						my $devHash = $modules{HM485}{defptr}{$chHmwId};
+						$devName    = $devHash->{NAME};
+					}
+					CommandAttr(undef, $devName . ' subType ' . $subType);
 						
-						if($subType eq 'blind') {
-							# Blinds go up and down by default (but only by default)
-							my $val = AttrVal($devName, 'webCmd', undef);
-							if(!defined($val)){
-								CommandAttr(undef, $devName . ' webCmd up:down');
-							};
+					if($subType eq 'blind') {
+						# Blinds go up and down by default (but only by default)
+						my $val = AttrVal($devName, 'webCmd', undef);
+						if(!defined($val)){
+							CommandAttr(undef, $devName . ' webCmd up:down');
+						};
+					}
+					# copy model 
+					my $model = AttrVal($name, 'model', undef);
+					CommandAttr(undef, $devName . ' model ' . $model);	
+					# copy room if there is no room yet
+					# this is mainly for proper autocreate
+					if(defined($room) && $room) {
+						my $croom = AttrVal($devName, 'room', undef);
+						if(!$croom) {
+							CommandAttr(undef, $devName . ' room ' . $room);
 						}
-						# copy definded attributes to channel
-						foreach my $attrBindCh (@attrListBindCh) {
-							my $val = AttrVal($name, $attrBindCh, undef);
-							my $cval= AttrVal($devName, $attrBindCh, undef);
-							# Bereits definierte Attr weren nicht ueberschrieben
-							if ( !defined( $cval)) {
-								if (defined($val) && $val) {
-									CommandAttr(undef, $devName . ' ' . $attrBindCh . ' ' . $val);
-								}
-							}
-						}
-					} 
-				}
+					}
+				} 
 			}
 		}
 	}
@@ -1136,105 +1163,115 @@ sub HM485_SetConfig($@) {
 	
 	my $msg = '';
 	my ($hmwId1, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId1,0,8)};
+	my $devHash        = $hash->{devHash};
 
-	if (@values > 1) {
-		# Split list of configurations
-		my $cc = 0;
-		my $configType;
-		my $setConfigHash = {};
-		foreach my $value (@values) {
-			$cc++;
-			if ($cc % 2) {
-				$configType = $value;
-			} else {
-				if ($configType) {
-					$setConfigHash->{$configType} = $value;
-					$configType = undef;
-				}
+	if (@values <= 1) {
+		return "set config needs at least two parameters";
+	};	
+	# Split list of configurations
+	my $cc = 0;
+	my $configType;
+	my $setConfigHash = {};
+	foreach my $value (@values) {
+		$cc++;
+		if ($cc % 2) {
+			$configType = $value;
+		} else {
+			if ($configType) {
+				$setConfigHash->{$configType} = $value;
+				$configType = undef;
 			}
 		}
-	
-		#here we validate the config settings 
-		my $validatedConfig = {};
-		my $configHash = {};
-		if (scalar (keys %{$setConfigHash})) {
-			$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
-			$configHash = $configHash->{parameter};
-			# print(Dumper($configHash));
-			foreach my $setConfig (keys %{$setConfigHash}) {
-				my $configTypeHash = $configHash->{$setConfig};	# hash von behaviour
-				$msg = HM485_ValidateSettings(
-					$configTypeHash, $setConfig, $setConfigHash->{$setConfig}
-				);
-				HM485::Util::Log3( $hash, 4, 'HM485_SetConfig: name = ' . $name . ' Key = ' . $setConfig . ' Wert = ' . $setConfigHash->{$setConfig} . ' msg = ' . $msg);
-				if (!$msg) {
-					$validatedConfig->{$setConfig}{value} = $setConfigHash->{$setConfig};	# Wert
-					$validatedConfig->{$setConfig}{config} = $configHash->{$setConfig};  	# hash von behaviour
-					$validatedConfig->{$setConfig}{valueName} = $setConfig;
-				} else {
-					last;
-				}
-			}
-		}
-		
-		# If validation success
-		if (!$msg) {
-			my $convertetSettings = HM485::ConfigurationManager::convertSettingsToEepromData(
-				$hash, $validatedConfig
-			);
-
-			if (scalar (keys %{$convertetSettings})) {
-			 	my $hmwId = $hash->{DEF};
-				
-				foreach my $adr (keys %{$convertetSettings}) {
-					HM485::Util::Log3($hash, 3,	'Set config ' . $name . ': ' . $convertetSettings->{$adr}{text});
-	
-					my $size  = $convertetSettings->{$adr}{size} ? $convertetSettings->{$adr}{size} : 1;
-					$size     = sprintf ('%02X' , $size);
-	
-					my $value = $convertetSettings->{$adr}{value};
-					$value    = sprintf ('%0' . ($size * 2) . 'X', $value);
-					$adr      = sprintf ('%04X' , $adr);
-
-					HM485::Util::Log3($hash, 5, 'HM485_SetConfig fuer ' . $name . ' Schreiben Eeprom ' . $hmwId . ' 57 ' . $adr . ' ' . $size . ' ' . $value);
-					
-					HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);   # (W) write eeprom data
-				}
-				# InternalTimer( gettimeofday() + 2, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' 43', 0 );	# Dem Bus 2s Zeit lassen vor der Aktuallisierung
-				HM485_SendCommand($hash, $hmwId, '43');                             # (C) reread config funktioniert nur bedingt
-				# InternalTimer( gettimeofday() + 5, 'HM485_GetConfig', $hash . ' ' . $hmwId, 0);		# deshalb muessen haertere Geschuetze aufgefahren werden
-																									# mit Zeitverzoegerung, damit die Daten erst geschrieben 
-																									# werden koennen
-				
-				my $data = '53';
-				my $channelBehaviour = HM485::Device::getChannelBehaviour($hash);
-				# TODO: Warum werden hier readings geloescht?
-				if ( defined( $channelBehaviour) && $channelBehaviour) {
-					if ( defined( ReadingsVal( $name, 'state', undef))) {
-						fhem( "deletereading $name state");
-					} elsif ( defined( ReadingsVal( $name, 'press_short', undef))) {
-						fhem( "deletereading $name press_short");
-					} elsif ( defined( ReadingsVal( $name, 'press_long', undef))) {
-						fhem( "deletereading $name press_long");
-					} elsif ( defined( ReadingsVal( $name, 'value', undef))) {
-						fhem( "deletereading $name value");
-					} else {
-						# kein reading zu loeschen
-					}
-				
-					$data = sprintf ('53%02X', $chNr-1);
-					InternalTimer( gettimeofday() + 1, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0);
-				}
-				
-			}
-		}
-	} else {
-		$msg = '"set config needs 2 more parameter';
 	}
 	
-	return $msg;
+	#here we validate the config settings 
+	my $validatedConfig = {};
+	my $configHash = {};
+	if (! scalar (keys %{$setConfigHash})) {
+		return "";
+	};	
+	$configHash = HM485::ConfigurationManager::getConfigSettings($hash);
+	$configHash = $configHash->{parameter};
+	# print(Dumper($configHash));
+	foreach my $setConfig (keys %{$setConfigHash}) {
+		my $configTypeHash = $configHash->{$setConfig};	# hash von behaviour
+		$msg = HM485_ValidateSettings(
+			$configTypeHash, $setConfig, $setConfigHash->{$setConfig}
+		);
+		HM485::Util::Log3( $hash, 4, 'HM485_SetConfig: name = ' . $name . ' Key = ' . $setConfig . ' Wert = ' . $setConfigHash->{$setConfig} . ' msg = ' . $msg);
+		# Fehler? ...und tschuess
+		if($msg) {
+			return $msg;
+		};
+		$validatedConfig->{$setConfig}{value} = $setConfigHash->{$setConfig};	# Wert
+		$validatedConfig->{$setConfig}{config} = $configHash->{$setConfig};  	# hash von behaviour
+		$validatedConfig->{$setConfig}{valueName} = $setConfig;
+	}
+		
+	# print Dumper($validatedConfig);	
+		
+	# If validation success
+	# set R-readings to "set-<new value>"
+	# TODO: The following (update of R-readings)should be an own routine
+	# TODO: Performance
+	foreach my $cKey (keys %{$validatedConfig}) {
+		my $config = HM485::ConfigurationManager::convertSettingsToDataFormat($validatedConfig->{$cKey}{config});
+		next if($config->{hidden} && $cKey ne 'central_address');
+		$config->{value} = $validatedConfig->{$cKey}{value};
+		my $setValue = "set-".HM485::ConfigurationManager::convertValueToDisplay($cKey, $config);
+		HM485_ReadingUpdate($hash, 'R-'.$cKey, $setValue);
+	}
+
+
+	my $convertetSettings = HM485::ConfigurationManager::convertSettingsToEepromData(
+		$hash, $validatedConfig
+	);
+	if (! scalar (keys %{$convertetSettings})) {
+		return;
+	};	
+ 	my $hmwId = $hash->{DEF};
+			
+	foreach my $adr (keys %{$convertetSettings}) {
+		HM485::Util::Log3($hash, 3,	'Set config ' . $name . ': ' . $convertetSettings->{$adr}{text});
+
+		my $size  = $convertetSettings->{$adr}{size} ? $convertetSettings->{$adr}{size} : 1;
+		$size     = sprintf ('%02X' , $size);
+	
+		my $value = $convertetSettings->{$adr}{value};
+		$value    = sprintf ('%0' . ($size * 2) . 'X', $value);
+		$adr      = sprintf ('%04X' , $adr);
+
+		HM485::Util::Log3($hash, 5, 'HM485_SetConfig fuer ' . $name . ' Schreiben Eeprom ' . $hmwId . ' 57 ' . $adr . ' ' . $size . ' ' . $value);
+		# Write data to EEPROM			
+		HM485_SendCommand($hash, $hmwId, '57' . $adr . $size . $value);   
+	}
+	# Send "reread config" to device (this is not always working, but this is the best we can do)
+	HM485_SendCommand($hash, $hmwId, '43');                             
+				
+	my $channelBehaviour = HM485::Device::getChannelBehaviour($hash);
+	# TODO: Sollten die Readings nicht nur dann geloescht werden, wenn sich
+	#       das "Behaviour" aendert?
+	if ( defined( $channelBehaviour) && $channelBehaviour) {
+		if ( defined( ReadingsVal( $name, 'state', undef))) {
+			fhem( "deletereading $name state");
+		} elsif ( defined( ReadingsVal( $name, 'press_short', undef))) {
+			fhem( "deletereading $name press_short");
+		} elsif ( defined( ReadingsVal( $name, 'press_long', undef))) {
+			fhem( "deletereading $name press_long");
+		} elsif ( defined( ReadingsVal( $name, 'value', undef))) {
+			fhem( "deletereading $name value");
+		} else {
+			# kein reading zu loeschen
+		}
+		# Zustand des Kanals nachlesen		
+		my $data = sprintf ('53%02X', $chNr-1);
+		InternalTimer( gettimeofday() + 1, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0);
+	}
+	
+	# if we reach this, everything should be ok	
+	return "";
 }
+
 
 sub HM485_SetSettings($@) {
 	my ($hash, @values) = @_;
@@ -1736,6 +1773,13 @@ sub HM485_ProcessResponse($$$) {
 				# ACK for write EEprom data
 				my $devHash = HM485_GetHashByHmwid( substr( $hmwId, 0, 8));
 				HM485::Device::internalUpdateEEpromData($devHash, $requestData);
+				# Trigger to update R-readings, but only once in a second
+				if(defined($devHash->{".updateConfigReadingsTimer"})) {
+					RemoveInternalTimer($devHash->{".updateConfigReadingsTimer"});
+				} else {
+					$devHash->{".updateConfigReadingsTimer"} = [$hash, "UpdateConfigReadings"];
+				}
+				InternalTimer(gettimeofday() + 1,'HM485_UpdateConfigReadings',$devHash->{".updateConfigReadingsTimer"},0);
 			}
 		}
 	}

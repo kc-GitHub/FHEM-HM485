@@ -13,7 +13,7 @@ sub showConfig($$$) {
 
 	# if the config is not synched, then we only display the config
 	# but it cannot be changed
-	my $devHash = (defined($hash->{device}) ? $main::defs{$hash->{device}} : $hash);
+	my $devHash = (defined($hash->{devHash}) ? $hash->{devHash} : $hash);
 	my $configReady = ($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
 	
 	my $content = '';

@@ -7,6 +7,39 @@ use POSIX qw(ceil);
 use Data::Dumper;
 use lib::HM485::Util;
 
+
+# convert settings format (XML) to the format used for data
+# This is for one single config parameter
+# Only parameter is the single "parameter" hash (part of the XML)
+sub convertSettingsToDataFormat($) {
+
+	my ($parameterHash) = @_ ;
+	
+	my $retVal = {};
+	my $type   = $parameterHash->{'logical'}{'type'} ? $parameterHash->{'logical'}{'type'} : undef;
+	my $unit   = $parameterHash->{'logical'}{'unit'} ? $parameterHash->{'logical'}{'unit'} : '';
+	my $min    = defined($parameterHash->{'logical'}{'min'})  ? $parameterHash->{'logical'}{'min'}  : undef;
+	my $max    = defined($parameterHash->{'logical'}{'max'})  ? $parameterHash->{'logical'}{'max'}  : undef;
+
+	$retVal->{'unit'}  = $unit;
+	$retVal->{hidden} = defined($parameterHash->{hidden}) ? $parameterHash->{hidden} : 0;
+	
+	if($type) {
+		$retVal->{'type'}  = $type;
+		if ($type eq 'option') {
+			$retVal->{'possibleValues'} = $parameterHash->{'logical'}{'option'};
+		} elsif	($type ne 'boolean') {
+			$retVal->{'min'} = $min;
+			$retVal->{'max'} = $max;	
+		}
+	};
+	
+	return $retVal;
+}
+
+
+
+# get config data from device
 sub getConfigFromDevice($$) {
 	my ($hash, $chNr) = @_;
 	
@@ -52,25 +85,7 @@ sub writeConfigParameter($$;$$) {
 	
 	my ($hash, $parameterHash, $addressStart, $addressStep) = @_ ;
 	
-	my $retVal = {};
-	my $type   = $parameterHash->{'logical'}{'type'} ? $parameterHash->{'logical'}{'type'} : undef;
-	my $unit   = $parameterHash->{'logical'}{'unit'} ? $parameterHash->{'logical'}{'unit'} : '';
-	my $min    = defined($parameterHash->{'logical'}{'min'})  ? $parameterHash->{'logical'}{'min'}  : undef;
-	my $max    = defined($parameterHash->{'logical'}{'max'})  ? $parameterHash->{'logical'}{'max'}  : undef;
-
-	$retVal->{'type'}  = $type;
-	$retVal->{'unit'}  = $unit;
-	$retVal->{hidden} = defined($parameterHash->{hidden}) ? $parameterHash->{hidden} : 0;
-	
-	if ($type && $type ne 'option') {
-		#todo da gibts da noch mehr ?
-		if ($type ne 'boolean') {
-			$retVal->{'min'} = $min;
-			$retVal->{'max'} = $max;
-		}
-	} else {
-		$retVal->{'possibleValues'} = $parameterHash->{'logical'}{'option'};
-	}
+	my $retVal = convertSettingsToDataFormat($parameterHash);
 	
 	my $addrStart = $addressStart ? $addressStart : 0;
 	#address_steps gibts mehrere Varianten
@@ -79,18 +94,7 @@ sub writeConfigParameter($$;$$) {
 	if (ref $parameterHash->{'physical'} eq 'HASH') {
 		if($parameterHash->{'physical'}{'address'}{'step'}) {
 			$addrStep = $parameterHash->{'physical'}{'address'}{'step'};
-		}
-
-		###debug Dadurch wird allerdings getPhysicalAddress 2 mal hintereinander aufgerufen !
-		#my ($addrId, $size, $endian) = HM485::Device::getPhysicalAddress(
-		#				$hash, $parameterHash, $addrStart, $addrStep);
-		#
-		#$retVal->{'address_start'} = $addrStart;
-		#$retVal->{'address_step'} = $addrStep;
-		#$retVal->{'address_index'} = $addrId;
-		#$retVal->{'size'} = $size;
-		#$retVal->{'endian'} = $endian;
-		####
+		};
 		$retVal->{'value'} = HM485::Device::getValueFromEepromData (
 			$hash, $parameterHash, $addrStart, $addrStep
 		);
@@ -211,6 +215,29 @@ sub convertValueToOption($$) {
 }
 
 
+# Wert nach Ausgabe konvertieren
+# Parameter:
+#	Name der Config-Option (z.B. 'logging')
+#	Config-Option	
+sub convertValueToDisplay($$) {
+	my ($name, $config) = @_;
+	
+	if ($config->{'type'} eq 'option') {
+		return convertValueToOption($config->{'possibleValues'}, $config->{'value'});
+	} elsif ($config->{'type'} eq 'boolean') {
+		return ($config->{'value'} eq 0) ? 'no' : 'yes';
+	} elsif ($name eq 'central_address') {
+		return sprintf('%08d',$config->{'value'});
+	} elsif ($config->{'type'} eq 'float') {
+		return sprintf('%.2f',$config->{'value'});
+	} else {
+		return $config->{value};
+	}
+}
+
+
+
+# Get config settings from device XML
 sub getConfigSettings($) {
 	my ($hash) = @_;
 

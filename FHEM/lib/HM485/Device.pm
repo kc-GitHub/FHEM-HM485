@@ -111,6 +111,10 @@ sub initModels() {
 sub getDeviceKeyFromHash($) {
 	my ($hash) = @_;
 
+	if(defined($hash->{devHash})) {
+		$hash = $hash->{devHash};
+	}
+	
 	my $retVal = '';
 	if ($hash->{'MODEL'}) {
 		my $model    = $hash->{'MODEL'};
