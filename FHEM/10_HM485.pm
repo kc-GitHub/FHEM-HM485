@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.33
+	Version 0.7.34
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -2375,7 +2375,7 @@ sub HM485_QueueStepFailed($$) {
 <a name="HM485"></a>
 <h3>HM485</h3>
 <ul>
-	HM485 is the support for eQ-3 HomeMaticWired (HMW) devices<br>
+	HM485 supports eQ-3 HomeMaticWired (HMW) devices<br>
 	If you want to connect HMW devices to FHEM, at least one <a href="#HM485_LAN">HM485_LAN</a> is needed as IO-Device.
 	<br><br>
 	<b>How to create an HMW device in FHEM</b><br>
@@ -2387,7 +2387,153 @@ sub HM485_QueueStepFailed($$) {
 		<code>define &lt;name&gt; HM485 &lt;hmwid&gt;</code><br>
 		&lt;hmwid&gt; is the address of the device. This is an 8-digit hex code, which is unique to each device. For original HMW devices, this is set at the factory and cannot be changed.
 	</ul>	
+	<br>
+	<b>Set</b>
+	<br>
+	The set options config, raw, reset and settings are generally available on device level. 
+	<ul>
+		<li><code>set &lt;name&gt; <b>config</b> &lt;parameter&gt; &lt;value&gt; ...</code><br>
+		This can be used to set configuration options in the HMW device. It only exists if there are configuration options. The configuration is stored directly in the device EEPROM. Instead of using this command, it is usually easier to change the configuration directly in the user interface.
+		<ul>
+			<li>&lt;parameter&gt;: This is the name of the configuration parameter, like "logging_time". Available parameters differ by the model of the device. They can be seen directly on the user interface.</li>
+			<li>&lt;value&gt;: This is the new value to be set. For boolean parameters or options (like yes/no or switch/pushbutton), the internal values (like 0/1) need to be used.</li>
+		</ul>
+		You can use multiple &lt;parameter&gt; &lt;value&gt; pairs in one command. The following command would set both "input_locked" to "yes" and "long_press_time" to 5 seconds.<br>
+		<code>set &lt;name&gt; config input_locked 1 long_press_time 5.00</code>
+		</li>
+		<br>
+		<li><code>set &lt;name&gt; <b>raw</b> &lt;data&gt;</code><br>
+		This command sends raw messages to the device. For normal operation, this is not needed. However, it can be helpful for troubleshooting, especially when developing own devices. Using it requires knowledge about the HM485 protocol.<br>
+		&lt;data&gt; is the message to be sent in hex code. Other than the <code>set ... RAW</code> of a HM485_LAN device, you only need to give the message itself, without target address, sender address and control byte.<br>
+		Example:<br>
+		<code>set &lt;name&gt; raw 7802C8</code><br>
+		sets channel 3 of device &lt;name&gt; to "on", assuming that it is a switch. 
+		</li>
+		<br>
+		<li><code>set &lt;name&gt; <b>reset</b></code><br>
+		This does a factory reset of the device. I.e. the whole EEPROM is overwritten with hex FF, which is interpreted by the device as "empty". FHEM also sends a "re-read config" command afterwards, but some devices seem to ignore this. It is recommended to unpower the device for a moment after a factory reset.
+		</li>
+		<br>
+		<li><code>set &lt;name&gt; <b>settings</b> ...</code><br>
+		This is used internally to set configuration parameters for peerings. It cannot be used directly and it might even happen that this command is removed in the future.</li>
+	</ul>
+	<br>
+	The set options config, peer, settings and unpeer are generally available on channel level.
+	<ul>
+		<li><code>set &lt;channel&gt; <b>config</b> &lt;parameter&gt; &lt;value&gt; ...</code><br>
+		This is the same as <code>set &lt;name&gt; config</code> on device level, only for configuration options on channel level. See <code>set &lt;name&gt; config</code> on device level for details.
+		</li>
+		<br>
+		<li><code>set &lt;sensor-channel&gt; <b>peer</b> &lt;actor-channel&gt;</code><br>
+		Channels of Homematic Wired devices can be peered directly. This e.g. can trigger to switch on an actor when a key is pressed on a sensor, even if FHEM is down. However, it depends on the sensor-actor combination what the peering actually does. In FHEM, peering of HMW channels is done from the sensor channel (e.g. the key). Consequently, <code>set ... peer</code> is not possible for actor channels.<br>
+		When using <code>set ... peer</code> from the input mask in Fhemweb, a drop down list shows the actor channels which are available for peering.
+		</li>
+		<br>
+		<li><code>set &lt;channel&gt; <b>settings</b> ...</code><br>
+		This is used internally to set configuration parameters for peerings. It cannot be used directly and it might even happen that this command is removed in the future.</li>
+		<br>
+		<li><code>set &lt;channel&gt; <b>unpeer</b> &lt;peered-channel&gt;</code><br>
+		This command is used to delete a peering. It can be used from both the sensor and the actor side. When using it from the input mask in Fhemweb, a drop down list with currently peered channel is provided.
+		</li>
+		</ul>
+		<br>
+		Apart from the general set options, HMW devices have specific set options on channel level. They are used to directly manipulate the channel's state. The easiest way to find out which set options are possible is by using the drop down list on the related input field in Fhemweb. Here are some of set options for a switch channel as an example:
+		<br>
+		<ul>
+		<li><code>set &lt;switch-channel&gt; <b>on</b></code><br>
+		    <code>set &lt;switch-channel&gt; <b>off</b></code><br>
+		This switches the channel on or off.
+		</li>
+		<br>
+		<li><code>set &lt;switch-channel&gt; <b>on-for-timer</b> &lt;seconds&gt;</code><br>
+		This switches the channel on. After &lt;seconds&gt; seconds, the channel is switched off.<br>
+		Normally, commands to change the state of a channel are implemented by just sending the related command to the device and letting the device do the rest. However, there is no <code>on-for-timer</code>, which could be directly triggered for HMW devices. The <code>set ... on-for-timer</code> is implemented in FHEM using an internal <code>at</code>.
+		</li>
+		<br>
+		<li><code>set &lt;switch-channel&gt; <b>toggle</b></code><br>
+		This switches the channel on, when it is currently off and vice versa. There are HMW devices, which have a toggle command themselves. In these cases, FHEM uses this directly. However, some devices do not have a toggle command, even though they have on and off. In these cases, <code>set ... toggle</code> is implemented in FHEM. This implementation relies on the state of the channel being correctly synchronized with FHEM, which is usually not the case directly after switching the channel.
+		</li>
+		</ul>
+		<br>
+		<b>Get</b>
+		<br>
+		The get options <code>config</code> and <code>info</code> are available on device level. <code>state</code> and <code>peersettings</code> are for channels. (<code>state</code> also appears on device level, but does not do anything sensible. It might be removed.)  
+		<br>
+		<ul>
+		<li><code>get &lt;device&gt; <b>config all</b></code><br>
+		For HMW devices, the configuration data is stored in the device itself. <code>get ... config all</code> triggers reading the configuration data from the device. This also includes the state of all channels. In normal operation, this command is not needed as FHEM automatically reads the configuration data from the device at least on startup and when a new device is created in FHEM. When changing configuration data from FHEM, everything is synchronized automatically as well. However, when the device configuration is changed outside FHEM, an explicit <code>get ... config all</code> is needed. (This e.g. happens when devices are peered using the buttons on the devices directly.) In addition, things go wrong. If in doubt, you can do a <code>get ... config all</code>, but give the system the chance to read all the data. (Also see reading <code>configStatus</code>.)
+		</li>
+		<br>
+		<li><code>get &lt;device&gt; <b>info</b></code><br>
+		This reads the device information only, i.e. module type, serial number and firmware version. The command is usually not needed as reading this information is included in <code>get ... config all</code>.
+		</li>
+		<br>
+		<li><code>get &lt;channel&gt; <b>state</b></code><br>
+		This command updates the state of a channel, if possible. Technically, it sends a request to the device to send back the state of the channel. This is usually only implemented by actor channels. In this case, the readings <code>state</code> and other readings showing the channel's state are updated (like e.g. <code>working</code> and <code>level</code> for shutter actors). 
+		</li>
+		<br>
+		<li><code>get &lt;sensor-channel&gt; <b>peersettings</b> &lt;actor-channel&gt;</code><br>
+		This command is used to show and maintain the settings of a peering. Each peering has a number of settings which influences what the peering actually does. E.g. <code>short_on_time</code> controls how long a switch stays switched on when triggered by a short key press. These settings are attributes of the peering itself, i.e. (basically) the combination of the sensor channel and the actor channel.<br>
+		When using the <code>get ... peersettings</code> command, the view is extended by the possible settings of the peering. You can then change the values and hit &lt;enter&gt; or the "Save Settings" button at the end of the list.
+		</li>
+		</ul>
+		<br>
+		<b>Readings</b>
+		<br>
+		<ul>
+		<li><b>R-central_address</b> shows the central address the device is paired to. This reading is available on device level for every paired device. If it is not there or it shows FFFFFFFF, something is wrong. The address shown should be the same as shown in the attribute <code>hmwId</code> of the HM485_LAN device, which is assigned. In most cases, this is 00000001.</li>
+		<br>
+		<li><b>configStatus</b> shows the status of the synchronization of the device configuration with FHEM. It can have the following values:
+			<ul>
+			<li><b>PENDING</b> means that FHEM has not started yet to read the data from the device. This only happens at startup.</li>
+			<li><b>READING</b> means that FHEM is currently reading the configuration data from the device. This happens at startup, when a device is created and when <code>get ... config all</code> is used.</li>
+			<li><b>FAILED</b> means that FHEM tried to read the data from the device, but this was not successful. In this case, FHEM re-tries after a few seconds. I.e. you usually won't see FAILED very long. It switches to READING (and maybe back to FAILED etc.) automatically.</li>
+			<li><b>OK</b> means that the data has been read successfully. Normally, it will stay like that unless <code>get ... config all</code> is used.</li>
+			</ul>
+		You should only do anything with the device if <code>configStatus</code> shows OK. In case it shows PENDING or READING, just wait. Especially if you have a lot of devices, this can take a few minutes at startup. If it shows FAILED or keeps changing between READING and FAILED, then you need to fix the underlying problem first.
+		</li>
+		<br>
+		<li><b>state</b> (on device level) can have the values "ACK" and "NACK". This shows whether the latest communication with the device was successful (ACK) or not (NACK). If you see "NACK" more often than almost never, then your bus might have an issue.</li>
+		<br>
+		<li><b>state</b> (on channel level) is a bit more complicated:
+		<ul>
+		<li>If the channel provides the value "state" according to the device definition, then FHEM shows this value as <code>state</code> as well. Only if a set-command like on, off, toggle etc. has been used, state shows "set_" followed by the command, like e.g. "set_toggle".</li>
+		<li>If the channel does not provide the value "state", then the "main value" of the latest event sent from the device is shown, prefixed by the name of this value. E.g. for key channels, state is usually something like "press_short_7" and for shutter controls, you should see something like "level_75". Like above, when issuing a set command, which influences the channel values, the reading <code>state</code> shows "set_" followed by the command. E.g. for a shutter control this might be "set_level_75".</li>
+		</ul>
+		Usually, the "set_" values in <code>state</code> vanish again after a few seconds. However, this might not always be the case. If e.g. a switch is switched on and logging is disabled, FHEM never receives the new state. This means that <code>state</code> will stay "set_on". To change this, an explicit <code>get ... state</code> is needed.<br>
+		If possible, do not use <code>state</code> at all. It is better to use the channel specific readings like <code>press_short</code> for keys or <code>level</code> for shutter controls.
+		</li>
+		<br>
+		<li><b>R-&lt;config-option&gt;</b> shows the value of the configuration parameter &lt;config-option&gt;. For each of these parameters on device and channel level, FHEM generates a reading. E.g. if a channel has a configuration option named <code>long_press_time</code>, then there is a reading <code>R-long_press_time</code>. Each of these parameters can be changed using the <code>set ... config</code>. When using this command, you see the new parameter value prefixed by "set-" for a moment before the new value only is shown. If the "set-" prefix stays there, then there is an issue with the communication to the device.</li>  	
+		<br>
+		<li><b>&lt;channel-value&gt;</b>: HMW device channels usually have a set of values, which are part of the channel's state or sent in events (e.g. when a key is pressed). These readings are generated from the device description when the device sends the related values. They depend on the device type and on the type of the channel. E.g. a key channel has the readings <code>press_long</code> and <code>press_short</code>, while a shutter control has the readings <code>level</code>, <code>working</code> and <code>direction</code>.</li>
+		</ul>	
+		<br>
+		<b>Attributes</b>
+		<br>
+		<ul>
+		<li><b>autoReadConfig</b>: When to read device configuration<br>
+			This attribute controls whether the device configuration is only read once at startup or everytime the device is disconnected.<br>
+			The following values are possible:
+			<ul>
+				<li><b>atstartup</b>: The configuration is only read from the device when it is created and when it is explicitly triggered using the command <code>get ... config all</code>. This includes restarting FHEM. 
+				</li>
+				<li><b>always</b>: Everytime the device does not answer to a message, FHEM tries to re-read the configuration. This is done until the configuration can be read successfully.
+				</li>
+			</ul>
+			If this attribute is set in the assigned HM485_LAN device, then this value is used by default. Otherwise, the standard value is "atstartup". Changing the dafault only makes sense in special cases.
+		</li>
+		</ul>
+		<br>
+		The following attributes are read from the device itself and cannot be changed.
+		<br>
+		<ul>
+		<li><b>serialNr</b>: Serial number of the device.</li>
+		<li><b>model</b>: Model of the device, like "HMW_LC_Sw2_DR".</li>
+		<li><b>firmwareVersion</b>: Version of the device firmware.</li>
+		<li><b>subType</b>: Type of a channel, like e.g. "switch", "key" or "blind".</li>
+		</ul>
+	
 </ul>
-
 =end html
 =cut
