@@ -89,7 +89,6 @@ sub initModels() {
 					$minFW = $minFW ? $minFW : 0;
 					$models{$modelKey}{'versionDeviceKey'}{$minFW} = $deviceKey;
 				}
-				# PFE BEGIN
 				# Handling of the "generic" device
                 # This is probably not perfect, but should work
 				  elsif($deviceKey eq 'HMW_GENERIC') {
@@ -98,7 +97,6 @@ sub initModels() {
 					$models{$modelKey}{'type'} = 0;
 					$models{$modelKey}{'versionDeviceKey'}{0} = $deviceKey;  
 				}
-				# PFE END
 			}
 		}
 	}
@@ -952,21 +950,24 @@ sub translateValueToFrameData ($$) {
 			my $value = undef;
 			
 			foreach my $index (keys %{$frameParam}) {
-				
-				my $shift    = $index *10 - floor($index) * 10;
 				my $paramLen = $frameParam->{$index}{'size'} ? $frameParam->{$index}{'size'} : 1;
-				
+				my $singleVal;
 				# fixed value?
 				if (defined ($frameParam->{$index}{'const_value'})) {
-					$frameData->{$key}{'value'} = $frameParam->{$index}{'const_value'};
+					$singleVal = $frameParam->{$index}{'const_value'};
+				} else {
+					$singleVal = $frameData->{$key}{'value'};
 				}
 				
 				if ($paramLen >= 1) {
-					$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key}{'value'});
+					$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $singleVal);
 				} else {
 					# bitschupsen
-					my $val = $frameData->{$key}{'value'} << $shift;
-					$value += $val;
+					# the following needs to be done with split as floating point 
+					# calculations are not precise (it was done by multiplying the decimals with 10)
+					my (undef, $shift) = split('\.',$index);
+					$shift = $shift ? $shift : 0;
+					$value += ($singleVal << $shift);
 				}
 			}
 			
