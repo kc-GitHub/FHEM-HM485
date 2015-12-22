@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.36
+	Version 0.7.35
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -466,7 +466,7 @@ sub HM485_Set($@) {
 			$msg = 'Unknown argument ' . $cmd . ', choose one of ' . $arguments;
 
 		} else {
-			if ($cmd eq 'press_long' || $cmd eq 'press_short') {
+		    if ($cmd eq 'press_long' || $cmd eq 'press_short') {
 				my $counter = $hash->{'READINGS'}{'sim_counter'}{'VAL'} ?
 							  $hash->{'READINGS'}{'sim_counter'}{'VAL'} : 0;
 				HM485_ReadingUpdate($hash, 'state', $cmd .' '.$counter);
@@ -1477,8 +1477,6 @@ sub HM485_SetKeyEvent($$) {
 	my $deviceKey         		= HM485::Device::getDeviceKeyFromHash($devHash);
 	my $chType            		= HM485::Device::getChannelType($deviceKey, $chNr);
 	my ($behaviour,$bool,$role) = HM485::Device::getChannelBehaviour($hash);
-	my $Logging		= 'off';
-	my $LoggingTime = 2;
 	
 	if ($role && $role eq 'switch') {
 		$behaviour = $role .'_ch';
@@ -1520,16 +1518,17 @@ sub HM485_SetKeyEvent($$) {
 						if ($peerHash->{'actuators'}) {
 							foreach my $peerId (keys %{$peerHash->{'actuators'}}) {
 								if ($peerHash->{'actuators'}{$peerId}{'actuator'}  && $peerHash->{'actuators'}{$peerId}{'channel'} eq $chNr) {
-									my $data = HM485::Device::buildFrame($hash, 
-										$frameType, $frameData, $peerHash->{'actuators'}{$peerId}{'actuator'});
-										
-									HM485_ReadingUpdate($hash, 'sim_counter', $frameValue);
+								my $data = HM485::Device::buildFrame($hash, 
+									$frameType, $frameData, $peerHash->{'actuators'}{$peerId}{'actuator'});
 									
-									HM485::Util::Log3( $hash, 3, 'Send ' .$frameType. ': ' .$peerHash->{'actuators'}{$peerId}{'actuator'});
+								HM485_ReadingUpdate($hash, 'sim_counter', $frameValue);
+								
+								HM485::Util::Log3( $hash, 3, 'Send ' .$frameType. ': ' .$peerHash->{'actuators'}{$peerId}{'actuator'});
+								
+								HM485_SendCommand($hash,
+									substr($peerHash->{'actuators'}{$peerId}{'actuator'}, 0, 8),
+									$data) if length $data;
 									
-									HM485_SendCommand($hash,
-										substr( $peerHash->{'actuators'}{$peerId}{'actuator'}, 0, 8),
-										$data) if length $data;									
 								}
 							}
 						} else {
@@ -1677,7 +1676,7 @@ sub HM485_ProcessResponse($$$) {
 		my $hash        = $modules{HM485}{defptr}{$hmwId};
 		my $chHash		= undef;
 		my $Logging		= 'off';
-		my $chNr 		= substr( $msgData, 2, 2);
+		my $chNr 		= 0;
 		my $deviceKey	= '';
 		my $LoggingTime = 2;
 		
@@ -1686,15 +1685,19 @@ sub HM485_ProcessResponse($$$) {
 			if ($requestType ne '52') { 
 				HM485::Util::Log3( $ioHash, 5, 'HM485_ProcessResponse: deviceKey = ' . $deviceKey . ' requestType = ' . $requestType . ' requestData = ' . $requestData . ' msgData = ' . $msgData);
 			}
-			
-			$deviceKey 	= uc( HM485::Device::getDeviceKeyFromHash($hash));
-			
-			if (grep $_ ne $requestType, ('68', '6E', '76')) {
-				if ( $deviceKey eq 'HMW_LC_BL1_DR' && ( defined( $msgData) && $msgData)) {
+			if (grep $_ ne $requestType, ('68', '6E', '76')) { 
+				my $configHash  = HM485::ConfigurationManager::getConfigFromDevice($hash, 0);
+				$LoggingTime = $configHash->{logging_time}{value} ? $configHash->{logging_time}{value} : 2;
+				$deviceKey 	= uc( HM485::Device::getDeviceKeyFromHash($hash));
+
+				if (( $deviceKey eq 'HMW_LC_BL1_DR' or $deviceKey eq 'HMW_LC_DIM1L_DR') && ( defined( $requestData) && $requestData)) {
+					$chNr = substr( $requestData, 0, 2);
 					if ( $chNr lt "FF") {
 						$chHash 	= HM485_GetHashByHmwid( $hmwId . '_' . sprintf( "%02d", $chNr+1));
-						$Logging	= ReadingsVal( $chHash->{'NAME'}, 'R-logging', 'off');
-						$LoggingTime = ReadingsVal( $hash->{'NAME'}, 'R-logging_time', 2);
+						my $cHash	= HM485::ConfigurationManager::getConfigFromDevice( $chHash, 0);
+						if ( defined( $cHash->{logging}{posibleValues}) && $cHash->{logging}{posibleValues}) {
+							$Logging = HM485::ConfigurationManager::convertValueToOption( $cHash->{logging}{posibleValues}, $cHash->{logging}{value});
+						}
 					}
 				}
 			}
@@ -1704,12 +1707,15 @@ sub HM485_ProcessResponse($$$) {
 					if ( $Logging eq 'on') {
 						if ( $msgData && $msgData ne '') {
 							my $bewegung = substr( $msgData, 6, 2);  		# Fuer Rolloaktor 10 = hoch, 20 = runter, 00 = Stillstand 
+							my $level    = substr( $msgData, 4, 2);			# 53ccllbb
 							$data = '5302';									# Channel 03 Level abfragen
 							my %params = (hash => $hash, hmwId => $hmwId, data => $data);
 							if ( $bewegung ne '00') {
-								# kontinuierliche Levelabfrage starten, wenn sich Rollo bewegt, 
-								# es nicht ganz zu ist (und nicht ganz geöffnet ist)			
-								InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0); 
+								# if ( $level ne '00' && $level ne 'C8') {
+									# kontinuierliche Levelabfrage starten, wenn sich Rollo bewegt, 
+									# es nicht ganz zu ist (und nicht ganz geöffnet ist)
+									InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0); 
+								#}
 							}
 						}
 					}
@@ -1718,9 +1724,10 @@ sub HM485_ProcessResponse($$$) {
 				HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
 				
 			} elsif (grep $_ eq $requestType, ('4B', 'CB')) {       # K (Key), Ë (Key-sim) report State
-				if ( $deviceKey eq 'HMW_LC_BL1_DR') {
+				if ( $deviceKey eq 'HMW_LC_BL1_DR' or $deviceKey eq 'HMW_LC_DIM1L_DR') {
 					if ( $Logging eq 'on') {
 						my $bewegung = substr( $msgData, 6, 2);  		# Fuer Rolloaktor 10 = hoch, 20 = runter, 00 = Stillstand 
+						my $level    = substr( $msgData, 4, 2);
 						$data = '5302';									# Channel 03 Level abfragen
 						my %params = (hash => $hash, hmwId => $hmwId, data => $data);
 						if ( $bewegung ne '00') {
@@ -1975,10 +1982,10 @@ sub HM485_SendCommand($$$) {
 		$data     = $param[2];
 	}
 	$hmwId = substr($hmwId, 0, 8);
-			
+	
 	if ( $data && length( $data) > 1) {
 		# on send need the hash of the main device
-		my $devHash 	= $modules{HM485}{defptr}{$hmwId};
+		my $devHash = $modules{HM485}{defptr}{$hmwId};
 		if (!$devHash) {
 			$devHash = {
 				IODev => $hash,
