@@ -8,7 +8,7 @@ use Data::Dumper;
 use lib::HM485::Util;
 
 
-# convert settings format (XML) to the format used for data
+# Convert settings format (XML) to the format used for data
 # This is for one single config parameter
 # Only parameter is the single "parameter" hash (part of the XML)
 sub convertSettingsToDataFormat($) {
