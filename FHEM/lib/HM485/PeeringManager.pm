@@ -1,6 +1,5 @@
 #
 #
-#
 package HM485::PeeringManager;
 
 use strict;

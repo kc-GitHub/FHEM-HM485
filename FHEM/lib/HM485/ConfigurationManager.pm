@@ -8,7 +8,7 @@ use Data::Dumper;
 use lib::HM485::Util;
 
 
-# Convert settings format (XML) to the format used for data
+# Convert settings format (XML) to the format used for data.
 # This is for one single config parameter
 # Only parameter is the single "parameter" hash (part of the XML)
 sub convertSettingsToDataFormat($) {
@@ -39,7 +39,7 @@ sub convertSettingsToDataFormat($) {
 
 
 
-# get config data from device
+# Get config data from device
 sub getConfigFromDevice($$) {
 	my ($hash, $chNr) = @_;
 	

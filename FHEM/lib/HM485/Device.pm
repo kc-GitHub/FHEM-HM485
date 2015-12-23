@@ -104,7 +104,7 @@ sub initModels() {
 }
 
 =head2
-	Get device key depends on firmware version
+	Get device key depending on firmware version
 =cut
 sub getDeviceKeyFromHash($) {
 	my ($hash) = @_;
