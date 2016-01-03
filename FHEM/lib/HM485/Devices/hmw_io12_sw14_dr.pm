@@ -183,20 +183,18 @@ our %definition = (
 				},
 				"physical_index_offset" => -1,
 				"special_parameter" => {
-					"behaviour" => {
-						"id" => "behaviour",
-						"logical" => {
-							"type" => "integer"
+					"id" => "behaviour",
+					"logical" => {
+						"type" => "integer"
+					},
+					"physical" => {
+						"address" => {
+							"index" => 8.0,
+							"step" => 0.1
 						},
-						"physical" => {
-							"address" => {
-								"index" => 8.0,
-								"step" => 0.1
-							},
-							"interface" => "eeprom",
-							"size" => 0.1,
-							"type" => "integer"
-						}
+						"interface" => "eeprom",
+						"size" => 0.1,
+						"type" => "integer"
 					}
 				},
 				"subconfig" => {
@@ -326,34 +324,32 @@ our %definition = (
 					},
 					"values" => {
 						"parameter" => {
-							"frequency" => {
-								"control" => "digital_analog_output.frequency",
-								"conversion" => {
-									"type" => "float_integer_scale"
+							"control" => "digital_analog_output.frequency",
+							"conversion" => {
+								"type" => "float_integer_scale"
+							},
+							"id" => "frequency",
+							"logical" => {
+								"max" => 50000.0,
+								"min" => 0.0,
+								"type" => "float",
+								"unit" => "mhz"
+							},
+							"operations" => "read,write,event",
+							"physical" => {
+								"event" => {
+									"frame" => "info_level"
 								},
-								"id" => "frequency",
-								"logical" => {
-									"max" => 50000.0,
-									"min" => 0.0,
-									"type" => "float",
-									"unit" => "mhz"
+								"get" => {
+									"request" => "level_get",
+									"response" => "info_level"
 								},
-								"operations" => "read,write,event",
-								"physical" => {
-									"event" => {
-										"frame" => "info_level"
-									},
-									"get" => {
-										"request" => "level_get",
-										"response" => "info_level"
-									},
-									"interface" => "command",
-									"set" => {
-										"request" => "level_set"
-									},
-									"type" => "integer",
-									"value_id" => "state"
-								}
+								"interface" => "command",
+								"set" => {
+									"request" => "level_set"
+								},
+								"type" => "integer",
+								"value_id" => "state"
 							}
 						},
 						"type" => "values"
@@ -416,27 +412,25 @@ our %definition = (
 						},
 						"hmw_io_ch_master" => {
 							"parameter" => {
-								"behaviour" => {
-									"id" => "behaviour",
-									"logical" => {
-										"option" => [
-										{
-											"id" => "analog_output"
-										},
-										{
-											"default" => true,
-											"id" => "digital_output"
-										}
-										],
-										"type" => "option"
+								"id" => "behaviour",
+								"logical" => {
+									"option" => [
+									{
+										"id" => "analog_output"
 									},
-									"physical" => {
-										"interface" => "internal",
-										"type" => "integer",
-										"value_id" => "behaviour"
-									},
-									"ui_flags" => "transform"
-								}
+									{
+										"default" => true,
+										"id" => "digital_output"
+									}
+									],
+									"type" => "option"
+								},
+								"physical" => {
+									"interface" => "internal",
+									"type" => "integer",
+									"value_id" => "behaviour"
+								},
+								"ui_flags" => "transform"
 							},
 							"type" => "master"
 						}
@@ -528,58 +522,54 @@ our %definition = (
 					"paramset" => {
 						"hmw_digital_input_values" => {
 							"parameter" => {
-								"state" => {
-									"conversion" => {
-										"false" => 0,
-										"threshold" => 1,
-										"true" => 1023,
-										"type" => "boolean_integer"
+								"conversion" => {
+									"false" => 0,
+									"threshold" => 1,
+									"true" => 1023,
+									"type" => "boolean_integer"
+								},
+								"id" => "state",
+								"logical" => {
+									"default" => false,
+									"type" => "boolean"
+								},
+								"operations" => "read,event",
+								"physical" => {
+									"event" => {
+										"frame" => "info_level"
 									},
-									"id" => "state",
-									"logical" => {
-										"default" => false,
-										"type" => "boolean"
+									"get" => {
+										"request" => "level_get",
+										"response" => "info_level"
 									},
-									"operations" => "read,event",
-									"physical" => {
-										"event" => {
-											"frame" => "info_level"
-										},
-										"get" => {
-											"request" => "level_get",
-											"response" => "info_level"
-										},
-										"interface" => "command",
-										"type" => "integer",
-										"value_id" => "state"
-									}
+									"interface" => "command",
+									"type" => "integer",
+									"value_id" => "state"
 								}
 							},
 							"type" => "values"
 						},
 						"hmw_io_ch_master" => {
 							"parameter" => {
-								"behaviour" => {
-									"id" => "behaviour",
-									"logical" => {
-										"option" => [
-										{
-											"id" => "frequency_input"
-										},
-										{
-											"default" => true,
-											"id" => "digital_input"
-										}
-										],
-										"type" => "option"
+								"id" => "behaviour",
+								"logical" => {
+									"option" => [
+									{
+										"id" => "frequency_input"
 									},
-									"physical" => {
-										"interface" => "internal",
-										"type" => "integer",
-										"value_id" => "behaviour"
-									},
-									"ui_flags" => "transform"
-								}
+									{
+										"default" => true,
+										"id" => "digital_input"
+									}
+									],
+									"type" => "option"
+								},
+								"physical" => {
+									"interface" => "internal",
+									"type" => "integer",
+									"value_id" => "behaviour"
+								},
+								"ui_flags" => "transform"
 							},
 							"type" => "master"
 						}

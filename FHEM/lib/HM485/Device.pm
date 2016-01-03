@@ -1565,6 +1565,7 @@ sub getAllowedSets($) {
    		'blind.stop'	=> "noArg",
    		'dimmer.level' 	=> "slider,0,1,100 on:noArg off:noArg",
    		'valve.level' 	=> "slider,0,1,100 on:noArg off:noArg",
+   		'climate.level'	=> "slider,0,0.5,30,1",
    		'button.long'	=> "noArg",
    		'button.short'	=> "noArg",
    		'digital_analog_output.frequency' => "slider,0,1,50000",
@@ -1610,6 +1611,8 @@ sub getAllowedSets($) {
 							
 									if($cmdArgs{$ctrl}) {
 										push @cmdlist, "$commands->{'id'}:$cmdArgs{$ctrl}";	
+									} else {
+										push @cmdlist, "$commands->{'id'}:textField";	
 									}
 								} else {
 									push @cmdlist, "$commands->{'id'}";
@@ -1636,6 +1639,8 @@ sub getAllowedSets($) {
 							
 										if($cmdArgs{$ctrl}) {
 											push @cmdlist, "$command:$cmdArgs{$ctrl}";	
+										} else {
+											push @cmdlist, "$command:textField";	
 										}
 									} else {
 										push @cmdlist, "$command";

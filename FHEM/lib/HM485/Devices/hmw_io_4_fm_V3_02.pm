@@ -450,27 +450,25 @@ our %definition = (
 					"paramset" => {
 						"hmw_io_ch_master" => {
 							"parameter" => {
-								"behaviour" => {
-									"id" => "behaviour",
-									"logical" => {
-										"option" => [
-										{
-											"default" => true,
-											"id" => "input"
-										},
-										{
-											"id" => "output"
-										}
-										],
-										"type" => "option"
+								"id" => "behaviour",
+								"logical" => {
+									"option" => [
+									{
+										"default" => true,
+										"id" => "input"
 									},
-									"physical" => {
-										"interface" => "internal",
-										"type" => "integer",
-										"value_id" => "behaviour"
-									},
-									"ui_flags" => "transform"
-								}
+									{
+										"id" => "output"
+									}
+									],
+									"type" => "option"
+								},
+								"physical" => {
+									"interface" => "internal",
+									"type" => "integer",
+									"value_id" => "behaviour"
+								},
+								"ui_flags" => "transform"
 							},
 							"type" => "master"
 						},

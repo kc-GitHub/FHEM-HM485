@@ -1322,28 +1322,26 @@ our %definition = (
 						"address_start" => 0x0B,
 						"address_step" => 2,
 						"parameter" => {
-							"logging" => {
-								"id" => "logging",
-								"logical" => {
-									"option" => [
-									{
-										"id" => "off"
-									},
-									{
-										"default" => true,
-										"id" => "on"
-									}
-									],
-									"type" => "option"
+							"id" => "logging",
+							"logical" => {
+								"option" => [
+								{
+									"id" => "off"
 								},
-								"physical" => {
-									"address" => {
-										"index" => 0
-									},
-									"interface" => "eeprom",
-									"size" => 0.1,
-									"type" => "integer"
+								{
+									"default" => true,
+									"id" => "on"
 								}
+								],
+								"type" => "option"
+							},
+							"physical" => {
+								"address" => {
+									"index" => 0
+								},
+								"interface" => "eeprom",
+								"size" => 0.1,
+								"type" => "integer"
 							}
 						},
 						"type" => "master"

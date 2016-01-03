@@ -452,20 +452,18 @@ our %definition = (
 				},
 				"physical_index_offset" => -1,
 				"special_parameter" => {
-					"behaviour" => {
-						"id" => "behaviour",
-						"logical" => {
-							"type" => "integer"
+					"id" => "behaviour",
+					"logical" => {
+						"type" => "integer"
+					},
+					"physical" => {
+						"address" => {
+							"index" => 7.0,
+							"step" => 0.1
 						},
-						"physical" => {
-							"address" => {
-								"index" => 7.0,
-								"step" => 0.1
-							},
-							"interface" => "eeprom",
-							"size" => 0.1,
-							"type" => "integer"
-						}
+						"interface" => "eeprom",
+						"size" => 0.1,
+						"type" => "integer"
 					}
 				},
 				"subconfig" => {

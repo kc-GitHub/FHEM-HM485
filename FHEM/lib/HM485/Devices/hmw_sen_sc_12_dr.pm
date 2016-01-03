@@ -157,24 +157,22 @@ our %definition = (
 						"address_start" => 0x07,
 						"address_step" => 2,
 						"parameter" => {
-							"input_locked" => {
-								"conversion" => {
-									"invert" => true,
-									"type" => "boolean_integer"
+							"conversion" => {
+								"invert" => true,
+								"type" => "boolean_integer"
+							},
+							"id" => "input_locked",
+							"logical" => {
+								"default" => false,
+								"type" => "boolean"
+							},
+							"physical" => {
+								"address" => {
+									"index" => 0.1
 								},
-								"id" => "input_locked",
-								"logical" => {
-									"default" => false,
-									"type" => "boolean"
-								},
-								"physical" => {
-									"address" => {
-										"index" => 0.1
-									},
-									"interface" => "eeprom",
-									"size" => 0.1,
-									"type" => "integer"
-								}
+								"interface" => "eeprom",
+								"size" => 0.1,
+								"type" => "integer"
 							}
 						},
 						"type" => "master"
