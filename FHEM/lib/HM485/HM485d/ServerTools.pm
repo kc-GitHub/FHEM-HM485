@@ -150,9 +150,8 @@ sub ServerTools_serverInit() {
 	my ($hash, $port) = @_;
 
 	if (defined($port) && $port > 0 and $port <= 65536) {
-		# allow connections on all interfaces (for debugging only)
-		my $result = TcpServer_Open($hash, $port, 1);
-#		my $result = TcpServer_Open($hash, $port, undef);
+		# allow connections on all interfaces 
+		my $result = TcpServer_Open($hash, $port, "global");
 		if ($result) {
 			my $msg = 'Cannot create socket ' . $result;
 			Log(0, $msg);

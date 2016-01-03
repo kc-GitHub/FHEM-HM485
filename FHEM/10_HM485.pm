@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-	Version 0.7.37
+	Version 0.7.38
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
