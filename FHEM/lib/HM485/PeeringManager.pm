@@ -1,6 +1,5 @@
 #
 #
-#
 package HM485::PeeringManager;
 
 use strict;
@@ -11,6 +10,47 @@ use lib::HM485::Constants;
 
 use Data::Dumper;
 
+
+
+sub brokenPeers ($$) {
+	my ($hash, $chList) = @_;
+	
+	my @list = @{$chList};
+	my $retVal = undef;
+	
+	my $devHash = $main::modules{HM485}{defptr}{substr($hash->{DEF}, 0, 8)};
+	my $channel = substr($hash->{DEF}, 9, 2);
+	my $devchannels = $devHash->{cache}{peered_act};
+	my @chArray = ();
+	
+	#first we create a array of peers with the aprobiate channel,
+	#then compare two arrays
+	
+	foreach my $peerId (keys %{$devchannels}) {
+		if ($channel eq $devchannels->{$peerId}{channel}) {
+			my $name = getDevNameByHmwId($devchannels->{$peerId}{name});
+			push @chArray, $name;
+		}
+	}
+	
+	my (@intersection, @difference) = ();
+    
+    my %count = ();
+    my $element;
+    
+    foreach $element (@chArray, @list) { 
+    	$count{$element}++;
+    }
+    foreach $element (keys %count) {
+            push @{ $count{$element} > 1 ? \@intersection : \@difference }, $element;
+    }
+
+    if (@difference && $devHash->{CONFIG_STATUS} eq 'OK') {
+    	$retVal = \@difference;
+    }
+
+    return $retVal;
+}
 
 #get next free peerID from Device
 sub getFreePeerId ($$) {
@@ -91,6 +131,24 @@ sub getPeerId ($$$$) {
 	return $retVal;
 }	
 
+sub actuatorPeerList($$) {
+	my ($hash,$peerLinks) = @_;
+	
+	my @peerlist;
+	my $retVal;
+	
+	foreach my $peerId (keys %{$peerLinks->{sensors}}) {
+		if ($peerLinks->{sensors}{$peerId}{channel} && 
+			$peerLinks->{sensors}{$peerId}{channel} eq substr($hash->{DEF}, 9, 2)) {
+			my $name = $peerLinks->{sensors}{$peerId}{sensor};
+			push @peerlist, getDevNameByHmwId($name);
+		}
+	}
+	
+	$hash->{PeerList} = join(' ', @peerlist);
+	$retVal = join(',', @peerlist);
+	return $retVal;
+}
 
 sub getPeerableChannels($) {
 	my ($hash) = @_;
@@ -129,8 +187,8 @@ sub getPeerableChannels($) {
 				my $alreadyPeered = 0;
 			
 				if ($num eq substr($hash->{DEF}, 9, 2) && substr($hash->{DEF}, 0, 8) eq $hmwId) {
-					#actor not sensor
-					return undef;
+					$retVal->{actpeered} = actuatorPeerList($hash,$peerLinks);
+					return $retVal;
 				}
 			
 				foreach my $actId (keys %{$peerLinks->{sensors}}) {
@@ -143,11 +201,9 @@ sub getPeerableChannels($) {
 				}
 						
 				if ($alreadyPeered) {
-					#push @peered, $hmwId.'_'.$num;
 					push @peered, getDevNameByHmwId($hmwId.'_'.$num);
 					next;
 				} else {
-					#push @peerable, $hmwId.'_'.$num;
 					push @peerable, getDevNameByHmwId($hmwId.'_'.$num);
 				}
 				
@@ -155,14 +211,25 @@ sub getPeerableChannels($) {
 		}					
 	}
 	
-	$retVal->{peerable} = join(",",@peerable);
-	$retVal->{peered} = join(",",@peered);
-	if ($retVal->{peered}) {
-		$hash->{PeerList} = $retVal->{peered};
+	if (@peered) {
+		$hash->{PeerList} = join(" ",@peered);
 	} else {
 		delete $hash->{PeerList};
 	}
 	
+	$retVal->{peerable} = join(",",@peerable);
+	
+	# peered could be empty but broken could be set
+	# we concatenate broken and peered, so we can also
+	# delete broken peers
+	my $broken = brokenPeers($hash, \@peered);
+	if ($broken) {
+		push @peered, @{$broken};
+		$hash->{BrokenPeers} = join(" ",@{$broken});
+	} else {
+		delete $hash->{BrokenPeers};
+	}
+	$retVal->{peered} = join(",",@peered);
 	
 	return $retVal;
 }
@@ -298,7 +365,7 @@ sub getLinksFromDevice($) {
 						$adrStart,
 						$linkParams->{actuator}{address_step}
 					);
-					if ($chHash->{value} < '255') {
+					if (defined($chHash->{value}) && $chHash->{value} < '255') {
 						my $addrHash = HM485::ConfigurationManager::writeConfigParameter($devHash,
 							$linkParams->{actuator}{parameter}{actuator},
 							$adrStart,
@@ -310,7 +377,9 @@ sub getLinksFromDevice($) {
 							my $peerHash = $main::modules{HM485}{defptr}{$peers->{actuators}{$peerId}{actuator}};
 							if (!$peerHash) { $peerHash->{NAME} = 'unknown'};
 							$devHash->{'peer_act_'.$peerId} = 'channel_'.$peers->{actuators}{$peerId}{channel}.
-								' → '. $peerHash->{NAME};  #$peers->{'actuators'}{$peerId}{'actuator'};
+								' → '. $peerHash->{NAME};
+							$devHash->{cache}{peered_act}{$peerId}{name} = $peers->{actuators}{$peerId}{actuator};
+							$devHash->{cache}{peered_act}{$peerId}{channel} = $peers->{actuators}{$peerId}{channel};
 						}	
 					} else {
 					    # remove empty peering
@@ -349,8 +418,9 @@ sub getLinksFromDevice($) {
 							
 							my $peerHash = $main::modules{HM485}{defptr}{$peers->{sensors}{$peerId}{sensor}};
 							if (!$peerHash) { $peerHash->{NAME} = 'unknown'};
+							
 							$devHash->{'peer_sen_'.$peerId} = 'channel_'.$peers->{sensors}{$peerId}{channel}.
-								' ← '. $peerHash->{NAME}; #$peers->{'sensors'}{$peerId}{'sensor'};
+								' ← '. $peerHash->{NAME};
 						}	
 					} else {
 					    # remove empty peering
@@ -377,6 +447,9 @@ sub getPeerSettingsFromDevice($$) {
 	my ($arg, $sensor) = @_;
 	
 	my $hmwid 		= getHmwIdByDevName($arg);
+	# if the get command was rubbish or the peer does not exist anymore,
+	# the coding below would create issues
+	if(!defined($hmwid)) { return undef; };
 	my $hash		= $main::modules{HM485}{defptr}{substr($hmwid, 0, 8)};
 	my $linkParams	= getLinkParams($hash);
 	my $peerId		= getPeerId($hash, $sensor, substr($hmwid, 9, 2), 0);
@@ -494,7 +567,7 @@ sub convertPeeringsToEepromData($$) {
 		
 	my $log = sprintf("0x%X",$adrStart);
 	
-	HM485::Util::logger ( HM485::LOGTAG_HM485, 5,
+	HM485::Util::Log3($devHash, 4,
 		'convertPeeringsToEepromData peerId: ' .$configData->{'channel'}{'peerId'}.
 		' start: ' . $log . ' step: ' .$adressStep . ' offset: ' .$adressOffset
 	);
@@ -567,41 +640,16 @@ sub valueToSettings($$) {
 				$retVal = $value / 100;
 			}
 	
-	#Todo Log 5 print Dumper ("ValueToControl Ret",$retVal);
 	return $retVal;
 }
 
-sub updateBits ($$$$) {
-	my ($eepromValue, $value, $size, $index) = @_;
-	#We handle everything as bits, also numbers are more bits
-	
-	my $bitIndex = ($index * 10) - (int($index) *10);
-	my $bitSize  = $size * 10;
-	my $retVal   = $eepromValue;
-	
-	#get the bit
-	$value = $value << $bitIndex;
-	for (my $i = 0; $i < $bitSize; $i++) {
-		
-		my $mask = 1 << $i + $bitIndex;
-		my $bit  = $value & $mask;
-		
-		if ($bit) { #bit 1
-			$retVal = $retVal | $mask;
-		} else {    #bit 0
-			my $bitMask = ~(1 << $i + $bitIndex);
-			$retVal = $retVal & $bitMask;
-		}
-	}
-	
-	return $retVal;
-}
 
-sub loadDefaultPeerSettingsneu($) {
+sub loadDefaultPeerSettings($) {
 	my ($configTypeHash) = @_;
 	my $retVal;
 	
-	if (ref($configTypeHash->{logical}) eq 'HASH' && $configTypeHash->{physical}{interface} eq 'eeprom') {
+	if (ref($configTypeHash->{logical}) eq 'HASH' && 
+		    $configTypeHash->{physical}{interface} eq 'eeprom') {
 		if (defined $configTypeHash->{logical}{default}) {
 			$retVal = $configTypeHash->{logical}{default};
 		} elsif (defined $configTypeHash->{logical}{option}) {
@@ -617,143 +665,127 @@ sub loadDefaultPeerSettingsneu($) {
 	return $retVal;
 }
 
-sub loadDefaultPeerSettings($) {
+sub sendUnpeer($$;$) {
+	my ($senHmwId,$actHmwId,$fromAct) = @_;
+	
+	my $msg = '';
+	my @sort = ('actuator', 'sensor');
+	
+	if ($fromAct) {
+		#unpeer from actuator, turn around
+		@sort = ('sensor', 'actuator');
+		my $tmp = $senHmwId;
+		$senHmwId = $actHmwId;
+		$actHmwId = $tmp;
+	}
+	
+	
+	foreach my $senAct (@sort) {
+			
+		my ($isAct, $hmwId, $phmwId);
+			
+		if ($senAct eq 'sensor') {
+			$hmwId  = $senHmwId;
+			$phmwId = $actHmwId;
+			$isAct  = 0;
+		} else { #actuator
+			$hmwId  = $actHmwId;
+			$phmwId = $senHmwId;
+			$isAct  = 1;
+		}
+		
+		my $ch 		 = (int(substr($phmwId,9,2)));
+		my $devHash  = $main::modules{'HM485'}{'defptr'}{substr($hmwId,0,8)};
+		my $pdevHash = $main::modules{'HM485'}{'defptr'}{substr($phmwId,0,8)};
+		my $params   = HM485::PeeringManager::getLinkParams($pdevHash);
+		my $peerId   = HM485::PeeringManager::getPeerId($pdevHash,$hmwId,$ch,$isAct);
+		
+		if (defined $peerId) {
+			#write FF into address and channel
+			my $config;
+			
+			$config->{$senAct}{'value'}    = 'FFFFFFFFFF';
+			$config->{$senAct}{'config'}   = $params->{$senAct}{'parameter'}{$senAct};
+			$config->{$senAct}{'chan'}     = $ch;
+			$config->{'channel'}{'value'}  = hex('FF');
+			$config->{'channel'}{'config'} = $params->{$senAct}{'parameter'}{'channel'};
+			$config->{'channel'}{'peerId'} = $peerId;
+			
+			my $settings = HM485::PeeringManager::convertPeeringsToEepromData(
+				$pdevHash, $config
+			);
+			
+			foreach my $adr (sort keys %$settings) {
+		
+				my $size  = $settings->{$adr}{'size'} ? $settings->{$adr}{'size'} : 1;
+				my $value = $settings->{$adr}{'value'};
+					
+				if ($settings->{$adr}{'le'}) {
+					if ($size >= 1) {
+						$value = sprintf ('%0' . ($size*2) . 'X' , $value);
+						$value = reverse( pack('H*', $value) );
+						$value = hex(unpack('H*', $value));
+					}
+				}
+				
+				$size     = sprintf ('%02X' , $size);
+				
+				if (index($settings->{$adr}{'text'}, $senAct) > -1) {						
+					$value = sprintf ('%s', $value);
+				} else {
+					$value = sprintf ('%0' . ($size * 2) . 'X', $value);
+				}
+				
+				HM485::Util::Log3($pdevHash, 4, 'Set unpeer for ' . $phmwId . ': '.$settings->{$adr}{'text'});
+			
+				$adr = sprintf ('%04X' , $adr);
+				HM485::Device::internalUpdateEEpromData($pdevHash,$adr . $size . $value);
+				main::HM485_SendCommand($pdevHash, $phmwId, '57' . $adr . $size . $value);
+			}
+		} else {
+			if ($senAct eq 'actuator' && $fromAct == 0) {
+				$msg = "$hmwId. no Eeprom data found, Please wait until eeprom reading is finished";
+			} else {
+				# delete a brocken peer";
+				main::HM485_SendCommand($pdevHash, $phmwId, '43');
+			}
+		}
+		if (!$msg) {
+			main::HM485_SendCommand($pdevHash, $phmwId, '43');
+		}
+	}
+	
+	return $msg;
+}
+
+sub loadPeerSettingsfromFile($) {
 	my ($device) = @_;
 	
-	#todo get the defaults direct from xml
+	#todo get the Settings from a file
 	my $settings;
 	
 	if ($device eq 'switch' || $device eq 'input_output') {
-		$settings->{'short_action_type'} = 1;		#6.0
-													#6.2 gibts ned
-		$settings->{'short_toggle_use'} = 0;		#6.4
-		$settings->{'short_off_time_mode'} = 1;		#6.6
-		$settings->{'short_on_time_mode'} = 1;		#6.7
-	
-		$settings->{'long_action_type'} = 1;		#7.0
-		$settings->{'long_multiexecute'} = 1;		#7.2   30.4
-		$settings->{'long_toggle_use'} = 0;			#7.4
-		$settings->{'long_off_time_mode'} = 1;		#7.6
-		$settings->{'long_on_time_mode'} = 1;		#7.7  
-	
-		$settings->{'short_ondelay_time'} = 0;		#8     12
-		$settings->{'short_on_time'} = 49152;		#10    16
-		$settings->{'short_offdelay_time'} = 0;		#12    18
-		$settings->{'short_off_time'} = 49152;		#14    22
-	
-		$settings->{'short_jt_ondelay'} = 1;		#16.0  27
-		$settings->{'short_jt_on'} = 2;				#16.3  
-		$settings->{'short_jt_offdelay'} = 3;		#16.6
-		$settings->{'short_jt_off'} = 0;			#16.9
-	
-		$settings->{'long_ondelay_time'} = 0;		#18    36
-		$settings->{'long_on_time'} = 49152;		#20    40
-		$settings->{'long_offdelay_time'} = 0;		#22		42
-		$settings->{'long_off_time'} = 49152;		#24		46
-	
-		$settings->{'long_jt_ondelay'} = 1;			#26.0	51	
-		$settings->{'long_jt_on'} = 2;				#26.3
-		$settings->{'long_jt_offdelay'} = 3;		#26.6
-		$settings->{'long_jt_off'} = 0;				#26.9   53.4
+		#$settings->{'short_action_type'} = 1;		#6.0
+		#$settings->{'short_toggle_use'} = 0;		#6.4
+		#$settings->{'short_off_time_mode'} = 1;		#6.6
+		#...
 	}
 	
 	elsif ($device eq 'dimmer') {
 		
-		$settings->{'short_on_time_mode'} = 0;			#6.7
-		$settings->{'short_off_time_mode'} = 0;			#6.6
-		$settings->{'short_ondelay_mode'} = 0;			#6.5
-		$settings->{'short_action_type'} = 1;			#6.0
-		$settings->{'short_off_level'} = 0; 			#7
-		$settings->{'short_on_min_level'} = 0.1;		#8
-		$settings->{'short_on_level'} = 1;				#9
-		$settings->{'short_ramp_start_step'} = 0.05;	#10
-		$settings->{'short_offdelay_step'} = 0.05; 		#11
-		$settings->{'short_ondelay_time'} = 0;			#12
-		$settings->{'short_rampon_time'} = 0.5;			#14
-		$settings->{'short_on_time'} = 49152;			#16
-		$settings->{'short_offdelay_time'} = 0;			#18
-		$settings->{'short_rampoff_time'} = 0.5;		#20
-		$settings->{'short_off_time'} = 49152;			#22
-		$settings->{'short_dim_min_level'} = 0; 		#24
-		$settings->{'short_dim_max_level'} = 1;			#25
-		$settings->{'short_dim_step'} = 0.05;			#26
-		$settings->{'short_jt_ondelay'} = 1;			#27
-		$settings->{'short_jt_rampon'} = 2; 			#27.4
-		$settings->{'short_jt_on'} = 3;					#28
-		$settings->{'short_jt_offdelay'} = 4;			#28.4
-		$settings->{'short_jt_rampoff'} = 5;			#29
-		$settings->{'short_jt_off'} = 0;				#29.4
-		$settings->{'long_on_time_mode'} = 0;			#30.7
-		$settings->{'long_off_time_mode'} = 0;			#30.6
-		$settings->{'long_ondelay_mode'} = 0;			#30.5
-		$settings->{'long_multiexecute'} = 1;			#30.4
-		$settings->{'long_action_type'} = 6;			#30
-		$settings->{'long_off_level'} = 0;				#31
-		$settings->{'long_on_min_level'} = 0.1; 		#32
-		$settings->{'long_on_level'} = 1; 				#33
-		$settings->{'long_ramp_start_step'} = 0.05;		#34
-		$settings->{'long_offdelay_step'} = 0.05;		#35
-		$settings->{'long_ondelay_time'} = 0;			#36
-		$settings->{'long_rampon_time'} = 0.5;  		#38
-		$settings->{'long_on_time'} = 49152;			#40
-		$settings->{'long_offdelay_time'} = 0;			#42
-		$settings->{'long_rampoff_time'} = 0.5; 		#44
-		$settings->{'long_off_time'} = 49152;			#46
-		$settings->{'long_dim_min_level'} = 0; 			#48
-		$settings->{'long_dim_max_level'} = 1;  		#49
-		$settings->{'long_dim_step'} = 0.05;			#50
-		$settings->{'long_jt_ondelay'} = 1;				#51
-		$settings->{'long_jt_rampon'} = 2; 				#51.4
-		$settings->{'long_jt_on'} = 3;					#52
-		$settings->{'long_jt_offdelay'} = 4;			#52.4
-		$settings->{'long_jt_rampoff'} = 5;				#53
-		$settings->{'long_jt_off'} = 0;					#53.4
+		#$settings->{'short_on_time_mode'} = 0;			#6.7
+		#$settings->{'short_off_time_mode'} = 0;			#6.6
+		#$settings->{'short_ondelay_mode'} = 0;			#6.5
+		#...
 	}
 	
 	elsif ($device eq 'blind') {
 		
-		$settings->{'short_on_time_mode'} = 1;
-		$settings->{'short_off_time_mode'} = 1;
-		$settings->{'short_driving_mode'} = 3;
-		$settings->{'short_toggle_use'} = 1;
-		$settings->{'short_action_type'} = 1;
-		$settings->{'short_off_level'} = 0;
-		$settings->{'short_on_level'} = 1;
-		$settings->{'short_ondelay_time'} = 0;
-		$settings->{'short_offdelay_time'} = 0;
-		$settings->{'short_on_time'} = 49152;
-		$settings->{'short_off_time'} = 49152;
-		$settings->{'short_max_time_first_dir'} = 25.5;
-		$settings->{'short_jt_ondelay'} = 1;
-		$settings->{'short_jt_refon'} = 3;
-		$settings->{'short_jt_rampon'} = 3;
-		$settings->{'short_jt_on'} = 4;
-		$settings->{'short_jt_offdelay'} = 5;
-		$settings->{'short_jt_refoff'} = 7;
-		$settings->{'short_jt_rampoff'} = 7;
-		$settings->{'short_jt_off'} = 0;
+		#$settings->{'short_on_time_mode'} = 1;
+		#$settings->{'short_off_time_mode'} = 1;
+		#$settings->{'short_driving_mode'} = 3;
+		#....
 		
-		$settings->{'long_on_time_mode'} = 1;
-		$settings->{'long_off_time_mode'} = 1;
-		$settings->{'long_driving_mode'} = 3;
-		$settings->{'long_toggle_use'} = 1;
-		$settings->{'long_multiexecute'} = 1;
-		$settings->{'long_action_type'} = 1;
-		$settings->{'long_off_level'} = 0;
-		$settings->{'long_on_level'} = 1;
-		$settings->{'long_ondelay_time'} = 0;
-		$settings->{'long_offdelay_time'} = 0;
-		$settings->{'long_on_time'} = 49152;
-		$settings->{'long_off_time'} = 49152;
-		$settings->{'long_max_time_first_dir'} = 0.5;
-		$settings->{'long_jt_ondelay'} = 1;
-		$settings->{'long_jt_refon'} = 3;
-		$settings->{'long_jt_rampon'} = 3;
-		$settings->{'long_jt_on'} = 4;
-		$settings->{'long_jt_offdelay'} = 5;
-		$settings->{'long_jt_refoff'} = 7;
-		$settings->{'long_jt_rampoff'} = 7;
-		$settings->{'long_jt_off'} = 0;
 	}
 	
 	return $settings;

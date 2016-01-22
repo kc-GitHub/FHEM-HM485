@@ -7,11 +7,41 @@ use POSIX qw(ceil);
 use Data::Dumper;
 use lib::HM485::Util;
 
+
+# Convert settings format (XML) to the format used for data.
+# This is for one single config parameter
+# Only parameter is the single "parameter" hash (part of the XML)
+sub convertSettingsToDataFormat($) {
+
+	my ($parameterHash) = @_ ;
+	
+	my $retVal = {};
+	my $type   = $parameterHash->{'logical'}{'type'} ? $parameterHash->{'logical'}{'type'} : undef;
+	my $unit   = $parameterHash->{'logical'}{'unit'} ? $parameterHash->{'logical'}{'unit'} : '';
+	my $min    = defined($parameterHash->{'logical'}{'min'})  ? $parameterHash->{'logical'}{'min'}  : undef;
+	my $max    = defined($parameterHash->{'logical'}{'max'})  ? $parameterHash->{'logical'}{'max'}  : undef;
+
+	$retVal->{'unit'}  = $unit;
+	$retVal->{hidden} = defined($parameterHash->{hidden}) ? $parameterHash->{hidden} : 0;
+	
+	if($type) {
+		$retVal->{'type'}  = $type;
+		if ($type eq 'option') {
+			$retVal->{'possibleValues'} = $parameterHash->{'logical'}{'option'};
+		} elsif	($type ne 'boolean') {
+			$retVal->{'min'} = $min;
+			$retVal->{'max'} = $max;	
+		}
+	};
+	
+	return $retVal;
+}
+
+
+
+# Get config data from device
 sub getConfigFromDevice($$) {
 	my ($hash, $chNr) = @_;
-	
-	#Todo Log 5
-	#print Dumper("getConfigFromDevice Channel: $chNr");
 	
 	my $retVal = {};
 	my $configHash = getConfigSettings($hash);
@@ -55,24 +85,7 @@ sub writeConfigParameter($$;$$) {
 	
 	my ($hash, $parameterHash, $addressStart, $addressStep) = @_ ;
 	
-	my $retVal = {};
-	my $type   = $parameterHash->{'logical'}{'type'} ? $parameterHash->{'logical'}{'type'} : undef;
-	my $unit   = $parameterHash->{'logical'}{'unit'} ? $parameterHash->{'logical'}{'unit'} : '';
-	my $min    = defined($parameterHash->{'logical'}{'min'})  ? $parameterHash->{'logical'}{'min'}  : undef;
-	my $max    = defined($parameterHash->{'logical'}{'max'})  ? $parameterHash->{'logical'}{'max'}  : undef;
-
-	$retVal->{'type'}  = $type;
-	$retVal->{'unit'}  = $unit;
-	
-	if ($type && $type ne 'option') {
-		#todo da gibts da noch mehr ?
-		if ($type ne 'boolean') {
-			$retVal->{'min'} = $min;
-			$retVal->{'max'} = $max;
-		}
-	} else {
-		$retVal->{'possibleValues'} = $parameterHash->{'logical'}{'option'};
-	}
+	my $retVal = convertSettingsToDataFormat($parameterHash);
 	
 	my $addrStart = $addressStart ? $addressStart : 0;
 	#address_steps gibts mehrere Varianten
@@ -81,18 +94,7 @@ sub writeConfigParameter($$;$$) {
 	if (ref $parameterHash->{'physical'} eq 'HASH') {
 		if($parameterHash->{'physical'}{'address'}{'step'}) {
 			$addrStep = $parameterHash->{'physical'}{'address'}{'step'};
-		}
-
-		###debug Dadurch wird allerdings getPhysicalAddress 2 mal hintereinander aufgerufen !
-		#my ($addrId, $size, $endian) = HM485::Device::getPhysicalAddress(
-		#				$hash, $parameterHash, $addrStart, $addrStep);
-		#
-		#$retVal->{'address_start'} = $addrStart;
-		#$retVal->{'address_step'} = $addrStep;
-		#$retVal->{'address_index'} = $addrId;
-		#$retVal->{'size'} = $size;
-		#$retVal->{'endian'} = $endian;
-		####
+		};
 		$retVal->{'value'} = HM485::Device::getValueFromEepromData (
 			$hash, $parameterHash, $addrStart, $addrStep
 		);
@@ -213,6 +215,29 @@ sub convertValueToOption($$) {
 }
 
 
+# Wert nach Ausgabe konvertieren
+# Parameter:
+#	Name der Config-Option (z.B. 'logging')
+#	Config-Option	
+sub convertValueToDisplay($$) {
+	my ($name, $config) = @_;
+	
+	if ($config->{'type'} eq 'option') {
+		return convertValueToOption($config->{'possibleValues'}, $config->{'value'});
+	} elsif ($config->{'type'} eq 'boolean') {
+		return ($config->{'value'} eq 0) ? 'no' : 'yes';
+	} elsif ($name eq 'central_address') {
+		return sprintf('%08d',$config->{'value'});
+	} elsif ($config->{'type'} eq 'float') {
+		return sprintf('%.2f',$config->{'value'});
+	} else {
+		return $config->{value};
+	}
+}
+
+
+
+# Get config settings from device XML
 sub getConfigSettings($) {
 	my ($hash) = @_;
 
@@ -257,7 +282,7 @@ sub getConfigSettings($) {
 				}
 				# delete hidden configs (Hashes mit dem Attribut hidden werden geloescht )
 				# TODO: Warum macht honk das nicht?
-				$configSettings = removeHiddenConfig($configSettings);
+				# $configSettings = removeHiddenConfig($configSettings);
 			}
 		}
 	return $configSettings;
@@ -287,7 +312,7 @@ sub removeHiddenConfig($) {
 
 sub convertSettingsToEepromData($$) {
 	my ($hash, $configData) = @_;
-	#print Dumper ("convertSettingsToEepromData",$configData);
+	# print Dumper ("convertSettingsToEepromData",$configData);
 
 	my $adressStart = 0;
 	my $adressStep  = 0;
@@ -306,14 +331,10 @@ sub convertSettingsToEepromData($$) {
 		$adressStart = $masterConfig->{'address_start'} ? $masterConfig->{'address_start'} : 0;
 		$adressStep  = $masterConfig->{'address_step'}  ? $masterConfig->{'address_step'} : 1;
 		$adressOffset = $adressStart + ($chNr - 1) * $adressStep;
-		
-	#my $dbg = sprintf("0x%X",$adressStart);
-	#print Dumper ("convertSettingsToEepromData $deviceKey $chType start :$dbg step:$adressStep offset:$adressOffset");
-		
 	}
 	
-	
 	my $addressData = {};
+
 	foreach my $config (keys %{$configData}) {
 		my $configHash     = $configData->{$config}{'config'};
 		my ($adrId, $size, $littleEndian) = HM485::Device::getPhysicalAddress(
@@ -325,9 +346,6 @@ sub convertSettingsToEepromData($$) {
 		
 		if ($configData->{$config}{'config'}{'logical'}{'type'} && 
 			$configData->{$config}{'config'}{'logical'}{'type'} eq 'option') {
-			# $value = convertOptionToValue(
-			# 	$configData->{$config}{'config'}{'logical'}{'option'}, $value
-			# );
 		} else {
 			$value = HM485::Device::dataConversion(
 				$value, $configData->{$config}{'config'}{'conversion'}, 'to_device'
@@ -355,11 +373,11 @@ sub convertSettingsToEepromData($$) {
 			$addressData->{$adrKey}{'_value_old'} = $addressData->{$adrKey}{'value'};
 			$addressData->{$adrKey}{'_value'} = $value;
 			
-			HM485::Util::logger('ConfigManager:convSetToEepromData', 3,' eepromval = ' . $addressData->{$adrKey}{'value'} . ' value = ' . $value . ' size = ' . $size . ' adrid = ' . $adrId);
+			HM485::Util::Log3($hash, 5, 'ConfigManager:convSetToEepromData: eepromval = ' . $addressData->{$adrKey}{'value'} . ' value = ' . $value . ' size = ' . $size . ' adrid = ' . $adrId);
 		
 			$value = HM485::Device::updateBits($addressData->{$adrKey}{'value'},$value,$size,$adrId);
 			
-			HM485::Util::logger('ConfigManager:convertSettingsToEepromData', 3, ' value nach updateBits = ' . $value);
+			HM485::Util::Log3($hash, 5, 'ConfigManager:convertSettingsToEepromData: value nach updateBits = ' . $value);
 			
 			if ($optText) {
 				$addressData->{$adrKey}{'text'} .= ' '. $config . '=' . $optText;

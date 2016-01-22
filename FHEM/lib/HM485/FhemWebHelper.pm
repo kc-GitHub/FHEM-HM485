@@ -6,17 +6,21 @@ use Data::Dumper;
 
 use vars qw($FW_ss);      # is smallscreen, needed by 97_GROUP/95_VIEW
 use vars qw(%FW_hiddenroom); # hash of hidden rooms, used by weblink
-use vars qw {%defs};
+
 
 sub showConfig($$$) {
 	my ($hash, $configHash, $linkHash) = @_;
-	my $name = $hash->{NAME};
 
+	# if the config is not synched, then we only display the config
+	# but it cannot be changed
+	my $devHash = (defined($hash->{devHash}) ? $hash->{devHash} : $hash);
+	my $configReady = ($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
+	
 	my $content = '';
 	if(ref($configHash) eq 'HASH') {
-		$content.= makeConfigTable($hash, $configHash);
+		$content.= makeConfigTable($hash, $configHash, $configReady);
 		if(ref($linkHash) eq 'HASH') {
-			$content.= makePeeringsTable($hash, $linkHash);
+			$content.= makePeeringsTable($hash, $linkHash, $configReady);
 		}
 	}
 
@@ -25,8 +29,8 @@ sub showConfig($$$) {
 }
 
 
-sub makePeeringsTable($$) {
-	my ($hash, $configHash) = @_;
+sub makePeeringsTable($$$) {
+	my ($hash, $configHash, $configReady) = @_;
 
 	my $name = $hash->{NAME};
 	my $content = '';
@@ -52,12 +56,12 @@ sub makePeeringsTable($$) {
 		if ($config->{'type'} eq 'option') {
 			my $possibleValusList = HM485::ConfigurationManager::optionsToList($config->{'possibleValues'});
 			$value = configSelect(
-				$cKey, $possibleValusList, $config->{'value'}, $className
+				$cKey, $possibleValusList, $config->{'value'}, $className, $configReady
 			);
 			
 		} elsif ($config->{'type'} eq 'boolean') {
 			$value = configSelect(
-				$cKey, 'no:0,yes:1', $config->{'value'}, $className
+				$cKey, 'no:0,yes:1', $config->{'value'}, $className, $configReady
 			);
 		} else {
 			my $cSize = $config->{'max'} ? length ($config->{'max'}) : 3;
@@ -86,7 +90,7 @@ sub makePeeringsTable($$) {
 				next;
 			} else {
 				$value = configInput(
-					$cKey, $config->{'value'}, $cSize ,$className
+					$cKey, $config->{'value'}, $cSize ,$className, $configReady
 				);
 			}
 			
@@ -107,7 +111,7 @@ sub makePeeringsTable($$) {
 	if (keys %{$configHash}) {
 		my $rowClass = ($rowCount & 1) ? 'odd' : 'even';
 		$content.= wrapTr(
-			wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.'.$className.'" d_isabled="disabled" value="Save Settings" class="attr">'),
+			wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.'.$className.'" d_isabled="disabled" value="Save Settings" class="attr"'.($configReady ? '' : 'disabled').' >'),
 			$rowClass
 
 		);
@@ -121,8 +125,8 @@ sub makePeeringsTable($$) {
 }
 
 
-sub makeConfigTable($$) {
-	my ($hash, $configHash) = @_;
+sub makeConfigTable($$$) {
+	my ($hash, $configHash, $configReady) = @_;
 
 	my $name = $hash->{'NAME'};
 	my $content = '';
@@ -131,22 +135,24 @@ sub makeConfigTable($$) {
 	my $title = 'Configuration';
 	my $className = 'config';
 	
-	
+	# print(Dumper($configHash));
 	foreach my $cKey (sort keys %{$configHash}) {
 		my $config = $configHash->{$cKey};
+		
+		# we don't show hidden parameters
+		if($config->{hidden}) { next; };
+		
 		my $rowContent.= wrapTd($cKey . ':');
 		
 		my $value = '';
 		if ($config->{'type'} eq 'option') {
 			my $possibleValuesList = HM485::ConfigurationManager::optionsToList($config->{'possibleValues'});
 			$value = configSelect(
-				$cKey, $possibleValuesList, $config->{'value'}, $className
+				$cKey, $possibleValuesList, $config->{'value'}, $className, $configReady	
 			);
 			
 		} elsif ($config->{'type'} eq 'boolean') {
-			$value = configSelect(
-				$cKey, 'no:0,yes:1', $config->{'value'} ,$className
-			);
+			$value = configSelect($cKey, 'no:0,yes:1', $config->{'value'} ,$className, $configReady	);
 		} else {
 			my $cSize = $config->{'max'} ? length ($config->{'max'}) : 3;
 			
@@ -163,7 +169,7 @@ sub makeConfigTable($$) {
 			}
 
 			$value = configInput(
-				$cKey, $config->{'value'}, $cSize, $className
+				$cKey, $config->{'value'}, $cSize, $className, $configReady	
 			);
 		}
 		
@@ -180,7 +186,8 @@ sub makeConfigTable($$) {
 	if (keys %{$configHash}) {
 		my $rowClass = ($rowCount & 1) ? 'odd' : 'even';
 		$content.= wrapTr(
-			wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.'.$className.'" d_isabled="disabled" value="Save Config" class="attr">'),
+			wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.'.$className.
+			                  '" value="Save Config" class="attr"'.($configReady ? '' : 'disabled').' >'),
 			$rowClass
 		);
 	}
@@ -193,13 +200,13 @@ sub makeConfigTable($$) {
 }
 
 
-sub configInput($$;$$) {
-	my ($name, $value, $size, $className) = @_;
+sub configInput($$;$$$) {
+	my ($name, $value, $size, $className, $configReady) = @_;
 	#print Dumper ("configInput $size");
 	
 	my $cSize = ($size ? $size : '3');
 	my $content = '<input onchange="FW_HM485setChange(this)" type="text" size="'.$cSize.'" name="' . $name . '" value="' . 
-	               $value . '" class="arg.HM485.'.$className.'" style="text-align:right;" />';
+	               $value . '" class="arg.HM485.'.$className.'" style="text-align:right;"'.($configReady ? '' : 'disabled').' />';
 
 	return $content;
 }
@@ -223,10 +230,11 @@ sub configHidden($$;$$) {
 	@param	string	posible items (comma seperated)
 	@param	string	the value for specific item sould selected
 =cut
-sub configSelect($$$$) {
-	my ($name, $possibleValues, $value, $className) = @_;
+sub configSelect($$$$$) {
+	my ($name, $possibleValues, $value, $className, $configReady) = @_;
 	
-	my $content = '<select onchange="FW_HM485setChange(this)" name="' . $name . '" class="arg.HM485.'.$className.'">';
+	my $content = '<select onchange="FW_HM485setChange(this)" name="' . $name . 
+	               '" class="arg.HM485.'.$className.'"'.($configReady ? '' : 'disabled').' >';
 	my $options = '';
 	my @possibleValuesArray = split(',', $possibleValues);
 

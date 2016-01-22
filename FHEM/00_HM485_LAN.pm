@@ -1,9 +1,10 @@
 =head1
-	00_HM485_LAN.pm Version 23.03.2015
+	00_HM485_LAN.pm Version 13.11.2015
 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
 	contributed by Dirk Hoffmann 10/2012 - 2013
+	Refined by Thorsten Pferdekaemper
 	$Id$
 
 =head1 DESCRIPTION
@@ -47,7 +48,6 @@ sub HM485_LAN_Init($);
 sub HM485_LAN_InitInterface($$);
 sub HM485_LAN_parseIncommingCommand($$);
 sub HM485_LAN_Connect($);
-sub HM485_LAN_RemoveValuesFromAttrList($@);
 sub HM485_LAN_openDev($;$);
 sub HM485_LAN_checkAndCreateHM485d($);
 sub HM485_LAN_HM485dGetPid($$);
@@ -75,7 +75,7 @@ sub HM485_LAN_Initialize($) {
 	my $initResult = HM485::Device::init();
 
 	if ($initResult) {
-		HM485::Util::logger($name, 1, $initResult);
+		HM485::Util::Log3($hash, 1, $initResult);
 	} else {
 
 		require $attr{global}{modpath} . '/FHEM/DevIo.pm';
@@ -92,9 +92,10 @@ sub HM485_LAN_Initialize($) {
 		$hash->{AttrList}   = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
 		                     'HM485d_startTimeout HM485d_device ' . 
 		                     'HM485d_serialNumber HM485d_logfile ' .
-		                     'HM485d_detatch:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
+		                     'HM485d_detach:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
 		                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
-		                     'HM485d_gpioTxenCmd1';
+		                     'HM485d_gpioTxenCmd1 '.
+							 'autoReadConfig:atstartup,always';
 		
 		my %mc = ('1:HM485' => '^.*');
 		$hash->{Clients}    = ':HM485:';
@@ -129,24 +130,23 @@ sub HM485_LAN_Define($$) {
 		$hash->{DEF} = $a[2];
 
 		if($hash->{DEF} eq 'none') {
-			HM485::Util::logger($name, 1, 'HM485 device is none, commands will be echoed only');
+			HM485::Util::Log3($hash, 1, 'HM485 device is none, commands will be echoed only');
 		} else {
-			# Make shure HM485_LAN_Connect starts after HM485_LAN_Define is ready 
+			# Make sure HM485_LAN_Connect starts after HM485_LAN_Define is ready 
 			InternalTimer(gettimeofday(), 'HM485_LAN_ConnectOrStartHM485d', $hash, 0);
 		}
 				
 	} else {
-		HM485::Util::logger($name, 1, $ret);
+		HM485::Util::Log3($hash, 1, $ret);
 	}
 
 	$hash->{msgCounter} = 0;
+	# The following line is needed. Otherwise, it can happen that "opened" is set 
+	# via fhem.save. This means that the device will never be really opened.
 	$hash->{STATE} = '';
 
-	# $data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday() . '"><script type="text/javascript" charset="UTF-8';
 	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday();
-	# <script attr='' type="text/javascript" src="/fhem/pgm2/hm485.js?1424867797.1834"></script>"></script>
-	#<script src="quadrat.js" type="text/javascript"></script>
-	#<script attr='' type="text/javascript" src="/fhem/pgm2/hm485.js?1424801995.08059"><script type="text/javascript" charset="UTF-8"></script>
+
 	return $ret;
 }
 =head2
@@ -158,6 +158,25 @@ sub HM485_LAN_Define($$) {
 sub HM485_LAN_Ready($) {
 	my ($hash) = @_;
 
+	HM485::Util::Log3($hash, 5, 'HM485_LAN_Ready called');
+	
+	if ( ! $hash->{STATE} eq "disconnected" ) {
+		return undef;  # nothing to do in this case
+	};
+	# It seems we are disconnected (not closed intentionally)
+	# If we handle the Daemon ourselves, then check whether it is still running
+	# and try to restart, if not
+	my $name = $hash->{NAME};
+	my $HM485dBind   = AttrVal($name, 'HM485d_bind', 0);
+	my $HM485dDevice = AttrVal($name, 'HM485d_device', undef);
+	if ($HM485dBind && $HM485dDevice) {
+		my $pid = HM485_LAN_HM485dGetPid($hash, $hash->{HM485d_CommandLine});
+		if(!($pid && kill(0, $pid))) {
+			# seems it is not really running, try to start it
+			HM485_LAN_HM485dStart($hash);
+			return undef;  # in this case, an immediate openDev does not make sense
+		}		
+	};	
 	return HM485_LAN_openDev($hash, 1);
 }
 
@@ -176,7 +195,7 @@ sub HM485_LAN_Undef($$) {
 
 	DevIo_CloseDev($hash);
 	
-	if (!AttrVal($name, 'HM485d_detatch', 0)) {
+	if (!AttrVal($name, 'HM485d_detach', 0)) {
 		HM485_LAN_HM485dStop($hash);
 	}
 
@@ -192,7 +211,7 @@ sub HM485_LAN_Shutdown($) {
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 
-	if (!AttrVal($name, 'HM485d_detatch', 0)) {
+	if (!AttrVal($name, 'HM485d_detach', 0)) {
 		HM485_LAN_HM485dStop($hash);
 	}
 }
@@ -228,15 +247,7 @@ sub HM485_LAN_Read($) {
 				foreach my $message (@messages) {
 					if ($message) {
 						$message = chr(HM485::FRAME_START_LONG) . $message;
-			
 						$message = HM485::Util::unescapeMessage($message);
-	
-						### Debug ###
-	#					my $m = $message;
-	#					my $l = uc( unpack ('H*', $m) );
-	##					$m =~ s/^.*CRLF//g;
-	#					Log3 ('', 1, $l . ' (RX: ' . $m . ')' . "\n");
-	
 						HM485_LAN_parseIncommingCommand($hash, $message);
 					}
 				}
@@ -268,11 +279,11 @@ sub HM485_LAN_InitInterface($$) {
 	$hash->{SerialNumber}    = $serialNumber;
 	$hash->{msgCounter}      = hex(substr($msgCounter,1));
 
-	HM485::Util::logger($name, 3, 'Lan Device Information');
-	HM485::Util::logger($name, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
-	HM485::Util::logger($name, 3, 'Interface-Type: '   . $interfaceType);
-	HM485::Util::logger($name, 3, 'Firmware-Version: ' . $version);
-	HM485::Util::logger($name, 3, 'Serial-Number: '    . $serialNumber);
+	HM485::Util::Log3($hash, 3, 'Lan Device Information');
+	HM485::Util::Log3($hash, 3, 'Protocol-Version: ' . $hash->{ProtokolVersion});
+	HM485::Util::Log3($hash, 3, 'Interface-Type: '   . $interfaceType);
+	HM485::Util::Log3($hash, 3, 'Firmware-Version: ' . $version);
+	HM485::Util::Log3($hash, 3, 'Serial-Number: '    . $serialNumber);
 
 	# initialize keepalive flags
 	$hash->{keepalive}{ok}    = 1;
@@ -298,7 +309,7 @@ sub HM485_LAN_Write($$;$) {
 	my $name = $hash->{NAME};
 	my $msgId = $hash->{msgCounter} ? $hash->{msgCounter} : 1;
 
-	HM485::Util::logger('HM485_LAN_Write', 5, 'TX: ' . $msgId );
+	HM485::Util::Log3($hash, 5, 'HM485_LAN_Write TX: ' . $msgId );
 	
 	if ($cmd == HM485::CMD_SEND || $cmd == HM485::CMD_DISCOVERY ||
 		$cmd == HM485::CMD_KEEPALIVE || HM485::CMD_INITIALIZE) {
@@ -356,12 +367,11 @@ sub HM485_LAN_Write($$;$) {
 
 		} elsif ($cmd == HM485::CMD_KEEPALIVE) {
 			$sendData = pack('H*',sprintf('%02X%02X', $msgId, $cmd));
-			# HM485::Util::logger($name, 3, 'keepalive msgNo: ' . $msgId);
 
 		} elsif ($cmd == HM485::CMD_INITIALIZE) {
 			my $txtMsgId = unpack('H4', sprintf('%02X', $msgId));
 			$sendData = pack('H*',sprintf('%02X%s%s', $cmd, $txtMsgId, '2C303030300D0A'));
-			HM485::Util::logger ($name, 3, 'Initialize the interface');
+			HM485::Util::Log3($hash, 3, 'Initialize the interface');
 		}
 
 		if ($sendData) {
@@ -413,14 +423,14 @@ sub HM485_LAN_SendQueueNextItem($) {
 	my $queueCount = scalar(keys (%{$hash->{sendQueue}}));
 	if ($queueCount > 0) {
 		my $currentQueueId = (sort keys %{$hash->{sendQueue}})[0];
-        HM485::Util::logger('HM485_LAN_SendQueueNextItem', 5, 'QID: '.$currentQueueId );
+        HM485::Util::Log3($hash,  5, 'HM485_LAN_SendQueueNextItem: QID: '.$currentQueueId );
 		$hash->{currentQueueId} = $currentQueueId;
 
 		my $sendData = $hash->{sendQueue}{$currentQueueId}{data};
 		
 		DevIo_SimpleWrite($hash, $sendData, 0);
 		if ($hash->{sendQueue}{$currentQueueId}{dataLog}) {
-			Log3 ($hash, 4, $hash->{sendQueue}{$currentQueueId}{dataLog});
+			HM485::Util::Log3($hash, 4, $hash->{sendQueue}{$currentQueueId}{dataLog});
 		}
 		
 		my $checkResendQueueItemsDelay = 1;
@@ -449,16 +459,13 @@ sub HM485_LAN_CheckResendQueueItems($) {
 
 	my($name, $timerName, $currentQueueId) = split(':', $param);
 	
-	HM485::Util::logger('HM485_LAN_CheckResendQueueItems', 5, 'QID: '.$currentQueueId );
 	if ($timerName eq 'queueTimer') {
 		my $hash = $defs{$name};
-	
-#		print Dumper($hash->{sendQueue}{$currentQueueId});
+ 	    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: QID: '.$currentQueueId );
 		if (exists($hash->{sendQueue}{$currentQueueId})) {
-		    HM485::Util::logger('HM485_LAN_CheckResendQueueItems', 5, 'DispatchNack' );
+		    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: DispatchNack' );
 			HM485_LAN_DispatchNack($hash, $currentQueueId);
 		}
-	
 		# prozess next queue item.
 		HM485_LAN_SendQueueNextItem($hash);
 	}
@@ -585,7 +592,7 @@ sub HM485_LAN_Set($@) {
 
 	Todo: Add some more attr's
 
-	@param	undev
+	@param	undef
 	@param	string  name of device
 	@param	string  attr name
 	@param	string  attr value
@@ -595,29 +602,23 @@ sub HM485_LAN_Set($@) {
 sub HM485_LAN_Attr (@) {
 	my (undef, $name, $attr, $val) =  @_;
 	my $hash = $defs{$name};
-	my $msg = '';
 
 	if ($attr eq 'hmwId') {
-		$hash->{hmwId} = $val;
 		my $hexVal = (defined($val)) ? hex($val) : 0;
 		if (!defined($val) || $val !~ m/^[A-F0-9]{8}$/i || $hexVal > 255 || $hexVal < 1) {
-			$msg = 'Wrong hmwId defined. hmwId must be 8 digit hex address within 00000001 and 000000FF';
-		} else {
-			
-			foreach my $d (keys %defs) {
-				next if($d eq $name);
-		
-				if($defs{$d}{TYPE} eq 'HM485_LAN') {
-					if(AttrVal($d, 'hmwId', '00000001') eq $val) {
-						$msg = 'hmwId ' . $val . ' already used. Please use another one.';
-					}
+			return 'Wrong hmwId defined. hmwId must be 8 digit hex address within 00000001 and 000000FF';
+		};
+		foreach my $d (keys %defs) {
+			next if($d eq $name);
+			if($defs{$d}{TYPE} eq 'HM485_LAN') {
+				if(AttrVal($d, 'hmwId', '00000001') eq $val) {
+						return 'hmwId ' . $val . ' is already used, use a different one.';
 				}
 			}
 		}
-		
+		$hash->{hmwId} = $val;
 	}
-
-	return ($msg) ? $msg : undef;
+	return undef;
 }
 
 =head2
@@ -657,12 +658,7 @@ sub HM485_LAN_cancelDiscovery($) {
 	my $hash = $defs{$name};
 
 	RemoveInternalTimer('discoveryCheckRunning:' . $name);
-	HM485::Util::logger(
-		$name,
-		2,
-		'Discovery - canceled. No results found within ' . DISCOVERY_TIMEOUT . ' seconds!'
-	);
-	
+	HM485::Util::Log3($hash, 2, 'Discovery - canceled. No results found within ' . DISCOVERY_TIMEOUT . ' seconds!');
 	HM485_LAN_setBroadcastSleepMode($hash, 0);
 	$hash->{discoveryRunning} = 0;	
 }
@@ -707,9 +703,8 @@ sub HM485_LAN_discoveryEnd($) {
 				my $m = $message;
 				my $l = uc( unpack ('H*', $m) );
 				$m =~ s/^.*CRLF//g;
-				HM485::Util::logger($name, 4, $l . ' (RX: ' . $m . ')');
-		
-	 			HM485::Util::logger($name, 4, 'Dispatch: ' . $discoverdAddress);
+				HM485::Util::Log3($hash, 4, $l . ' (RX: ' . $m . ')');
+	 			HM485::Util::Log3($hash, 4, 'Dispatch: ' . $discoverdAddress);
 				Dispatch($hash, $message, '');
 			}
 		}
@@ -753,8 +748,8 @@ sub HM485_LAN_Init($) {
 	my $dev  = $hash->{DEF};
 	my $name = $hash->{NAME};
 
-	HM485::Util::logger($name, 3, 'connected to device ' . $dev);
-	$hash->{STATE} = 'open';
+	HM485::Util::Log3($hash, 3, 'connected to device ' . $dev);
+	# $hash->{STATE} = 'open';
 	
 	delete ($hash->{HM485dStartTimeout});
 
@@ -778,24 +773,22 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	my $currentQueueId = $hash->{currentQueueId};
 	my $canDispatch    = 0;
 	
-	HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'MsgId: '.$msgId.' Cmd: '.$msgCmd);
+	HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: MsgId: '.$msgId.' Cmd: '.$msgCmd);
 	
 	if ($msgCmd == HM485::CMD_DISCOVERY_END) {
 		my $foundDevices = hex($msgData);
-		HM485::Util::logger($name, 4, 'Do action after discovery Found Devices: ' . $foundDevices);
-		
+		HM485::Util::Log3($hash, 4, 'Do action after discovery Found Devices: ' . $foundDevices);
 		InternalTimer(gettimeofday() + 0, 'HM485_LAN_discoveryEnd', $hash, 0);
 
 	} elsif ($msgCmd == HM485::CMD_DISCOVERY_RESULT) {
 		HM485_LAN_setDiscoveryCancelTimer($hash);
 		
-		HM485::Util::logger($name, 3, 'Discovery - found device: ' . $msgData);
+		HM485::Util::Log3($hash, 3, 'Discovery - found device: ' . $msgData);
 		$hash->{discoveryFound}{$msgData} = 1;
 
 	} elsif ($msgCmd == HM485::CMD_ALIVE) {
 		my $aliveStatus = substr($msgData, 0, 2);
-		# HM485::Util::logger('HM485_LAN_parseIncommingCommand', 3, 'Alive: (' . $msgId . ') ' . uc(unpack ('H*', $msgData)));
-		HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Alive: (' . $msgId . ') ' . $msgData.' AliveStatus: '.$aliveStatus);
+		HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: Alive: (' . $msgId . ') ' . $msgData.' AliveStatus: '.$aliveStatus);
 		if ($aliveStatus == '00') {
 			# we got a response from keepalive
 			$hash->{keepalive}{ok}    = 1;
@@ -803,23 +796,11 @@ sub HM485_LAN_parseIncommingCommand($$) {
 		} else {
 			HM485_LAN_DispatchNack($hash, $currentQueueId);
 		}
-		# Es ist sinnvoll die channels abzufragen, die noch nicht definiert sind
-		# my $mhash = $modules{HM485}{defptr}{'0000A528_01'};
-		# HM485::Util::logger( 'HM485_LAN_parseIncommingCommand', 3, ' mhash = ' . $mhash);
-		#if (!$mhash) {
-		#	$mhash = $modules{HM485}{defptr}{'0000A528'};
-		#	HM485_GetInfos($mhash, '0000A528', 0b111);
-		#	# HM485::Util::logger( 'HM485_LAN_parseIncommingCommand', 3, ' mhash = ' . $mhash);
-		#}
-		
-		
+
 	} elsif ($msgCmd == HM485::CMD_RESPONSE) {
 		$canDispatch = 1;
 		$hash->{Last_Sent_RAW_CMD_State} = 'ACK';
-		# HM485::Util::logger($name, 3, 'ACK: (' . $msgId . ')');
-
-		# Debug
-		HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Response: (' . $msgId . ') ' . substr($msgData, 2));
+		HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: Response: (' . $msgId . ') ' . substr($msgData, 2));
 
 	} elsif ($msgCmd == HM485::CMD_EVENT) {
 		$canDispatch = 1;
@@ -832,14 +813,13 @@ sub HM485_LAN_parseIncommingCommand($$) {
 			datalen => $msgLen,
 			data    => pack('H*', substr($msgData, 18)),
 		);
-		HM485::Util::logger($name, 4, 'Event:', \%RD);
+		HM485::Util::Log3($hash, 4, 'Event:'. \%RD);
 	}		
 
 	if ($canDispatch && length($message) > 3) {
 		Dispatch($hash, $message, '');
 	}
 
-	#PFE BEGIN
 	# we should not confuse events with answers
 	# the server knows what is what...
 	# for Nacks, the queue has already been removed
@@ -847,8 +827,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	if ($currentQueueId && defined($hash->{sendQueue}{$currentQueueId}{msgId}) 
 	       && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId
 		   && $msgCmd != HM485::CMD_ALIVE) {  # probably not needed, but no harm either
-	#PFE END
-	    HM485::Util::logger('HM485_LAN_parseIncommingCommand', 5, 'Removing Queue '.$currentQueueId);
+	    HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: Removing Queue '.$currentQueueId);
 		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
 		HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
 		HM485_LAN_CheckResendQueueItems($name . ':queueTimer:' . $currentQueueId);
@@ -866,15 +845,7 @@ sub HM485_LAN_ConnectOrStartHM485d($) {
 	my $dev  = $hash->{DEF};
 
 	if (!AttrVal($name, 'HM485d_bind',0)) {
-		HM485_LAN_RemoveValuesFromAttrList(
-			$hash,
-			('HM485d_detatch', 'HM485d_device', 'HM485d_serialNumber',
-			 'HM485d_logfile', 'HM485d_logVerbose:0,1,2,3,4,5', 'HM485d_startTimeout',
-			 'HM485d_gpioTxenInit', 'HM485d_gpioTxenCmd0', 'HM485d_gpioTxenCmd1')
-		);
-		
-		HM485_LAN_openDev($hash);
-		
+		HM485_LAN_openDev($hash);		
 	} else {
 		HM485_LAN_checkAndCreateHM485d($hash);
 	}
@@ -959,7 +930,7 @@ sub HM485_LAN_DispatchNack($$) {
 	my ($hash, $currentQueueId) = @_;	
 	my $name = $hash->{NAME};
 
-	HM485::Util::logger('HM485_LAN_DispatchNack', 5, 'Start');
+	HM485::Util::Log3($hash, 5, 'HM485_LAN_DispatchNack: Start');
 	
 	$hash->{Last_Sent_RAW_CMD_State} = 'NACK';
 
@@ -977,10 +948,10 @@ sub HM485_LAN_DispatchNack($$) {
 							HM485::FRAME_START_LONG, 3, $msgId, HM485::CMD_ALIVE, 1, $hmwId
 						)
 					);
-					HM485::Util::logger('HM485_LAN_DispatchNack', 5, 'Message: '.$message);
+					HM485::Util::Log3($hash, 5, 'HM485_LAN_DispatchNack: Message: '.$message);
 					Dispatch($hash, $message, '');
 				} else {
-					HM485::Util::logger($name, 3, 'NACK: (' . $msgId . ') ' . $hmwId);
+					HM485::Util::Log3($hash, 3, 'NACK: (' . $msgId . ') ' . $hmwId);
 				}
 			}
 		}
@@ -988,21 +959,6 @@ sub HM485_LAN_DispatchNack($$) {
 	}
 }
 
-=head2
-	Remove values from $hash->{AttrList}
-	
-	@param	hash    hash of device addressed
-	@param	array   array of values to remove
-=cut
-sub HM485_LAN_RemoveValuesFromAttrList($@) {
-	my ($hash, @removeArray) = @_;
-	my $name = $hash->{NAME};
-
-	foreach my $item (@removeArray){
-		$modules{$defs{$name}{TYPE}}{AttrList} =~ s/$item//;
-		delete($attr{$name}{$item});
-	}
-}
 
 =head2
 	Open the device
@@ -1016,13 +972,52 @@ sub HM485_LAN_openDev($;$) {
 	$reconnect = defined($reconnect) ? $reconnect : 0;
 	$hash->{DeviceName} = $hash->{DEF}; 
 
-	if ($hash->{STATE} ne 'open') {
-		# if we must reconnect, connection can reappered after 60 seconds 
+	if ($hash->{STATE} ne 'opened') {
+		# if we must reconnect, connection can reappear after 60 seconds 
 		$retVal = DevIo_OpenDev($hash, $reconnect, 'HM485_LAN_Init');
 	}
 
 	return $retVal;
 }
+	
+	
+# update commandline internal
+sub HM485_LAN_updateHM485dCommandLine($) {
+	my ($hash) = @_;
+	
+	my $name = $hash->{NAME};
+	my $HM485dBind   = AttrVal($name, 'HM485d_bind', 0);
+	my $HM485dDevice = AttrVal($name, 'HM485d_device'   , undef);
+
+	if (!$HM485dBind || !$HM485dDevice) {
+		delete $hash->{HM485d_CommandLine};
+		return;
+	};	
+	my (undef, $HM485dPort) = split(':', $hash->{DEF});
+	my $HM485dSerialNumber = AttrVal($name, 'HM485d_serialNumber', SERIALNUMBER_DEF);
+	my $HM485dDetach      = AttrVal($name, 'HM485d_detach',      undef);
+	my $HM485dGpioTxenInit = AttrVal($name, 'HM485d_gpioTxenInit', undef);
+	my $HM485dGpioTxenCmd0 = AttrVal($name, 'HM485d_gpioTxenCmd0', undef);
+	my $HM485dGpioTxenCmd1 = AttrVal($name, 'HM485d_gpioTxenCmd1', undef);
+	my $HM485dLogfile      = AttrVal($name, 'HM485d_logfile',      undef);
+	my $HM485dLogVerbose   = AttrVal($name, 'HM485d_logVerbose',   undef);
+	
+	my $HM485dCommandLine = 'HM485d.pl';
+	$HM485dCommandLine.= ($HM485dSerialNumber) ? ' --serialNumber ' . $HM485dSerialNumber : '';
+	$HM485dCommandLine.= ($HM485dDevice)       ? ' --device '       . $HM485dDevice       : '';
+	$HM485dCommandLine.= ($HM485dPort)         ? ' --localPort '    . $HM485dPort         : '';
+	$HM485dCommandLine.= ($HM485dDetach)       ? ' --daemon '       . $HM485dDetach       : '';
+	$HM485dCommandLine.= ($HM485dGpioTxenInit) ? ' --gpioTxenInit ' . $HM485dGpioTxenInit : '';
+	$HM485dCommandLine.= ($HM485dGpioTxenCmd0) ? ' --gpioTxenCmd0 ' . $HM485dGpioTxenCmd0 : '';
+	$HM485dCommandLine.= ($HM485dGpioTxenCmd1) ? ' --gpioTxenCmd1 ' . $HM485dGpioTxenCmd1 : '';
+	$HM485dCommandLine.= ($HM485dLogfile)      ? ' --logfile '      . $HM485dLogfile      : '';
+	$HM485dCommandLine.= ($HM485dLogVerbose)   ? ' --verbose '      . $HM485dLogVerbose   : '';
+	
+	$HM485dCommandLine = $attr{global}{modpath} . '/FHEM/lib/HM485/HM485d/' .$HM485dCommandLine;
+	$hash->{HM485d_CommandLine} = $HM485dCommandLine;
+}
+	
+	
 	
 =head2
 	Check if HM485d running.
@@ -1036,57 +1031,16 @@ sub HM485_LAN_openDev($;$) {
 sub HM485_LAN_checkAndCreateHM485d($) {
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
-	my $dev  = $hash->{DEF};
-
 	my $HM485dBind   = AttrVal($name, 'HM485d_bind', 0);
 	my $HM485dDevice = AttrVal($name, 'HM485d_device'   , undef);
 
 	if ($HM485dBind && $HM485dDevice) {
-		my (undef, $HM485dPort) = split(':', $hash->{DEF});
-		
-		my $HM485dSerialNumber = AttrVal($name, 'HM485d_serialNumber', SERIALNUMBER_DEF);
-		my $HM485dDetatch      = AttrVal($name, 'HM485d_detatch',      undef);
-		my $HM485dGpioTxenInit = AttrVal($name, 'HM485d_gpioTxenInit', undef);
-		my $HM485dGpioTxenCmd0 = AttrVal($name, 'HM485d_gpioTxenCmd0', undef);
-		my $HM485dGpioTxenCmd1 = AttrVal($name, 'HM485d_gpioTxenCmd1', undef);
-		my $HM485dLogfile      = AttrVal($name, 'HM485d_logfile',      undef);
-		my $HM485dLogVerbose   = AttrVal($name, 'HM485d_logVerbose',   undef);
-	
-		my $HM485dCommandLine = 'HM485d.pl';
-		$HM485dCommandLine.= ($HM485dSerialNumber) ? ' --serialNumber ' . $HM485dSerialNumber : '';
-		$HM485dCommandLine.= ($HM485dDevice)       ? ' --device '       . $HM485dDevice       : '';
-		$HM485dCommandLine.= ($HM485dPort)         ? ' --localPort '    . $HM485dPort         : '';
-		$HM485dCommandLine.= ($HM485dDetatch)      ? ' --daemon '       . $HM485dDetatch      : '';
-		$HM485dCommandLine.= ($HM485dGpioTxenInit) ? ' --gpioTxenInit ' . $HM485dGpioTxenInit : '';
-		$HM485dCommandLine.= ($HM485dGpioTxenCmd0) ? ' --gpioTxenCmd0 ' . $HM485dGpioTxenCmd0 : '';
-		$HM485dCommandLine.= ($HM485dGpioTxenCmd1) ? ' --gpioTxenCmd1 ' . $HM485dGpioTxenCmd1 : '';
-		$HM485dCommandLine.= ($HM485dLogfile)      ? ' --logfile '      . $HM485dLogfile      : '';
-		$HM485dCommandLine.= ($HM485dLogVerbose)   ? ' --verbose '      . $HM485dLogVerbose   : '';
-	
-		$HM485dCommandLine = $attr{global}{modpath} . '/FHEM/lib/HM485/HM485d/' .
-		                     $HM485dCommandLine;
-
-		$hash->{HM485d_CommandLine} = $HM485dCommandLine;
-
-		$hash->{HM485d_PID} = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine); 
-		if ($hash->{HM485d_PID}) {
-			HM485::Util::logger($name, 1,
-				'HM485d already running with PID ' . $hash->{HM485d_PID}. '. We re use this process!'
-			);
-
-			InternalTimer(gettimeofday() + 0.1, 'HM485_LAN_openDev', $hash, 0);
-			
-		} else {
-			# Start HM485d
-			HM485_LAN_HM485dStart($hash);
-		}
-
+		HM485_LAN_HM485dStart($hash);	
 	} elsif ($HM485dBind && !$HM485dDevice) {
 		my $msg = 'HM485d not started. Attr "HM485d_device" for ' . $name . ' is not set!';
-		HM485::Util::logger($name, 1, $msg);
+		HM485::Util::Log3($hash, 1, $msg);
 		$hash->{ERROR} = $msg;
 	} else {
-
 		DevIo_CloseDev($hash);
 		HM485_LAN_openDev($hash);
 	}
@@ -1106,7 +1060,6 @@ sub HM485_LAN_HM485dGetPid($$) {
 	my ($hash, $HM485dCommandLine) = @_;
 	my $retVal = 0;
 	
-	# my $ps = 'ps axo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
 	my $ps = 'ps axwwo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
 	my @result = `$ps`;
 	foreach my $psResult (@result) {
@@ -1136,26 +1089,20 @@ sub HM485_LAN_HM485dStop($) {
 
 	my $msg;
 	if ($pid > 0) {
-		if(kill(0, $pid)) {
-			DevIo_CloseDev($hash);
-			$hash->{STATE} = 'closed';
-	
-			kill('TERM', $pid);
-			if(!kill(0, $pid)) {
-				$msg = 'HM485d with PID ' . $pid . ' was terminated sucessfully.';
-				$hash->{HM485d_STATE} = 'stopped';
-				delete($hash->{HM485d_PID});
-			} else {
-				$msg = 'Can\'t terminate HM485d with PID ' . $pid . '.';
-			}
-		} else {
-			$msg = 'There ar no HM485d process with PID ' . $pid . '.';
-			
-		}
-		
-		HM485::Util::logger($name, 3, $msg);
+		# Is there a process with the pid?
+		if(!kill(0, $pid)) {
+			return 'There is no HM485d process with PID ' . $pid . '.';	
+		};	
+		DevIo_CloseDev($hash);
+		$hash->{STATE} = 'closed';
+		if(!kill('TERM', $pid)) {
+			return 'Can\'t terminate HM485d with PID ' . $pid . '.';
+		};	
+		$msg = 'HM485d with PID ' . $pid . ' was terminated.';
+		$hash->{HM485d_STATE} = 'stopped';
+		delete($hash->{HM485d_PID});
+		HM485::Util::Log3($hash, 3, $msg);
 	}
-	
 	return $msg;
 }
 
@@ -1168,45 +1115,35 @@ sub HM485_LAN_HM485dStop($) {
 sub HM485_LAN_HM485dStart($) {
 	my ($hash) = @_;
 	
-	my $name = $hash->{NAME};
-	my $msg;
-
-	my $HM485dCommandLine = $hash->{HM485d_CommandLine};
-	my $pid = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine);
+	delete $hash->{HM485d_PID};
 	
-	if(!$pid || ($pid && !kill(0, $pid))) {
-		system($HM485dCommandLine . '&');
-		$msg = 'Start HM485d with command line: ' . $HM485dCommandLine;
-		$pid = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine);
-
-		if ($pid) {
-			$msg.= "\n" . 'HM485d was started with PID: ' . $pid;
-			$hash->{HM485d_STATE} = 'started';
-			$hash->{HM485d_PID} = HM485_LAN_HM485dGetPid($hash, $HM485dCommandLine);
-			
-			my $HM485dStartTimeout = int(AttrVal($name, 'HM485d_startTimeout', '2'));
-			if ($HM485dStartTimeout) {
-				HM485::Util::logger(
-					$name, 3, 'Connect to HM485d delayed for ' . $HM485dStartTimeout . ' seconds'
-				);
-				$hash->{HM485dStartTimeout} = $HM485dStartTimeout;
-			}
-
-			$HM485dStartTimeout = $HM485dStartTimeout + 0.1;
-			InternalTimer(gettimeofday() + $HM485dStartTimeout, 'HM485_LAN_openDev', $hash, 0);
-			
-		} else {
-			$msg.= "\n" . 'HM485d Could not start';
-		}
-	} else {
-		$msg = 'HM485d with PID ' . $pid . ' already running.';		
+	HM485_LAN_updateHM485dCommandLine($hash);
+	my $pid = HM485_LAN_HM485dGetPid($hash, $hash->{HM485d_CommandLine});
+	# Is a process with this command line already running? If yes then use this.
+	if($pid && kill(0, $pid)) {
+		HM485::Util::Log3($hash, 1, 'HM485d already running with PID ' . $pid. '. We are using this process.');
+		$hash->{HM485d_PID} = $pid;
+		InternalTimer(gettimeofday() + 0.1, 'HM485_LAN_openDev', $hash, 0);		
+		return 'HM485d already running. (Re)Connected to PID '.$pid;
+	};		
+	#...otherwise try to start HM485d
+	system($hash->{HM485d_CommandLine} . '&');
+	HM485::Util::Log3($hash, 3, 'Start HM485d with command line: ' . $hash->{HM485d_CommandLine});
+	$pid = HM485_LAN_HM485dGetPid($hash, $hash->{HM485d_CommandLine});
+	if(!$pid) {
+		return 'HM485d could not be started';
 	}
-	
-	foreach my $msgItem (split("\n", $msg)) {
-		HM485::Util::logger($name, 3, $msgItem);
+	$hash->{HM485d_PID} = $pid;
+	HM485::Util::Log3($hash, 3, 'HM485d was started with PID: ' . $pid);
+	$hash->{HM485d_STATE} = 'started';
+	my $HM485dStartTimeout = int(AttrVal($hash->{NAME}, 'HM485d_startTimeout', '5'));
+	if ($HM485dStartTimeout) {
+		HM485::Util::Log3($hash, 3, 'Connect to HM485d delayed for ' . $HM485dStartTimeout . ' seconds');
+		$hash->{HM485dStartTimeout} = $HM485dStartTimeout;
 	}
-
-	return $msg;
+	$HM485dStartTimeout = $HM485dStartTimeout + 0.1;
+	InternalTimer(gettimeofday() + $HM485dStartTimeout, 'HM485_LAN_openDev', $hash, 0);		
+	return 'HM485d started with PID '.$pid;
 }
 
 
@@ -1218,21 +1155,177 @@ sub HM485_LAN_HM485dStart($) {
 <a name="HM485_LAN"></a>
 <h3>HM485_LAN</h3>
 <ul>
-	HM485_LAN FHEM module is the interface for controlling eQ-3 HomeMatic-Wired devices<br>
-	The folowing hardware interfaces can be used with this module.
+	HM485_LAN is the interface for HomeMatic-Wired (HMW) devices<br>
+	If you want to connect HMW devices to FHEM, at least one HM485_LAN is needed.
+	The following hardware interfaces can be used with this module.
+	<br>
 	<ul>
 		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
-		<li>Ethernet to RS485 converter like <a href="http://forum.fhem.de/index.php/topic,14096.msg88557.html#msg88557">WIZ108SR</a>.</li>
+		<li>Ethernet to RS485 converter like WIZ108SR.</li>
 		<li>RS232/USB to RS485 converter like DIGITUS DA-70157</li>
+		<li>A RS485 Tranceiver, which is e.g. directly connected to the UART of a Raspberry Pi</li> 
 	</ul>
-	
-	For the HomeMatic Wired RS485 LAN Gateway, module HM485_LAN communicates directly with the gateway.<br>
-	For the Ethernet to RS485 or RS232/USB to RS485 converter, module HM485_LAN automatically starts a 
-	dedicated server process (HM485d.pl), which emulates the Gateway.<br>
+	<br>	
+	For the HomeMatic Wired RS485 LAN Gateway, HM485_LAN communicates directly with the gateway.<br>
+	For the Ethernet to RS485 or RS232/USB to RS485 converter, module HM485_LAN automatically starts a server process (HM485d), which emulates the Gateway.<br>
+    <br><br>
+	<b>Minimum configuration examples</b><br>
 	<ul>
-		<li>...</li>
-		<li>...</li>
-		<li>...</li>
+		<li>HomeMatic Wired RS485 LAN Gateway<br>
+			<code>
+			define hm485 HM485_LAN 192.168.178.164:1000
+			</code>
+		</li><br>
+		<li>Ethernet to RS485 converter<br>
+			<code>
+			define hm485 HM485_LAN localhost:2000<br>
+			attr hm485 HM485d_bind 1<br>
+			attr hm485 HM485d_device 192.168.178.165:5000
+			</code>
+		</li><br>
+		<li>USB to RS485 converter<br>
+			<code>
+			define hm485 HM485_LAN localhost:2000<br>
+			attr hm485 HM485d_bind 1<br>
+			attr hm485 HM485d_device /dev/ttyUSB0
+			</code>
+		</li>
+	</ul>
+	<br>
+    <b>Define</b>
+    <ul>
+      <code>define &lt;name&gt; HM485_LAN &lt;hostname&gt;:&lt;port&gt;</code>
+	  <br>
+	  <ul>
+	  <li>When using the HMW RS485 LAN Gateway, then &lt;hostname&gt; is the address of the gateway itself. As port, usually 1000 or 5000 is used. 
+	  Example: <code>define hm485 HM485_LAN 192.168.178.164:5000</code>
+	  </li> 
+	  <li>When using anything else, then &lt;hostname&gt; is the address of the machine the HM485d process runs on. &lt;port&gt; is the port the HM485d process listens at. Usually, the HM485d process is controlled by FHEM and runs on the same machine as FHEM. This means that something like this usually makes sense: 
+	  <code>define hm485 HM485_LAN localhost:2000</code>
+	  </li>
+	  </ul>
+	</ul>
+	<br>
+	<b>Set</b>
+	<br>
+	<ul>
+	<li><code>set &lt;name&gt; <b>HM485d</b> status|stop|start|restart</code><br>
+	This controls the HM485d process. It only works if attribute HM485d_bind is set to 1.
+	<ul>
+	<li><b>status</b> shows whether the process is running. If it is running, then it also displays its PID.</li>
+	<li><b>stop</b> stops the HM485d process. Unlike in the situation when HM485d crashes, FHEM won't restart the HM485d process automatically. You need to start it again explicitly.</li>
+	<li><b>start</b> starts the HM485d process. In normal circumstances, this should not be needed as FHEM manages it automatically. You need to use this command if you have used the "stop" command before and want to restart the process now.</li>
+	<li><b>restart</b> does the same as a "stop" followed by a "start".</li>
+	</ul>
+	</li>
+	<br>
+	<li><code>set &lt;name&gt; <b>RAW</b> &lt;target&gt; &lt;control&gt; &lt;sender_address&gt; &lt;data&gt;</code><br>
+	This sends a "raw" message to an HMW device using the HM485_LAN device &lt;name&gt;. This is usually not needed and requires deeper knowledge about the HMW protocol. It can be useful for devices, which are not properly supported by FHEM. However, it is usually easier to use the "set raw" command directly with the connected device. See the documentation for HM485 for details.<br>
+	The meaning of the parameters are as follows:
+	<ul>
+	<li><b>target</b> is the address of the device the message is sent to. It is an 8-character hex code.</li>
+	<li><b>control</b> is the control-byte of the message.</li>
+	<li><b>sender_address</b> is the address of the sender of the message. Usually, this is the address of the central, i.e. the HM485_LAN device itself. Also see attribute hmwId.</li>
+    <li><b>data</b> is the data, which is sent to the device.</li> 	
+	</ul>
+	</li>
+	<br>
+	<li><code>set &lt;name&gt; <b>discovery</b> start</code><br>
+	This starts the discovery mode. The system then searches for unknown devices on the RS485 bus connected to the HM485_LAN device &lt;name&gt;. New devices are automatically created in FHEM and paired with &lt;name&gt;. Refer to the documentation for HM485 devices for details.<br>
+	The discovery mode might not find all HM485 devices. E.g. some "Homebrew" devices do not send an answer on discovery messages. In this case, some message needs to be triggered by the device itself in order to detect and auto-create it.
+	</li>
+	<br>
+	<li><code>set &lt;name&gt; <b>broadcastSleepMode</b> off</code><br>
+	When entering the discovery mode, HM485 devices are not allowed to transmit anything except answers to discovery messages. This is done by the central (the HM485_LAN device) sending a "sleep mode" message. After discovery, the central sends a "sleep mode off" message. However, if something goes wrong, some devices might not receive the latter properly. For this case, the "sleep mode off" message can be triggered manually.
+	</li>
+	</ul>
+	<br>	
+	<b>Readings</b>
+	<ul>
+	<li><b>state</b><br>
+	This shows the status of the interface. The following values can occur:
+	<ul>
+	<li><b>opened</b> the device is connected and ready to read or write.</li>	
+	<li><b>failed</b> the system expected to read something from the device, but could not receive anything</li>
+	<li><b>disconnected</b> the system tried to connect to the device, but could not do so successfully.</li>
+	</ul>
+	</li>
+	</ul>
+    <br>		
+	<b>Attributes</b>
+	<ul>
+	<br>
+	<li><b>hmwId</b>: Homematic Wired Address<br>
+		This is the Homematic Wired address of the central device, i.e. the HM485_LAN. It must be a 8-digit hex number between 00000001 and 000000FF. By default, it is set to 00000001. It only needs to be changed if there are multiple Homematic Wired adapters connected.
+	</li>
+	<br>
+	<li><b>autoReadConfig</b>: When to read device configuration<br>
+		This is a default setting for the same attribute for HMW-devices (module HM485), which are connected to this HM485_LAN instance. It controls whether the device configuration is only read once at startup or everytime the device is disconnected.<br>
+		The following values are possible:
+		<ul>
+		<li><b>atstartup</b>: The configuration is only read from the device when it is created. This includes restarting FHEM. 
+		</li>
+		<li><b>always</b>: Everytime the device does not answer to a message, FHEM tries to re-read the configuration. This is done until the configuration can be read successfully.
+		</li>
+		</ul>
+		The standard value is "atstartup". Changing the dafault only makes sense in special cases.
+	</li>	
+	<br>
+	<li><b>do_not_notify</b>: Switch off events from this device<br>
+		If this attribute is set, the device won't create any events.
+	</li>
+	<br>	
+	<li><b>HM485d_bind</b>: Control the HM485d process<br>
+		Possible values are 0 and 1.
+		Set HM485d_bind to 1 to allow FHEM to handle HM485d. This means that you are then able to start, stop and restart the HM485d process. FHEM then also starts HM485d automatically and restarts it if it crashes. If you are using the HomeMatic Wired RS485 LAN Gateway, you should not set HM485d_bind. Otherwise, it most likely makes sense to set HM485d_bind to 1.  		
+	</li>
+	</ul>
+	<br>	
+	The following attributes only make sense when FHEM controls the HM485d process (HM485d_bind = 1). You can always set these attributes, but they are only used when FHEM starts the HM485d process. After changing one of these attributes, you need to restart the HM485d process, e.g. using <code>set &lt;name&gt; HM485d restart</code>.	
+	<ul>
+	<br>
+	<li><b>HM485d_startTimeout</b>: Time before connecting to HM485d<br>
+		Especially on slow machines (e.g. Raspberry Pi 1), it takes a few seconds until the HM485d process accepts a connection. By default, FHEM waits 5 seconds after starting the HM485d before attempting to connect to it. You can change this time using attribute HM485d_startTimeout. In case FHEM is not able to connect at the first attempt, it usually takes about 60 seconds until the next try. I.e. if HM485d_startTimeout is too small, you might only see the device state as "opened" 60 seconds later. 
+	</li>
+	<br>	
+	<li><b>HM485d_device</b>: Adress or file name of the physical device<br>
+		This is the device the HM485d process is supposed to connect to, i.e. either an ip address or the file name of a serial device, like USB. See above for examples.
+		This attribute must be set when HM485d_bind is 1. Otherwise, FHEM cannot start the HN485d process.
+	</li>
+	<br>	
+	<li><b>HM485d_serialNumber</b>: Emulated serial number<br>
+		This is the serial number which HM485d process uses as an identification with FHEM. It is mainly used to differentiate between multiple HM485d processes. This makes sense when you have more than one RS485 converters. Otherwise, you don't need to set it. (The default serial number is SGW0123456.)
+	</li>
+	<br>	
+	<li><b>HM485d_detach</b>: Don not stop HM485d with FHEM<br>
+	    Possible values are 0 and 1.
+	    If this attribute is set to 1, then the HM485d process does not stop when FHEM shuts down. It is usually not needed to set this attribute.
+	</li>
+	<br>	
+	<li><b>HM485d_logVerbose</b>: Log level of HM485d <br>
+		Possible values are 0,1,2,3,4 and 5. 
+		If this is set to a nonzero value, then the output from the HM485d process goes into the main FHEM logfile or into the HM485d logfile, if the next attribute is set.
+	</li>
+	<br>	
+	<li><b>HM485d_logfile</b>: Logfile for HM485d<br>
+		The HM485d process can write an own log file with &lt;HM485d_logfile&gt; as filename.
+	</li> 
+	</ul>
+	<br>	
+	The following three attributes can be used if the HM485 bus is connected via a simple UART, e.g. the one of a Raspberry Pi. In addition, there is a RS485 transceiver needed, of which the the "transmit enable" input needs to be controlled. This can e.g. be done using a GPIO pin of the Raspberry Pi. The following attributes can be used to control this pin. 
+	<ul>
+	<br>	
+	<li><b>HM485d_gpioTxenInit</b>: Initialize transmit control<br>
+		This can be used to set a shell command to initialize the pin for the transmit control.
+	</li>
+	<br>	
+	<li><b>HM485d_gpioTxenCmd0</b>: Reset the transmit enable pin<br>
+		This can be used to set a shell command to reset the transmit enable pin.
+	</li>
+	<br>	
+	<li><b>HM485d_gpioTxenCmd1</b>: Set the transmit enable pin<br>
+		This can be used to set a shell command to set the transmit enable pin.
+	</li>
 	</ul>
 </ul>
 
