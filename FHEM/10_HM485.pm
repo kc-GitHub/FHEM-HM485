@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0739 2016-01-03 18:33:00Z Thorsten Pferdekaemper $	
+# $Id: 10_HM485.pm 0743 2016-02-26 09:02:00Z Thorsten Pferdekaemper $	
 	
-	Version 0.7.39
+	Version 0.7.43
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -47,6 +47,9 @@ sub HM485_Define($$);
 sub HM485_Undefine($$);
 sub HM485_Rename($$);
 sub HM485_WaitForConfig($);
+sub HM485_WaitForConfigCond($);
+sub HM485_GetAutoReadConfig($);
+sub HM485_GetConfigReadRetries($);
 sub HM485_Parse($$);
 sub HM485_Set($@);
 sub HM485_Get($@);
@@ -74,7 +77,7 @@ sub HM485_SetStateAck($$$);
 sub HM485_SetAttributeFromResponse($$$);
 sub HM485_ProcessEvent($$);
 sub HM485_CheckForAutocreate($$;$$);
-sub HM485_SendCommand($$$);
+sub HM485_SendCommand($$$;$);
 #sub HM485_SendCommandState($);
 sub HM485_DoSendCommand($);
 sub HM485_ProcessChannelState($$$$);
@@ -157,12 +160,13 @@ sub HM485_Initialize($) {
 	# For FHEMWEB
 	$hash->{'FW_detailFn'}    = 'HM485_FhemwebShowConfig';
 
-	$hash->{'AttrList'}       =	'autoReadConfig:atstartup,always '. 
+	$hash->{'AttrList'}       =	'autoReadConfig:atstartup,always,never '. 
+							  'configReadRetries '.	
 							  'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 serialNr ' .
 	                          'model:' . HM485::Device::getModelList() . ' ' .
 	                          'subType stateFormat firmwareVersion setList ' .
-	                          'event-min-interval event-aggregator ' .
+	                          'event-min-interval event-aggregator IODev ' .
 	                          'event-on-change-reading event-on-update-reading';
 
 	#@attrListRO = ('serialNr', 'firmware', 'hardwareType', 'model' , 'modelName');
@@ -190,8 +194,8 @@ sub HM485_Define($$) {
 	my $msg    = undef;
 
 	RemoveInternalTimer($hash);  
-	if (int(@a)!=3 || (defined($a[2]) && $a[2] !~ m/^[A-F0-9]{8}_{0,1}[A-F0-9]{0,2}$/i)) {
-		$msg = 'wrong syntax: define <name> HM485 <8-digit-hex-code>[_<2-digit-hex-code>]';
+	if (int(@a)!=3 && int(@a)!=4 || (defined($a[2]) && $a[2] !~ m/^[A-F0-9]{8}_{0,1}[A-F0-9]{0,2}$/i)) {
+		$msg = 'wrong syntax: define <name> HM485 <8-digit-hex-code>[_<2-digit-hex-code>] [<IO-Device>]';
 
 	} elsif ($modules{'HM485'}{'defptr'}{$hmwId}) {
 		$msg = 'Device ' . $hmwId . ' already defined.'
@@ -219,19 +223,19 @@ sub HM485_Define($$) {
 			
 		} else {
 			# We defined the device
-			AssignIoPort($hash);
+			AssignIoPort($hash, $a[3]); 
 			HM485::Util::Log3($hash->{IODev}, 2, 'Assigned '.$addr.' as '.$name);
 		}
 
 		if (!$msg) {
-			
 			$modules{'HM485'}{'defptr'}{$hmwId} = $hash;
 			$hash->{'DEF'} = $hmwId;
 			
 			if ( defined($hash->{'IODev'}{'STATE'}) && length($hmwId) == 8) {
 				HM485_ReadingUpdate($hash, 'configStatus', 'PENDING');
 # We can always use WaitForConfig. It will do it's job eventually in any case.	
-				HM485_WaitForConfig($hash);	
+				$hash->{FailedConfigReads} = 0;
+				InternalTimer (gettimeofday(), 'HM485_WaitForConfigCond', $hash, 0);
 			}
 		}
 	}
@@ -289,6 +293,17 @@ sub HM485_Rename($$) {
 			$chnHash->{device} = $name;
 		} 
 	}
+}
+
+
+# Conditional wait for config, depending on
+# attribute autoReadConfig
+# Own function to enable start with timer
+sub HM485_WaitForConfigCond($) {
+	my ($hash) = @_;
+	if(HM485_GetAutoReadConfig($hash) ne 'never') {
+		HM485_WaitForConfig($hash);	
+	};	
 }
 
 
@@ -566,6 +581,9 @@ sub HM485_Get($@) {
 
 		} elsif ($cmd eq 'config') {
 			# get module config (eeprom data)
+			# This triggers a manual config read
+			# i.e. old errors don't matter
+			$hash->{FailedConfigReads} = 0;
 			HM485_GetConfig($hash, $hmwId);
 		} elsif ($cmd eq 'state') {
 			# abfragen des aktuellen Status
@@ -667,6 +685,16 @@ sub HM485_FhemwebShowConfig($$$) {
 sub HM485_SetConfigStatus($$) {
 	my ($hash, $status) = @_;
 	HM485_ReadingUpdate($hash, 'configStatus', $status);
+	if($status eq 'OK') {
+		$hash->{FailedConfigReads} = 0;
+	};
+	if($status eq 'FAILED') {
+		my $maxReads = HM485_GetConfigReadRetries($hash);
+		if(!defined($maxReads) || $maxReads > $hash->{FailedConfigReads} ) {
+			$hash->{FailedConfigReads}++;
+			InternalTimer( gettimeofday() + $defStart, 'HM485_WaitForConfig', $hash, 0);
+		}
+	}
 }
 
 
@@ -812,6 +840,22 @@ sub HM485_GetPeerSettings($$) {
 		
 	FW_directNotify("#FHEMWEB:WEB", "location.reload(true);","" ); 
 	return '';
+}
+
+
+sub HM485_GetAutoReadConfig($) {
+	my ($devHash) = @_; 
+	my $autoReadConfig = AttrVal($devHash->{NAME},'autoReadConfig','');   # vom Device selbst
+	if($autoReadConfig) { return $autoReadConfig };
+	return AttrVal($devHash->{IODev}{NAME},'autoReadConfig','atstartup'); # vom IO-Device
+}
+
+
+sub HM485_GetConfigReadRetries($) {
+	my ($devHash) = @_; 
+	my $configReadRetries = AttrVal($devHash->{NAME},'configReadRetries', undef);   # vom Device selbst
+	if(defined($configReadRetries)) { return $configReadRetries };
+	return AttrVal($devHash->{IODev}{NAME},'configReadRetries', undef); # vom IO-Device
 }
 
 
@@ -1008,6 +1052,10 @@ sub HM485_SetPeer($@) {
 		foreach my $sen (keys %{$senParams->{'sensor'}{'parameter'}}) {
 			
 			$configTypeHash = $senParams->{'sensor'}{'parameter'}{$sen};
+			# we only need stuff which is written to the EEPROM	
+			#if($configTypeHash->{physical}{interface} ne 'eeprom') {
+			#	next;
+			#};	
 			if (!defined($peering->{'sen'}{$sen})) {
 				$peering->{'sen'}{$sen} = HM485::PeeringManager::loadDefaultPeerSettings($configTypeHash);
 			}
@@ -1800,22 +1848,11 @@ sub HM485_SetStateNack($$) {
 
 	HM485::Util::Log3($devHash, 3, $txt . ' for ' . $hmwId);
 	
-	# config wird in folgenden Faellen neu gelesen:
-	#  - CONFIG_STATUS is nicht OK (d.h. wahrscheinlich abgebrochener get config Versuch)
+	# Config wird neu gelesen, wenn...
+	#  - CONFIG_STATUS ist OK (d.h. wir versuchen nicht sowieso schon, die config zu lesen)
 	#  - Attribut autoReadConfig ist auf "always"
 	my $doIt = 0;
-	# if($devHash->{CONFIG_STATUS} ne 'OK') {
-	if($devHash->{READINGS}{configStatus}{VAL} ne 'OK'){
-		$doIt = 1;
-	}else{
-		my $autoReadConfig = AttrVal($devHash->{NAME},'autoReadConfig','');   # vom Device selbst
-	    if($autoReadConfig eq 'always') {
-			$doIt = 1;
-		}elsif($autoReadConfig eq '' && AttrVal($devHash->{IODev}{NAME},'autoReadConfig','') eq 'always'){  # vom IO-Device
-			$doIt = 1;
-		}	
-	}
-	if($doIt) {
+	if($devHash->{READINGS}{configStatus}{VAL} eq 'OK' && HM485_GetAutoReadConfig($devHash) eq 'always'){
 		InternalTimer( gettimeofday() + $defStart, 'HM485_WaitForConfig', $devHash, 0);
 	}
 }
@@ -1956,7 +1993,7 @@ sub HM485_CheckForAutocreate($$;$$) {
 	
 		my $deviceName = '_' . $serialNr;
 		$deviceName = ($model ne $modelType) ? $model . $deviceName : 'HMW_' . $model . $deviceName;
-		DoTrigger("global",  'UNDEFINED ' . $deviceName . ' HM485 ' . $hmwId);
+		DoTrigger("global",  'UNDEFINED ' . $deviceName . ' HM485 ' . $hmwId.' '.$ioHash->{NAME});
 	}
 }
 
@@ -1967,8 +2004,8 @@ sub HM485_CheckForAutocreate($$;$$) {
 	@param	string  the HMW id
 	@param	string  the data to send
 =cut
-sub HM485_SendCommand($$$) {
-	my ($hash, $hmwId, $data) = @_;
+sub HM485_SendCommand($$$;$) {
+	my ($hash, $hmwId, $data, $queued) = @_;
 	if ( !$hmwId) {
 		my @param = split(' ', $hash);
 		$hash     = $param[0];
@@ -1987,7 +2024,7 @@ sub HM485_SendCommand($$$) {
 			};
 		}
 	
-		my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
+		my %params = (hash => $devHash, hmwId => $hmwId, data => $data, queued => $queued);
 		InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
 		HM485::Util::Log3( $devHash, 5, 'HM485_SendCommand: '.$data);
 	}
@@ -2003,6 +2040,7 @@ sub HM485_DoSendCommand($) {
 
 	my $hmwId       = $paramsHash->{hmwId};
 	my $data        = $paramsHash->{data};
+	my $queued      = $paramsHash->{queued};
 	my $requestType = substr( $data, 0, 2);  # z.B.: 53
 	my $hash        = $paramsHash->{hash};
 	my $ioHash      = $hash->{IODev};
@@ -2031,7 +2069,9 @@ sub HM485_DoSendCommand($) {
 		$ioHash->{'.waitForAck'}{$requestId}{requestData} = substr($data, 2);
 	}
 	#Tell Queue system
-	HM485_QueueSetRequestId($ioHash, $requestId);
+	if($queued) {
+		HM485_QueueSetRequestId($ioHash, $requestId);
+	};
 }
 
 =head2
@@ -2281,8 +2321,10 @@ sub HM485_QueueProcessStep() {
   my $currentEntry = ${$currentQueue->{entries}}[$currentQueue->{currentIndex}];
   
   HM485::Util::Log3( $currentEntry->{hash}, 5, 'HM485_QueueProcessStep: '.$currentEntry);
+  # Clear current request id. The current request id is then set when really sending the command
+  $currentQueue->{currentRequestId} = undef;
   HM485_SendCommand($currentEntry->{hash}, $currentEntry->{hmwId}, 
-                    $currentEntry->{data});
+                    $currentEntry->{data}, 1);
 }
 
 
@@ -2292,6 +2334,10 @@ sub HM485_QueueSetRequestId($$) {
   HM485::Util::Log3( $hash, 5, 'HM485_QueueSetRequestId start');
   if($#msgQueueList < 0){ return };  # ready, no Queues
   my $currentQueue = $msgQueueList[$currentQueueIndex];
+  if(defined($currentQueue->{currentRequestId})) {
+	HM485::Util::Log3( $hash, 5, 'HM485_QueueSetRequestId: Request Id already defined');
+    return;
+  }
   $currentQueue->{currentRequestId} = $requestId;
   HM485::Util::Log3( $hash, 5, 'HM485_QueueSetRequestId: Id: '. $requestId);
 }
@@ -2327,13 +2373,12 @@ sub HM485_QueueStepSuccess($$) {
 	  use strict "refs";
 	};  
   }else{
-  # process next entry. This is done in any case as there might be other queues
+    # process next entry. This is done in any case as there might be other queues
     HM485_QueueProcessStep();
   };
 }
 
 
-#called from SetStateNack
 sub HM485_QueueStepFailed($$) {
   my ($hash, $requestId) = @_;
   HM485::Util::Log3($hash, 5, 'HM485_QueueStepFailed Request ID: '.$requestId);
@@ -2358,7 +2403,6 @@ sub HM485_QueueStepFailed($$) {
     &{$currentQueue->{failureFn}}(@{$currentQueue->{failureParams}});
 	use strict "refs";
   };	
-
 }
 
 1;
@@ -2373,13 +2417,14 @@ sub HM485_QueueStepFailed($$) {
 	If you want to connect HMW devices to FHEM, at least one <a href="#HM485_LAN">HM485_LAN</a> is needed as IO-Device.
 	<br><br>
 	<b>How to create an HMW device in FHEM</b><br>
-	Usually, it is not needed to create any HMW device manually. You should either use the discovery mode (see <a href="#HM485_LAN">HM485_LAN</a>) or you make the device send any message over the bus by e.g. pressing a button on the device. In both cases, FHEM automatically detects the new device and creates it in FHEM.<br>
+	Usually, it is not needed to create any HMW device manually. You should either use the discovery mode (see <a href="#HM485_LAN">HM485_LAN</a>) or you make the device send any message over the bus by e.g. pressing a button on the device. In both cases, FHEM automatically detects the new device and creates it in FHEM. The device is automatically assigned to the correct HM485_LAN, in case you have more than one.<br>
 	The device is also automatically paired, i.e. the physical device itself then knows that it is connected to a central device and sends messages directed to this device accordingly. 
 	<br><br>
     <b>Define</b>
 	<ul>
-		<code>define &lt;name&gt; HM485 &lt;hmwid&gt;</code><br>
-		&lt;hmwid&gt; is the address of the device. This is an 8-digit hex code, which is unique to each device. For original HMW devices, this is set at the factory and cannot be changed.
+		<code>define &lt;name&gt; HM485 &lt;hmwid&gt; [&lt;io-device&gt;]</code><br>
+		&lt;hmwid&gt; is the address of the device. This is an 8-digit hex code, which is unique to each device. For original HMW devices, this is set at the factory and cannot be changed.<br>
+		&lt;io-device&gt; is the name of the IO-device (HM485_LAN) of the gateway where the device is attached to. This can be omitted if you have only one gateway. 		
 	</ul>	
 	<br>
 	<b>Set</b>
@@ -2504,18 +2549,32 @@ sub HM485_QueueStepFailed($$) {
 		</ul>	
 		<br>
 		<b>Attributes</b>
-		<br>
 		<ul>
+		<br>
 		<li><b>autoReadConfig</b>: When to read device configuration<br>
-			This attribute controls whether the device configuration is only read once at startup or everytime the device is disconnected.<br>
+			This attribute controls whether the device configuration is read automatically once at startup, everytime the device is disconnected or not at all.<br>
 			The following values are possible:
 			<ul>
 				<li><b>atstartup</b>: The configuration is only read from the device when it is created and when it is explicitly triggered using the command <code>get ... config all</code>. This includes restarting FHEM. 
 				</li>
-				<li><b>always</b>: Everytime the device does not answer to a message, FHEM tries to re-read the configuration. This is done until the configuration can be read successfully.
+				<li><b>always</b>: Everytime the device does not answer to a message, FHEM tries to re-read the configuration. 
+				</li>
+				<li><b>never</b>: FHEM does not read the device configuration automatically.  To read the config, it needs to be triggered explicitly using <code>get ... config all</code>. This also means that the configuration cannot be changed before <code>get ... config all</code> has been called.
 				</li>
 			</ul>
-			If this attribute is set in the assigned HM485_LAN device, then this value is used by default. Otherwise, the standard value is "atstartup". Changing the dafault only makes sense in special cases.
+			If this attribute is set in the assigned HM485_LAN device, then this value is used by default. Otherwise, the standard value is "atstartup". Changing the default only makes sense in special cases.
+		</li>
+		<br>
+		<li><b>configReadRetries</b>: Number of re-tries when reading the device configuration<br>
+			When this attribute is <b>not</b> set, FHEM tries to read the device configuration until successful. This might be problematic when there are a lot of devices and the communication is not really reliable. You actually control the number of re-tries, i.e. if <code>configReadRetries</code> is 0, FHEM might still try to read the configuration once, depending on the attribute <code>autoReadConfig</code>. If you want no automatic reading of the configuration at all, then set attribute <code>autoReadConfig</code> to <code>never</code>.<br>
+			It is possible to change <code>configReadRetries</code> while the system tries to read the configuration. This is helpful if e.g. a device stops working while startup. Then you can set <code>configReadRetries</code> to 0 to stop FHEM re-trying infinitely.<br>
+			It does not matter whether the configuration reading process is triggered automatically or by <code>get ... config all</code>. The system always considers <code>configReadRetries</code>.<br> 
+			If this attribute is set in the assigned HM485_LAN device, then this value is used by default. This way you can control the behaviour for all HM485 devices.
+		</li>
+		<br>
+		<li><b>IODev</b>: IO-Device the HM485 device is assigned to<br>
+			Normally, you do not need to change this. The device should be automatically created with the correct IO-Device (HM485_LAN) assigned. However, if you restructure your HM485 bus, devices might get a new gateway. You can then change the attribute <code>IODev</code> manually.<br>
+			Consider that direct peerings only work for devices which are directly connected. I.e. direct peerings won't work for devices which are assigned to different IO-Devices. 	
 		</li>
 		</ul>
 		<br>

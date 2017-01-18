@@ -1229,7 +1229,7 @@ sub getRawEEpromData($;$$$$) {
 	
 	my $hmwId   = $hash->{DEF};
 	my $devHash = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
-	HM485::Util::Log3($hash, 5, 'Device:getRawEEpromData hmwId = ' . $hmwId);
+	# HM485::Util::Log3($hash, 5, 'Device:getRawEEpromData hmwId = ' . $hmwId);
 	
 	my $blockLen = 16;
 	my $addrMax = 1024;

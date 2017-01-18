@@ -1,5 +1,5 @@
 =head1
-	00_HM485_LAN.pm Version 13.11.2015
+	00_HM485_LAN.pm Version 21.02.2016
 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -95,7 +95,8 @@ sub HM485_LAN_Initialize($) {
 		                     'HM485d_detach:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
 		                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
 		                     'HM485d_gpioTxenCmd1 '.
-							 'autoReadConfig:atstartup,always';
+							 'autoReadConfig:atstartup,always,never '.
+							 'configReadRetries';
 		
 		my %mc = ('1:HM485' => '^.*');
 		$hash->{Clients}    = ':HM485:';
@@ -123,8 +124,33 @@ sub HM485_LAN_Define($$) {
 		$msg = 'wrong syntax: define <name> HM485 {none | hostname:port}';
 	}
 
+	# Find a free hmwId
+	# Not really smart, but this should not really happen that often
+	my $hmwId;
+	my $i;
+	for($i = 1; $i < 256; $i++) {
+		$hmwId = sprintf("%08X",$i);
+		my $found = 0;
+		foreach my $d (values %defs) {
+			if($d->{TYPE} eq 'HM485_LAN') {
+				if(defined($d->{'hmwId'}) && $d->{'hmwId'} eq $hmwId)  {
+					$found = 1;
+					last;
+				}
+			}
+		}
+		if(!$found){
+			last;
+		}
+	}
+	# rather theoretical, but who knows...
+	if($i == 256) {
+		return 'Could not find a free hmwId';
+	}
+	# now $hmwId should be a free hmwId
+	
 	# create default hmwId on define, modify is possible e.g. via "attr <name> hmwId 00000002"
-	$ret = CommandAttr(undef, $name . ' hmwId 00000001');
+	$ret = CommandAttr(undef, $name . ' hmwId '.$hmwId);
 
 	if (!$ret) {
 		$hash->{DEF} = $a[2];
@@ -606,7 +632,7 @@ sub HM485_LAN_Attr (@) {
 	if ($attr eq 'hmwId') {
 		my $hexVal = (defined($val)) ? hex($val) : 0;
 		if (!defined($val) || $val !~ m/^[A-F0-9]{8}$/i || $hexVal > 255 || $hexVal < 1) {
-			return 'Wrong hmwId defined. hmwId must be 8 digit hex address within 00000001 and 000000FF';
+			return 'Wrong hmwId '.$val.' defined. hmwId must be 8 digit hex address within 00000001 and 000000FF';
 		};
 		foreach my $d (keys %defs) {
 			next if($d eq $name);
@@ -1003,6 +1029,7 @@ sub HM485_LAN_updateHM485dCommandLine($) {
 	my $HM485dLogVerbose   = AttrVal($name, 'HM485d_logVerbose',   undef);
 	
 	my $HM485dCommandLine = 'HM485d.pl';
+	$HM485dCommandLine.= ' --hmwId ' . $hash->{hmwId};
 	$HM485dCommandLine.= ($HM485dSerialNumber) ? ' --serialNumber ' . $HM485dSerialNumber : '';
 	$HM485dCommandLine.= ($HM485dDevice)       ? ' --device '       . $HM485dDevice       : '';
 	$HM485dCommandLine.= ($HM485dPort)         ? ' --localPort '    . $HM485dPort         : '';
@@ -1260,16 +1287,13 @@ sub HM485_LAN_HM485dStart($) {
 	</li>
 	<br>
 	<li><b>autoReadConfig</b>: When to read device configuration<br>
-		This is a default setting for the same attribute for HMW-devices (module HM485), which are connected to this HM485_LAN instance. It controls whether the device configuration is only read once at startup or everytime the device is disconnected.<br>
-		The following values are possible:
-		<ul>
-		<li><b>atstartup</b>: The configuration is only read from the device when it is created. This includes restarting FHEM. 
-		</li>
-		<li><b>always</b>: Everytime the device does not answer to a message, FHEM tries to re-read the configuration. This is done until the configuration can be read successfully.
-		</li>
-		</ul>
-		The standard value is "atstartup". Changing the dafault only makes sense in special cases.
+		This is a default setting for the same attribute for HMW-devices (module HM485), which are connected to this HM485_LAN instance. This attribute controls whether the device configuration is read automatically once at startup, everytime the device is disconnected or not at all.<br>
+		See the documentation for HM485 for details.
 	</li>	
+	<br>
+	<li><b>configReadRetries</b>: Number of re-tries when reading the device configuration<br>
+	This is a default setting for the same attribute for HMW-devices (module HM485), which are connected to this HM485_LAN instance. It controls how often the system tries to read the configuration. See the documentation for HM485 for details.
+	</li>
 	<br>
 	<li><b>do_not_notify</b>: Switch off events from this device<br>
 		If this attribute is set, the device won't create any events.
