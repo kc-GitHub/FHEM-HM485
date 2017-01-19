@@ -94,9 +94,12 @@ sub ServerTools_main () {
 	Log (1, 'Server started ...');
 
 	while (1) {
-		my ($rout, $rin) = ('', '');
-		my $timeout = handleTimeout();
 
+        my ($rout, $rin) = ('', '');
+		my $timeout = handleTimeout();
+        if (!defined($timeout)) { $timeout = 0.05; };
+		if ($timeout > 0.05) { $timeout = 0.05; };
+		
 		foreach my $p (keys %selectlist) {
 			vec($rin, $selectlist{$p}{FD}, 1) = 1;
 		}
@@ -123,6 +126,7 @@ sub ServerTools_main () {
 		# reported by select, but is used by unix too, to check if the device is
 		# attached again.
 		foreach my $p (keys %selectlist) {
+		    #	Log (1, "Key ". $p);
 			next if(!$selectlist{$p} || !$selectlist{$p}{NAME}); # due to rereadcfg/del
 
 			if(vec($rout, $selectlist{$p}{FD}, 1)) {
@@ -133,15 +137,15 @@ sub ServerTools_main () {
 			}
 		}
 
-#		foreach my $p (keys %readyfnlist) {
-#			next if(!$readyfnlist{$p});                 # due to rereadcfg / delete
-#
-#			if(CallFn($readyfnlist{$p}{NAME}, "ReadyFn", $readyfnlist{$p})) {
-#				if($readyfnlist{$p}) {                    # delete itself inside ReadyFn
-#					CallFn($readyfnlist{$p}{NAME}, "ReadFn", $readyfnlist{$p});
-#				}
-#			}
-#		}
+		foreach my $p (keys %readyfnlist) {
+			next if(!$readyfnlist{$p});                 # due to rereadcfg / delete
+
+			#if(CallFn($readyfnlist{$p}{NAME}, "ReadyFn", $readyfnlist{$p})) {
+			#	if($readyfnlist{$p}) {                    # delete itself inside ReadyFn
+					CallFn($readyfnlist{$p}{NAME}, "ReadFn", $readyfnlist{$p});
+			#	}
+			#}
+		}
 
 	}
 }
@@ -277,29 +281,20 @@ sub ServerTools_serialReconnect() {
 sub CallFn(@) {
 	my $d = shift;
 	my $n = shift;
+	my $hash = shift;   #PFE
 
-	if(!$selectlist{$d}) {
-		my $msg = 'Strange call for nonexistent ' . $d;
-		Log (0, $msg);
-		die($serverName . ': ' . $msg);
-	}
-
-	my $fn = $selectlist{$d}{$n};
+	my $fn = $hash->{$n};
 	if($fn) {
 		no strict "refs";
 		if(wantarray) {
-			my @ret = &{$fn}(@_);
+			my @ret = &{$fn}($hash, @_);
 			use strict "refs";
 			return @ret;
 		} else {
-			my $ret = &{$fn}(@_);
+			my $ret = &{$fn}($hash, @_);
 			use strict "refs";
 			return $ret;
 		}
-	} else {
-		my $msg = 'Strange call for nonexistent ' . $n . ' in  ' .  $d;
-		Log (0, $msg);
-		die($serverName . ': ' . $msg);
 	}
 		
 	return '';

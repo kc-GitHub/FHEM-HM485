@@ -28,7 +28,7 @@ DevIo_DoSimpleRead($)
   my ($buf, $res);
 
   if($hash->{USBDev}) {
-    $buf = $hash->{USBDev}->input();
+	$buf = $hash->{USBDev}->input();
 
   } elsif($hash->{DIODev}) {
     $res = sysread($hash->{DIODev}, $buf, 4096);

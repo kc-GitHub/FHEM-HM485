@@ -184,7 +184,6 @@ sub HM485_LAN_Define($$) {
 sub HM485_LAN_Ready($) {
 	my ($hash) = @_;
 
-	HM485::Util::Log3($hash, 5, 'HM485_LAN_Ready called');
 	
 	if ( ! $hash->{STATE} eq "disconnected" ) {
 		return undef;  # nothing to do in this case

@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0743 2016-02-26 09:02:00Z Thorsten Pferdekaemper $	
+# $Id: 10_HM485.pm 0744 2017-01-19 06:54:00Z Thorsten Pferdekaemper $	
 	
-	Version 0.7.43
+	Version 0.7.44
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
