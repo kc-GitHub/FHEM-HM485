@@ -184,7 +184,6 @@ sub HM485_LAN_Define($$) {
 sub HM485_LAN_Ready($) {
 	my ($hash) = @_;
 
-	
 	if ( ! $hash->{STATE} eq "disconnected" ) {
 		return undef;  # nothing to do in this case
 	};
@@ -925,6 +924,7 @@ sub HM485_LAN_KeepAliveCheck($) {
 	my $hash = $defs{$name};
 
 	if (!$hash->{keepalive}{ok}) {
+	    HM485::Util::Log3($hash, 5, 'HM485_LAN_KeepAliveCheck failed');
 		# we got no keepalive answer 
 		if ($hash->{keepalive}{retry} >= KEEPALIVE_MAXRETRY) {
 			# keepalive retry count reached. Disonnect.
