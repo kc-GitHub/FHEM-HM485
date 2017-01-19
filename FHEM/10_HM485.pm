@@ -1,7 +1,7 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0744 2017-01-19 06:54:00Z Thorsten Pferdekaemper $	
+# $Id: 10_HM485.pm 0744 2017-01-19 06:54:00Z ThorstenPferdekaemper $	
 	
 	Version 0.7.44
 				 
