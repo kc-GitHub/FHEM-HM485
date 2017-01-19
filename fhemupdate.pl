@@ -30,6 +30,7 @@ my @filelist2 = (
   "FHEM/.*.pm",
   "FHEM/lib/HM485/.*.pm",
   "FHEM/lib/HM485/Devices/.*.pm",
+  "FHEM/lib/HM485/Devices/xml/.*.xml",
   "FHEM/lib/HM485/HM485d/.*.pm",
   "FHEM/lib/HM485/HM485d/.*.pl",
   "www/pgm2/.*"
