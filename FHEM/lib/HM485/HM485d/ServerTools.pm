@@ -97,15 +97,16 @@ sub ServerTools_main () {
 
         my ($rout, $rin) = ('', '');
 		my $timeout = handleTimeout();
-        if (!defined($timeout)) { $timeout = 0.05; };
-		if ($timeout > 0.05) { $timeout = 0.05; };
+		if ($^O eq "MSWin32"){
+            if (!defined($timeout)) { $timeout = 0.05; };
+		    if ($timeout > 0.05) { $timeout = 0.05; };
+		};
 		
 		foreach my $p (keys %selectlist) {
 			vec($rin, $selectlist{$p}{FD}, 1) = 1;
 		}
 
 		my $nfound = select($rout = $rin, undef, undef, $timeout);
-		my $readytimeout = ($^O eq "MSWin32") ? 0.1 : 5.0;
 
 		if ($sigTerm) {
 			ServerTools_serverShutdown();
