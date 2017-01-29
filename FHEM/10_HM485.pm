@@ -159,6 +159,9 @@ sub HM485_Initialize($) {
 	
 	# For FHEMWEB
 	$hash->{'FW_detailFn'}    = 'HM485_FhemwebShowConfig';
+	# The following line means that the overview is shown
+	# as header, even though there is a FW_detailFn
+	$hash->{'FW_deviceOverview'} = 1;
 
 	$hash->{'AttrList'}       =	'autoReadConfig:atstartup,always,never '. 
 							  'configReadRetries '.	

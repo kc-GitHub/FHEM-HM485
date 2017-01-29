@@ -183,7 +183,8 @@ sub makeConfigTable($$$) {
 		$rowCount++;
 	}
 
-	if (keys %{$configHash}) {
+	# rowCount starts with 1, so > 1 means "anything at all"
+	if ($rowCount > 1) {
 		my $rowClass = ($rowCount & 1) ? 'odd' : 'even';
 		$content.= wrapTr(
 			wrapTd() . wrapTd('<input type="submit" name ="submit.HM485.'.$className.
