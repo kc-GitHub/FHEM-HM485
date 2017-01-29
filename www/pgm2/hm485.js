@@ -2,8 +2,7 @@ function FW_HM485setConfigSubmit(name, form) {
 	var retVal = false;
 
 	var submitBtn = document.getElementsByName('submit.HM485.config')[0];
-	console.log(submitBtn.getAttribute('disabled'));
-	if (!submitBtn.getAttribute('disabled')) {
+	if (submitBtn && !submitBtn.getAttribute('disabled')) {
 
 		var setName = 'val.HM485.config.set';
 		
@@ -23,8 +22,7 @@ function FW_HM485setConfigSubmit(name, form) {
 	}
 	
 	var submitBtn = document.getElementsByName('submit.HM485.settings')[0];
-	console.log(submitBtn.getAttribute('disabled'));
-	if (!submitBtn.getAttribute('disabled')) {
+	if (submitBtn && !submitBtn.getAttribute('disabled')) {
 		
 		var setName = 'val.HM485.settings.set';
 		
@@ -49,7 +47,11 @@ function FW_HM485setConfigSubmit(name, form) {
 
 function FW_HM485setChange(el) {
 	var submitBtn = document.getElementsByName('submit.HM485.config')[0];
-	submitBtn.removeAttribute('disabled');
+	if(submitBtn) {
+	    submitBtn.removeAttribute('disabled');
+	};	
 	var submitBtn = document.getElementsByName('submit.HM485.settings')[0];
-	submitBtn.removeAttribute('disabled');
+	if(submitBtn) {	
+	    submitBtn.removeAttribute('disabled');
+	};	
 }
