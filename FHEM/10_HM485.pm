@@ -30,7 +30,6 @@ use lib abs_path("$FindBin::Bin");
 use lib::HM485::Constants;
 use lib::HM485::Device;
 use lib::HM485::Util;
-use lib::HM485::FhemWebHelper;
 use lib::HM485::ConfigurationManager;
 use lib::HM485::PeeringManager;
 #use lib::HM485::Command;
@@ -68,7 +67,6 @@ sub HM485_SetChannelState($$$);
 sub HM485_ValidateSettings($$$);
 sub HM485_SetWebCmd($;$);
 sub HM485_GetHashByHmwid ($);
-sub HM485_GetPeerSettings($$);
 
 #Communication related functions
 sub HM485_ProcessResponse($$$);
@@ -107,12 +105,13 @@ my %setsCh = ();
 # Default get commands for device
 my %getsDev = (
 	'info'    => 'noArg', # maybe only for debugging
-	'config'  => 'all',
+	'config'  => 'all,',
 	'state'   => 'noArg',
 );
 
 # Default get commands for channel
-my %getsCh = ('state' => 'noArg');
+my %getsCh = ('state' => 'noArg',
+              'config' => 'noArg');
 
 my $defStart = 5;
 
@@ -542,6 +541,86 @@ sub HM485_Set($@) {
 	return $msg;  
 }
 
+sub HM485_ConfigVar2Json($);  # wegen Rekursion
+
+sub HM485_ConfigVar2Json($){
+    my ($var) = @_;
+	my $result = "";
+	return "\"\"" if(!defined($var)); 
+	if(ref($var) eq "HASH") {
+		$result = '{';
+	    my $afterfirst = 0;
+	    foreach my $key (sort keys %{$var}) {
+	        if($afterfirst) {
+		        $result .= ',';
+		    }else{
+                $afterfirst = 1;
+            };			
+	        $result .= "\n";
+	        $result .= '"'.$key.'":';
+			if($key eq "possibleValues") {
+		        $result .= " [ ";
+	            for(my $i = 0; $i < int(@{$var->{$key}}); $i++) {
+		            $result .= "," if($i > 0);
+			        $result .= HM485_ConfigVar2Json($var->{$key}[$i]{id});	
+                };
+		        $result .= " ] ";
+			}else{
+			    $result .= HM485_ConfigVar2Json($var->{$key});
+			};	
+	    };
+	    $result .= "\n}";
+	}elsif(ref($var) eq "ARRAY") {
+		$result .= " [ ";
+	    for(my $i = 0; $i < int(@{$var}); $i++) {
+		    $result .= "," if($i > 0);
+			$result .= HM485_ConfigVar2Json($var->[$i]);	
+        };
+		$result .= " ] ";
+    }else{	
+	    $result .= '"'.$var.'"';
+	};	
+    return $result;
+};
+
+
+sub HM485_GetPeerConfig($$$) {
+	my ($hash, $peerType, $peerId) = @_;
+	# peerType: sensor or actuator
+	
+	my $linkParams	= HM485::PeeringManager::getLinkParams($hash->{devHash});
+	my $retVal = {};
+	return {} unless(ref($linkParams->{$peerType}) eq 'HASH');
+	
+	my $adrStart = $linkParams->{$peerType}{address_start} +
+		    ($peerId * $linkParams->{$peerType}{address_step});
+	foreach my $setting (keys %{$linkParams->{$peerType}{parameter}}) {
+		# next if ($setting eq 'channel' || $setting eq 'sensor');
+		my $settingHash = HM485::ConfigurationManager::writeConfigParameter($hash->{devHash},
+				$linkParams->{$peerType}{parameter}{$setting},
+				$adrStart,
+				$linkParams->{$peerType}{address_step});
+		$retVal->{$setting} = $settingHash if($settingHash);
+	}
+	$retVal->{peerId}{value} = $peerId;
+	$retVal->{peerId}{hidden} = 1;
+	#insert the actuator address into the peering hash hmmmm!
+	#todo better way ?
+	$retVal->{hmid}{value}	= $hash->{devHash}{DEF};
+	$retVal->{hmid}{hidden} = 1;
+	#we also need the name of the sensor side channel
+	# TODO: das wird eigentlich nur gebraucht, weil "set settings" falsch herum ist
+	if(defined($retVal->{sensor})){
+	    my $peerHash = $main::modules{HM485}{defptr}{$retVal->{sensor}{value}};
+       	if (ref($peerHash) eq 'HASH') {
+			$retVal->{sensorname}{value} = $peerHash->{NAME};
+	        $retVal->{sensorname}{hidden} = 1;
+		};	
+	};
+	return $retVal;
+}
+
+
 
 =head2
 	Implements getFn
@@ -557,14 +636,14 @@ sub HM485_Get($@) {
 
 	my $name = $params[0];
 	my $cmd  = $params[1];
-	my $args = $params[2];
-	my $peerList = $chNr ? HM485::PeeringManager::getPeerableChannels($hash) : undef;
+	my $args = $params[2] ? $params[2] : "";
 	my %gets = $chNr > 0 ? %getsCh : %getsDev;
 	my $msg  = '';
 	my $data = '';
 	
-	if ($peerList->{'peered'}) {
-		$gets{'peersettings'} = $peerList->{'peered'};
+    if($chNr){	
+		$gets{'peerlist'} = 'noArg';
+		$gets{'peerconfig'} = 0;
 	}
 	
 	if (@params < 2) {
@@ -582,18 +661,62 @@ sub HM485_Get($@) {
 			# all infos (moduleType, serialNumber, firmwareVersion)
 			HM485_GetInfos($hash, $hmwId, 0b111);
 
-		} elsif ($cmd eq 'config') {
+		} elsif ($cmd eq 'config' and $args eq 'all') {
 			# get module config (eeprom data)
 			# This triggers a manual config read
 			# i.e. old errors don't matter
 			$hash->{FailedConfigReads} = 0;
 			HM485_GetConfig($hash, $hmwId);
+		} elsif ($cmd eq 'config') {
+		    # do we have a valid config?
+		    my $devHash = (defined($hash->{devHash}) ? $hash->{devHash} : $hash);
+	        my $configReady = ($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
+			my $configHash = undef;
+            if($configReady) {
+		        $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
+			}else{
+                $configHash = { ".message" =>
+				                  { "value" => "Device not completely loaded yet. Try again later.",
+								    "input" => 0,
+									"type" => "text" } };
+            };			
+		    $msg = HM485_ConfigVar2Json($configHash);
+		}elsif ($cmd eq 'peerconfig') {
+            $msg = HM485_ConfigVar2Json(HM485_GetPeerConfig($hash,$args, $params[3]));		
 		} elsif ($cmd eq 'state') {
 			# abfragen des aktuellen Status
 			$data = sprintf ('53%02X', $chNr-1);  # Channel als hex- Wert
 			HM485_SendCommand( $hash, $hmwId, $data);
-		} elsif ($cmd eq 'peersettings') {
-			$msg = HM485_GetPeerSettings($hash, $args);	
+		} elsif ($cmd eq 'peerlist') {
+		    my $deviceLinks = HM485::PeeringManager::getLinksFromDevice($hash->{devHash});
+			my $peerings = { };
+			foreach my $peerNum (keys %{$deviceLinks->{actuators}}) {
+			    next if($deviceLinks->{actuators}{$peerNum}{channel} != $chNr);
+				#found a peering for this channel
+				#get readable name
+				my $peerHash = $main::modules{HM485}{defptr}{$deviceLinks->{actuators}{$peerNum}{actuator}};
+				# TODO: can it be that a channel is sensor and actor?
+	        	if (ref($peerHash) eq 'HASH') {
+				    $peerings->{actuators}{$peerNum} = $peerHash->{NAME};
+	            }else{
+				    $peerings->{actuators}{$peerNum} = "(".$deviceLinks->{actuators}{$peerNum}{actuator}.")";
+				};
+			};
+			foreach my $peerNum (keys %{$deviceLinks->{sensors}}) {
+			    next if(!defined($deviceLinks->{sensors}{$peerNum}{channel}));
+			    next if($deviceLinks->{sensors}{$peerNum}{channel} != $chNr);
+				#found a peering for this channel
+				#get readable name
+				my $peerHash = $main::modules{HM485}{defptr}{$deviceLinks->{sensors}{$peerNum}{sensor}};
+				# TODO: can it be that a channel is sensor and actor?
+	        	if (ref($peerHash) eq 'HASH') {
+				    $peerings->{sensors}{$peerNum} = $peerHash->{NAME};
+	            }else{
+				    $peerings->{sensors}{$peerNum} = "(".$deviceLinks->{sensors}{$peerNum}{sensor}.")";
+				};
+			};
+			# TODO: don't duplicate the complete coding above
+			$msg = HM485_ConfigVar2Json($peerings);
 		}
 	}
 
@@ -657,18 +780,44 @@ sub HM485_Attr($$$$) {
 =cut
 sub HM485_FhemwebShowConfig($$$) {
 	my ($fwName, $name, $roomName) = @_;
-
 	my $hash = $defs{$name};
+	# get html to show config
+	# if the config is not synched, then we only display the config
+	# but it cannot be changed
+    # TODO: remove this? Anyway this won't be displayed
+	my $devHash = (defined($hash->{devHash}) ? $hash->{devHash} : $hash);
+	my $configReady = ($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
+	
+	# do we have anything peered with this one?
+	# TODO: This is relatively expensive
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-
-	my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
-
-	#TODO newer FHEM Versions changed, so we need a trigger or something to update Fhemweb
-    my $linkHash 		= $hash->{'peerings'};
-	my $content = HM485::FhemWebHelper::showConfig($hash, $configHash, $linkHash);
-
-	return $content;
+	# my $peerList = $chNr ? HM485::PeeringManager::getPeerableChannels($hash) : undef;
+    my $isChannel = $chNr ? "yes" : "no";
+	# if this is a channel, does it have peerings?
+	my $peered = "no";
+	if($isChannel eq "yes"){
+		my $deviceLinks = HM485::PeeringManager::getLinksFromDevice($devHash);
+		foreach my $peerNum (keys %{$deviceLinks->{sensors}}) {
+		    next if(!defined($deviceLinks->{sensors}{$peerNum}{channel}));
+		    next if($deviceLinks->{sensors}{$peerNum}{channel} != $chNr);
+			#found a peering for this channel
+			$peered = "yes";
+			last;
+		};
+	};
+    # does this channel/device have config?
+	my $hasConfig = 'no';
+    my $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
+    foreach my $key (keys %{$configHash}) {
+	    next if($configHash->{$key}{hidden});
+		$hasConfig = 'yes';
+		last;
+	};
+	
+	return '<div id="configArea" data-name="'.$name.'" data-hasconfig="'.$hasConfig.'" data-ischannel="'.$isChannel.'" data-peered="'.$peered.'"></div>'. 
+	'<script type="text/javascript">{ FW_HM485CloseConfigDialog();} </script>';
 }
+
 
 ###############################################################################
 # Device related functions
@@ -826,23 +975,6 @@ sub HM485_CreateAndReadChannels($$) {
 		}
 	}
 	HM485_QueueStart($devHash, $queue);
-}
-
-
-sub HM485_GetPeerSettings($$) {
-	my ($hash, $arg) = @_;
-	
-	my $sensor   = $hash->{DEF};
-	HM485::Util::Log3($hash, 4, 'Get peer settings for device ' . $sensor . ' -> ' . $arg);
-	my $peerHash = HM485::PeeringManager::getPeerSettingsFromDevice($arg, $sensor);
-	if(!defined($peerHash)) {
-	  return 'Device '.$arg.' does not exist or is not peered with '.$hash->{NAME};
-	}
-	
-	$hash->{peerings} = $peerHash;
-		
-	FW_directNotify("#FHEMWEB:WEB", "location.reload(true);","" ); 
-	return '';
 }
 
 
@@ -1327,7 +1459,7 @@ sub HM485_SetConfig($@) {
 
 sub HM485_SetSettings($@) {
 	my ($hash, @values) = @_;
-	
+		
 	my $name = $hash->{'NAME'};
 	shift(@values);
 	shift(@values);
@@ -1353,7 +1485,7 @@ sub HM485_SetSettings($@) {
 						$peerId = $value;	
 					} elsif ($configType eq 'actuator') {
 						$actuator = $value;
-					} elsif ($value ne $hash->{'peerings'}{$configType}{'value'}) {
+					} else {
 						$setSettingsHash->{$configType} = $value;	
 						$configType = undef;
 					}

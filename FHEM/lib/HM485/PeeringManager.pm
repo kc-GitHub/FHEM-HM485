@@ -443,52 +443,6 @@ sub getLinksFromDevice($) {
 	return $peers;
 }
 
-sub getPeerSettingsFromDevice($$) {
-	my ($arg, $sensor) = @_;
-	
-	my $hmwid 		= getHmwIdByDevName($arg);
-	# if the get command was rubbish or the peer does not exist anymore,
-	# the coding below would create issues
-	if(!defined($hmwid)) { return undef; };
-	my $hash		= $main::modules{HM485}{defptr}{substr($hmwid, 0, 8)};
-	my $linkParams	= getLinkParams($hash);
-	my $peerId		= getPeerId($hash, $sensor, substr($hmwid, 9, 2), 0);
-	my $retVal;
-	
-	if (defined ($peerId) && ref($linkParams->{sensor}) eq 'HASH') {
-		
-		my $adrStart = $linkParams->{sensor}{address_start} +
-		    ($peerId * $linkParams->{sensor}{address_step}
-		);
-
-		foreach my $setting (keys %{$linkParams->{sensor}{parameter}}) {
-						
-			if ($setting eq 'channel' || $setting eq 'sensor') {
-				next;
-			}
-						
-			my $settingHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-				$linkParams->{sensor}{parameter}{$setting},
-				$adrStart,
-				$linkParams->{sensor}{address_step}
-			);
-
-			$retVal->{$setting} = $settingHash;
-		}
-		
-		#insert the actuator address into the peering hash hmmmm!
-		#todo better way ?
-		$retVal->{actuator}{value}	= $hash->{DEF};
-		$retVal->{actuator}{type}	= 'address';
-		$retVal->{actuator}{unit}	= '';
-		$retVal->{peerId}{value}	= $peerId;
-		$retVal->{peerId}{type}		= 'address';
-		$retVal->{peerId}{unit}		= '';
-	}
-	
-	return $retVal;
-}
-
 #convert a confighash to a addresshash
 sub configDataToAddressData($$$$) {
 	my ($devHash, $configData, $adressStart, $adressStep) = @_;

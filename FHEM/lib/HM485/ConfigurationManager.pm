@@ -86,12 +86,14 @@ sub writeConfigParameter($$;$$) {
 	my ($hash, $parameterHash, $addressStart, $addressStep) = @_ ;
 	
 	my $retVal = convertSettingsToDataFormat($parameterHash);
-	
+
 	my $addrStart = $addressStart ? $addressStart : 0;
 	#address_steps gibts mehrere Varianten
 	my $addrStep = $addressStep ? $addressStep : 0;
 	#physical can be a ARRAY
 	if (ref $parameterHash->{'physical'} eq 'HASH') {
+        # we are only interested in what's stored in the EEPROM
+        return undef if($parameterHash->{physical}{interface} ne 'eeprom');		
 		if($parameterHash->{'physical'}{'address'}{'step'}) {
 			$addrStep = $parameterHash->{'physical'}{'address'}{'step'};
 		};
@@ -100,10 +102,8 @@ sub writeConfigParameter($$;$$) {
 		);
 	} elsif (ref $parameterHash->{'physical'} eq 'ARRAY') {
 		my $peerHash;
-		
 		foreach my $phyHash (@{$parameterHash->{'physical'}}) {
 			$peerHash->{'physical'} = $phyHash;
-      		
       		if ($phyHash->{'size'} eq '4') {
       			my $address = HM485::Device::getValueFromEepromData (
 				$hash, $peerHash, $addressStart, $addressStep
