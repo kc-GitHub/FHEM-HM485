@@ -599,6 +599,12 @@ sub getValueFromEepromData($$$$;$) {
 				$retVal = ($eepromValue != 0xFFFFFFFF) ? $retVal : $default; 
 			}
 		}
+		# care for special value
+		if(defined($configHash->{logical}{special_value}) &&
+                $retVal == $configHash->{logical}{special_value}{value}) {
+            $retVal = $configHash->{logical}{special_value}{id};
+        };        		
+		
 	}
 	
 	return $retVal;
@@ -1101,24 +1107,27 @@ sub dataConvertValue ($$$) {
 		}
 
 	} elsif ($type eq 'float_configtime') {
-		my $valSize = $convertConfig->{'value_size'} ?
-					  $convertConfig->{'value_size'} : 0;
-		# i only need the first 2 bits
-		my $factor  = $mask >> ($valSize * 10 - 2);
+		my $valSize = $convertConfig->{'value_size'};
 		my @factors = split (',',$convertConfig->{'factors'});
-		
 		if ($dir eq 'to_device') {
-			if ($factor == 3) {
-				#special_value
-				$retVal = $mask;
-			} else {
-				$retVal = int ($value / $factors[$factor]);
-			}
-			
+		    # We need to find the smallest factor, so that value/factor fits in the field
+			my $maxDevValue = (1 << ($valSize * 10 - 2)) - 1;  # normally 16383
+			my $i = 0;
+			for(;$i < @factors; $i++) {
+			    $retVal = int($value / $factors[$i]);
+				last if($retVal <= $maxDevValue);
+			};
+			# if this did NOT work, then $i is now too large
+			# return largest possible value
+			if($i >= @factors) {
+			    $i = @factors -1;
+				$retVal = $maxDevValue;
+			};
+			$retVal += $i << ($valSize * 10 - 2);
 		} elsif ($dir eq 'from_device') {
-			$retVal = ($value - $mask) * $factors[$factor];
-			#special_value
-			if ($retVal == 0 && $factor == 3) { $retVal = $value; }
+		    # i only need the first 2 bits
+		    my $factor  = $mask >> ($valSize * 10 - 2);
+		    $retVal = ($value - $mask) * $factors[$factor];
 		}
 	}
 	

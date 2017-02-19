@@ -33,6 +33,9 @@ sub convertSettingsToDataFormat($) {
 			$retVal->{'max'} = $max;	
 		}
 	};
+	if(defined($parameterHash->{logical}{special_value})) {
+	    $retVal->{special_value} = $parameterHash->{logical}{special_value};
+	};
 	
 	return $retVal;
 }

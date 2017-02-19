@@ -466,6 +466,13 @@ sub configDataToAddressData($$$$) {
 			$adrConfig->{$adrId}{chan} = $configData->{$sort}{chan};
 		}
 		
+		# care for special_value
+		if (defined($configData->{$sort}{config}{logical}) &&
+		        defined($configData->{$sort}{config}{logical}{special_value}) &&
+			    $configData->{$sort}{value} eq $configData->{$sort}{config}{logical}{special_value}{id}) {
+			$configData->{$sort}{value} = $configData->{$sort}{config}{logical}{special_value}{value};
+		};		
+		
 		if (ref($configData->{$sort}{config}{logical}) eq 'HASH' &&
 				$configData->{$sort}{config}{logical}{type} eq 'option')
 		{

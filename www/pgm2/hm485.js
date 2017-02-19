@@ -7,21 +7,7 @@ function FW_HM485ConfigSaveClicked(name) {
 		configValue += $(this).attr('name') + ' ' + $(this).val() + ' ';
     });
 	var cmd = '/fhem?XHR=1&cmd=set ' + name + ' config ' + configValue;
-    FW_cmd(cmd);		
-	FW_HM485CloseConfigDialog();
-}
-
-
-function FW_HM485PeersettingsSaveClicked(name) {
-	var submitBtn = $("#submit.HM485.config");
-	if (submitBtn && !submitBtn.attr('disabled')) {	
-		var configValue = '';
-		$( ".argHM485settings" ).each(function() {
-			configValue += $(this).attr('name') + ' ' + $(this).val() + ' ';
-        });
-		var cmd = '/fhem?XHR=1&cmd=set ' + name + ' settings ' + configValue;
-        FW_cmd(cmd);		
-	}
+    FW_cmd(cmd,FW_HM485SaveClickedCallback);		
 }
 
 
@@ -47,13 +33,21 @@ function FW_HM485PeerConfigSaveClicked(name) {
 			case 'sensorname':
                 sensorName = $(this).val();
                 break;
-            case 'channel':
+			case 'channel':
                 // ignore
                 break;				
             case 'hmid':
 		        configValue += 'actuator ' + $(this).val() + ' ';
 			default:
-		        configValue += $(this).attr('name') + ' ' + $(this).val() + ' ';
+			    // check if there is a special_value and whether it is clicked
+				var special = $("#HM485-config-" + $(this).attr('name') + "-special_value");
+				var val = $(this).val();
+				if(special) {
+                    if(special.is(':checked')) {
+						val = special.val();
+					};
+				};	
+		        configValue += $(this).attr('name') + ' ' + val + ' ';
 		};
     });
 	if(isSensor) return;
@@ -62,9 +56,18 @@ function FW_HM485PeerConfigSaveClicked(name) {
 		return;
 	};	
 	var cmd = '/fhem?XHR=1&cmd=set ' + sensorName + ' settings ' + configValue;
-    FW_cmd(cmd);		
-	FW_HM485CloseConfigDialog();
+    FW_cmd(cmd,FW_HM485SaveClickedCallback);		
 }
+
+
+function FW_HM485SaveClickedCallback(msg){
+	if(msg.length){
+		FW_errmsg(msg,5000);
+	}else{
+		FW_errmsg("Config saved",5000);
+	    FW_HM485CloseConfigDialog();
+	};
+};	
 
 
 function FW_HM485OpenConfigDialog() {
@@ -81,11 +84,11 @@ function FW_HM485OpenPeerList() {
 };	
 
 
-function FW_HM485OpenPeerConfigDialog(actSen,peerId) {
+function FW_HM485OpenPeerConfigDialog(peerId) {
 	var configArea = $("#configArea");
 	// XMLHTTP request to get config options with current values
-	FW_cmd('/fhem?XHR=1&cmd=get ' + configArea.attr('data-name') + ' peerconfig ' 
-	                              + actSen.slice(0,-1) + ' ' + peerId, FW_HM485PeerConfigCallback);
+	FW_cmd('/fhem?XHR=1&cmd=get ' + configArea.attr('data-name') + ' peerconfig sensor ' + peerId,
+	           FW_HM485PeerConfigCallback);
 };	
 
 
@@ -120,8 +123,14 @@ function FW_HM485OCDCallback(configJson) {
 
 	var configArea = $("#configArea");	
     var htmlObj = { even : false,
-	                html : "<div class=\"makeTable wide\">Device Configuration<br><table class=\"block wide\"><tbody>" 
+	                html : "<div class=\"makeTable wide\">"
 				  };
+    if(configArea.attr('data-ischannel') == "yes") {
+		htmlObj.html += "Channel";
+	}else{
+        htmlObj.html += "Device";
+    };		
+	htmlObj.html += " Configuration<br><table class=\"block wide\"><tbody>";	  
 	FW_HM485MakeConfigTable(config, htmlObj)
 	htmlObj.html += "<tr class=";
 	if(htmlObj.even){
@@ -161,7 +170,7 @@ function FW_HM485MakeConfigTable(config, htmlObj) {
         switch(config[cName].type){
             case 'option':
 			// <select name="input_type" class="argHM485config" ><option value="0">switch</option><option value="1" selected="selected">pushbutton</option></select>
-			    htmlObj.html += "<select name=\"" + cName + "\" class=\"argHM485config\">";
+			    htmlObj.html += "<select id=\"HM485-config-" + cName + "\" name=\"" + cName + "\" class=\"argHM485config\">";
 				for(var i = 0; i < config[cName].possibleValues.length; i++) {
 					htmlObj.html += "<option value=\"" + i.toString() + "\"";
 					if(i == parseInt(config[cName].value)) {
@@ -173,7 +182,7 @@ function FW_HM485MakeConfigTable(config, htmlObj) {
 				break;
 			case 'boolean':
 			// <select ncSame="input_locked" class="argHM485config" ><option value="0" selected="selected">no</option><option value="1">yes</option></select>
-			    htmlObj.html += "<select name=\"" + cName + "\" class=\"argHM485config\">";
+			    htmlObj.html += "<select id=\"HM485-config-" + cName + "\" name=\"" + cName + "\" class=\"argHM485config\">";
 				if(parseInt(config[cName].value)) {
                     htmlObj.html += "<option value=\"0\">no</option><option value=\"1\" selected=\"selected\">yes</option>"; 
                 }else{
@@ -191,9 +200,19 @@ function FW_HM485MakeConfigTable(config, htmlObj) {
                 if(config[cName].type == "float") {
                     cSize++;
                 };
-                htmlObj.html += "<input type=\"text\" size=\"" + cSize.toString() + "\" name=\"" + cName + "\" " + 
-				        "value=\"" + config[cName].value + "\" class=\"argHM485config\" "+
-						"style=\"text-align:right;\" />";		
+                htmlObj.html += "<input id=\"HM485-config-" + cName + "\" type=\"text\" size=\"" + cSize.toString() + "\" name=\"" + cName + "\" " + "value=\"";
+				// special value?
+				var special = false;
+                if(config[cName].hasOwnProperty("special_value")){
+				    if(config[cName].special_value.id == config[cName].value) 
+						special = true;	
+                };
+				if(special) {
+					htmlObj.html += "\" disabled";
+				}else{
+                    htmlObj.html += config[cName].value + "\"";
+                };
+                htmlObj.html += " class=\"argHM485config\" style=\"text-align:right;\"/>";		
                 break;
             default:
                 htmlObj.html += config[cName].value;
@@ -201,9 +220,37 @@ function FW_HM485MakeConfigTable(config, htmlObj) {
         if(config[cName].hasOwnProperty("unit")){
             htmlObj.html += " " + config[cName].unit;
         };		
+        if(config[cName].hasOwnProperty("special_value")){
+			htmlObj.html += "<label style=\"margin-left: 2em\" " +
+			                        "onclick=\"FW_HM485SpecialValueClicked('" + cName + "')\"> " +
+							    "<input id=\"HM485-config-" + cName +"-special_value\" " +
+										"type=\"checkbox\" name=\"" + cName + "-special_value\" ";
+			htmlObj.html += "value=\"" + config[cName].special_value.id + "\"";
+			if(config[cName].special_value.id == config[cName].value) {
+				htmlObj.html += "checked";
+			};	
+			htmlObj.html += " >" + config[cName].special_value.id + "</label>";
+        };				
 		htmlObj.html += "</div></td></tr>";
 		htmlObj.even = !htmlObj.even;
 	};	
+};	
+
+
+function FW_HM485SpecialValueClicked(name){
+    // called when special value checkbox clicked	
+    // get the special value
+	var specialCheckBox = $("#HM485-config-" + name + "-special_value");
+    if(!specialCheckBox) return;
+	var inputField = $("#HM485-config-" + name);
+    if(!inputField) return;
+    if(specialCheckBox.is(':checked')) {
+        // disable input
+		inputField.attr("disabled", "true");
+    }else{
+        // enable input
+		inputField.removeAttr("disabled");
+    };	
 };	
 
 
@@ -219,25 +266,11 @@ function FW_HM485PeerlistCallback(configJson) {
 
 	var configArea = $("#configArea");	
     var even = false;
-	var html = "<div class=\"makeTable wide\">Peerings List<br><table class=\"block wide\"><tbody>";
+	var html = "<div class=\"makeTable wide\">Sensors peered to " + configArea.attr('data-name') + "<br><table class=\"block wide\"><tbody>";
 	// loop through the peers options
-    for(var actSen in config) {
-		html += "<tr class=";
-		if(even){
-		    html += "\"even\"";	 
-        }else{
-			html += "\"odd\"";
-        };			
-		even = !even;
-        html += "><td></td><td>";
-		if(actSen == "actuators") {
-			html += "Actuator";
-		}else{
-            html += "Sensor";
-        };
-        html += "</td><td></td></tr>";		
-	for(var cName in config[actSen]){
-		// start of the table row
+    // this only displays peerings from the actor side. I.e. the list are only sensors 
+ 	for(var cName in config.sensors){
+	    // start of the table row
 		html += "<tr class=";
 		if(even){
 		    html += "\"even\"";	 
@@ -245,11 +278,9 @@ function FW_HM485PeerlistCallback(configJson) {
 			html += "\"odd\"";
         };			
 		// number and name of the peer 
-		// TODO: Button for config
-		html += "><td>" + cName + "</td><td>" + config[actSen][cName] + "</td><td><input type=\"button\" id=\"peersettings.HM485.config\" value=\"Configure Peering\" class=\"attr\" onClick = \"FW_HM485OpenPeerConfigDialog('"+actSen+"','"+cName+"')\"></td></tr>";
+		html += "><td>" + cName + "</td><td>" + config.sensors[cName] + "</td><td><input type=\"button\" id=\"peersettings.HM485.config\" value=\"Configure Peering\" class=\"attr\" onClick = \"FW_HM485OpenPeerConfigDialog('"+cName+"')\"></td></tr>";
 		even = !even;
 	};	
-	};
 	html += "<tr class=";
 	if(even){
 	    html += "\"even\"";	 
@@ -273,8 +304,10 @@ function FW_HM485PeerConfigCallback(configJson) {
 
 	var configArea = $("#configArea");		
     var htmlObj = { even : false,
-	                html : "<div class=\"makeTable wide\">Peering Configuration<br><table class=\"block wide\"><tbody>" 
+	                html : "<div class=\"makeTable wide\">Peering "
 				  };
+	htmlObj.html += config.peerId.value + ' ' + config.sensorname.value + ' → ' + configArea.attr('data-name')
+                            + "<br><table class=\"block wide\"><tbody>"; 	
 	FW_HM485MakeConfigTable(config, htmlObj)
 	htmlObj.html += "<tr class=";
 	if(htmlObj.even){

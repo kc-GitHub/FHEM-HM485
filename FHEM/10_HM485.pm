@@ -621,6 +621,53 @@ sub HM485_GetPeerConfig($$$) {
 }
 
 
+# Check whether the device EEPROM is completely loaded
+sub HM485_GetCheckCompletelyLoadad($){
+    my ($hash) = @_;
+	# do we have a valid config?
+	my $devHash = (defined($hash->{devHash}) ? $hash->{devHash} : $hash);
+	return undef if($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
+    return { ".message" =>
+			    { "value" => "Device not completely loaded yet. Try again later.",
+			      "input" => 0,
+				  "type" => "text" } };			
+};
+
+
+# get list of peerings for channel
+sub HM485_GetPeerlist($){
+    my ($hash) = @_; 
+	my $chNr = substr($hash->{DEF}, 9, 2);
+	my $deviceLinks = HM485::PeeringManager::getLinksFromDevice($hash->{devHash});
+	my $peerings = { };
+	foreach my $peerNum (keys %{$deviceLinks->{actuators}}) {
+	    next if($deviceLinks->{actuators}{$peerNum}{channel} != $chNr);
+		#found a peering for this channel
+		#get readable name
+		my $peerHash = $main::modules{HM485}{defptr}{$deviceLinks->{actuators}{$peerNum}{actuator}};
+		# TODO: can it be that a channel is sensor and actor?
+	   	if (ref($peerHash) eq 'HASH') {
+		    $peerings->{actuators}{$peerNum} = $peerHash->{NAME};
+	    }else{
+		    $peerings->{actuators}{$peerNum} = "(".$deviceLinks->{actuators}{$peerNum}{actuator}.")";
+		};
+	};
+	foreach my $peerNum (keys %{$deviceLinks->{sensors}}) {
+	    next if(!defined($deviceLinks->{sensors}{$peerNum}{channel}));
+	    next if($deviceLinks->{sensors}{$peerNum}{channel} != $chNr);
+		#found a peering for this channel
+		#get readable name
+		my $peerHash = $main::modules{HM485}{defptr}{$deviceLinks->{sensors}{$peerNum}{sensor}};
+		# TODO: can it be that a channel is sensor and actor?
+       	if (ref($peerHash) eq 'HASH') {
+		    $peerings->{sensors}{$peerNum} = $peerHash->{NAME};
+        }else{
+		    $peerings->{sensors}{$peerNum} = "(".$deviceLinks->{sensors}{$peerNum}{sensor}.")";
+		};
+	};
+    return $peerings;
+};
+
 
 =head2
 	Implements getFn
@@ -669,53 +716,28 @@ sub HM485_Get($@) {
 			HM485_GetConfig($hash, $hmwId);
 		} elsif ($cmd eq 'config') {
 		    # do we have a valid config?
-		    my $devHash = (defined($hash->{devHash}) ? $hash->{devHash} : $hash);
-	        my $configReady = ($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
-			my $configHash = undef;
-            if($configReady) {
+			my $configHash = HM485_GetCheckCompletelyLoadad($hash);
+            if(!$configHash) { # i.e. no error message
 		        $configHash = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
-			}else{
-                $configHash = { ".message" =>
-				                  { "value" => "Device not completely loaded yet. Try again later.",
-								    "input" => 0,
-									"type" => "text" } };
-            };			
+			};			
 		    $msg = HM485_ConfigVar2Json($configHash);
 		}elsif ($cmd eq 'peerconfig') {
-            $msg = HM485_ConfigVar2Json(HM485_GetPeerConfig($hash,$args, $params[3]));		
+		    # do we have a valid config?
+			my $configHash = HM485_GetCheckCompletelyLoadad($hash);
+            if(!$configHash) { # i.e. no error message
+                $configHash = HM485_GetPeerConfig($hash,$args, $params[3]);
+			};	
+		    $msg = HM485_ConfigVar2Json($configHash);		
 		} elsif ($cmd eq 'state') {
 			# abfragen des aktuellen Status
 			$data = sprintf ('53%02X', $chNr-1);  # Channel als hex- Wert
 			HM485_SendCommand( $hash, $hmwId, $data);
 		} elsif ($cmd eq 'peerlist') {
-		    my $deviceLinks = HM485::PeeringManager::getLinksFromDevice($hash->{devHash});
-			my $peerings = { };
-			foreach my $peerNum (keys %{$deviceLinks->{actuators}}) {
-			    next if($deviceLinks->{actuators}{$peerNum}{channel} != $chNr);
-				#found a peering for this channel
-				#get readable name
-				my $peerHash = $main::modules{HM485}{defptr}{$deviceLinks->{actuators}{$peerNum}{actuator}};
-				# TODO: can it be that a channel is sensor and actor?
-	        	if (ref($peerHash) eq 'HASH') {
-				    $peerings->{actuators}{$peerNum} = $peerHash->{NAME};
-	            }else{
-				    $peerings->{actuators}{$peerNum} = "(".$deviceLinks->{actuators}{$peerNum}{actuator}.")";
-				};
-			};
-			foreach my $peerNum (keys %{$deviceLinks->{sensors}}) {
-			    next if(!defined($deviceLinks->{sensors}{$peerNum}{channel}));
-			    next if($deviceLinks->{sensors}{$peerNum}{channel} != $chNr);
-				#found a peering for this channel
-				#get readable name
-				my $peerHash = $main::modules{HM485}{defptr}{$deviceLinks->{sensors}{$peerNum}{sensor}};
-				# TODO: can it be that a channel is sensor and actor?
-	        	if (ref($peerHash) eq 'HASH') {
-				    $peerings->{sensors}{$peerNum} = $peerHash->{NAME};
-	            }else{
-				    $peerings->{sensors}{$peerNum} = "(".$deviceLinks->{sensors}{$peerNum}{sensor}.")";
-				};
-			};
-			# TODO: don't duplicate the complete coding above
+		    # do we have a valid config?
+			my $peerings = HM485_GetCheckCompletelyLoadad($hash);
+            if(!$peerings) { # i.e. no error message
+                $peerings = HM485_GetPeerlist($hash);
+            };
 			$msg = HM485_ConfigVar2Json($peerings);
 		}
 	}
@@ -1732,14 +1754,14 @@ sub HM485_SetKeyEvent($$) {
 sub HM485_ValidateSettings($$$) {
 	my ($configHash, $cmdSet, $value) = @_;
 	my $msg = '';
-
 	if (defined($value)) {
 		my $logical = $configHash->{logical};
+		# special values are always ok
+		return $msg if(defined($logical->{special_value}) && $logical->{special_value}{id} eq $value);
 		if ($logical->{type}) {
-
 			if ($logical->{type} eq 'float' || $logical->{type} eq 'int') {
 				if (HM485::Device::isNumber($value)) {
-					if ($logical->{min} && $logical->{max}) {
+				    if (defined($logical->{min}) && defined($logical->{max})) {
 						if ($value < $logical->{min}) {
 							$msg = 'must be greater or equal then ' . $logical->{min};
 						} elsif ($value > $logical->{max}) {
