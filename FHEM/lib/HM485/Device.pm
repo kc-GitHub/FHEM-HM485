@@ -18,8 +18,7 @@ use FindBin;
 use lib abs_path("$FindBin::Bin");
 use lib::HM485::Constants;
 use lib::HM485::Util;
-
-#use vars qw {%attr %defs %modules}; #supress errors in Eclipse EPIC
+use lib::HM485::XmlConverter;   # TODO: Only if needed
 
 # prototypes
 sub parseForEepromData($;$$);
@@ -27,11 +26,29 @@ sub parseForEepromData($;$$);
 my %deviceDefinitions;
 my %models = ();
 
+
+sub convertXmls() {
+	my $xmlsPath = $main::attr{global}{modpath} . HM485::DEVICE_PATH."xml/";
+	my $devicesPath = $main::attr{global}{modpath} . HM485::DEVICE_PATH;
+	return "HM485: ERROR: Can\'t read xmlPath: " . $xmlsPath unless (opendir(DH, $xmlsPath));
+	HM485::Util::Log3(undef, 3, 'HM485: Converting device files');
+	HM485::Util::Log3(undef, 3, '==============================');
+	foreach my $m (sort readdir(DH)) {
+		next if($m !~ m/(.*)\.xml$/);
+        HM485::Util::Log3(undef,3, 'Converting '.$m);
+		HM485::XmlConverter::convertFile($xmlsPath.$m, $devicesPath);
+    };
+};
+
+
 =head2
 	Initialize all devices
 	Load available device files
 =cut
 sub init () {
+
+    convertXmls();
+
 	my $retVal      = '';
 	my $devicesPath = $main::attr{global}{modpath} . HM485::DEVICE_PATH;
 
