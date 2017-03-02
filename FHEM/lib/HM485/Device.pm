@@ -33,8 +33,25 @@ sub convertXmls() {
 	return "HM485: ERROR: Can\'t read xmlPath: " . $xmlsPath unless (opendir(DH, $xmlsPath));
 	HM485::Util::Log3(undef, 3, 'HM485: Converting device files');
 	HM485::Util::Log3(undef, 3, '==============================');
+	
+	# get modification time of XmlConverter.pm
+	my $converterTime = (stat($main::attr{global}{modpath}."/FHEM/lib/HM485/XmlConverter.pm"))[9];
 	foreach my $m (sort readdir(DH)) {
 		next if($m !~ m/(.*)\.xml$/);
+		# check if we need to convert
+		# pm file exists? if not, always convert
+		my $outputFile = $devicesPath . substr($m,0,-3) . 'pm';
+        if( -e $outputFile ){ 
+		    # get modification time for xml file
+            my $xmlTime = (stat($xmlsPath.$m))[9];
+			# get modification time for pm file
+			my $pmTime = (stat($outputFile))[9];
+			# check
+			if($pmTime > $converterTime && $pmTime > $xmlTime) {
+                HM485::Util::Log3(undef,3, $m." up to date");
+			    next;
+			};
+		};
         HM485::Util::Log3(undef,3, 'Converting '.$m);
 		HM485::XmlConverter::convertFile($xmlsPath.$m, $devicesPath);
     };
@@ -225,12 +242,12 @@ sub isBehaviour($) {
 	);
 	my $retVal;
 
-	if (ref($config->{parameter}{behaviour}) eq 'HASH') {
+	foreach my $param (@{$config->{parameter}}) {
+        next unless($param->{id} eq "behaviour");	
 		$retVal = HM485::ConfigurationManager::writeConfigParameter($hash,
-			$config->{parameter}{behaviour},
-			$config->{address_start},
-			$config->{address_step}
+			$param, $config->{address_start}, $config->{address_step}
 		);
+		last;
 	}
 
 	return $retVal->{value}
@@ -1177,26 +1194,12 @@ sub getChannelValueMap($$$$) {
 	
 	my @retVal = ();
 	if (defined($values)) {
-		if (exists ($values->{'id'})) {
-			# oh wie ich diese id's hasse :-(
-			if ($values->{'physical'}{'value_id'} eq $valId) {
-				if (!defined($values->{'physical'}{'event'}{'frame'}) ||
-					$values->{'physical'}{'event'}{'frame'} eq $frameData->{'id'}) {
-						
-					my $id = $values->{'id'};
-					$retVal[0] = $values;
-					$retVal[0]{name} = $id;
-					}
-				}		
-		} else {
-			foreach my $value (keys %{$values}) {
-				if ($values->{$value}{'physical'}{'value_id'} eq $valId) {
-					if (!defined($values->{$value}{'physical'}{'event'}{'frame'}) ||
-						$values->{$value}{'physical'}{'event'}{'frame'} eq $frameData->{'id'}) {
-
-						$retVal[scalar @retVal] = $values->{$value};
-						$retVal[$#retVal]{name} = $value;
-					}
+		foreach my $value (@{$values}) {
+			if ($value->{'physical'}{'value_id'} eq $valId) {
+				if (!defined($value->{'physical'}{'event'}{'frame'}) ||
+					$value->{'physical'}{'event'}{'frame'} eq $frameData->{'id'}) {
+						$retVal[scalar @retVal] = $value;
+						$retVal[$#retVal]{name} = $value->{id};
 				}
 			}
 		}
@@ -1380,7 +1383,7 @@ sub parseForEepromData($;$$) {
 	# first we must collect all values only, hahes was pushed to hash array
 	my @hashArray = ();
 	foreach my $param (keys %{$configHash}) {
-		if (ref($configHash->{$param}) ne 'HASH') {
+		if (ref($configHash->{$param}) ne 'HASH' && ref($configHash->{$param}) ne 'ARRAY') {
 			if ($param eq 'count' || $param eq 'address_start' || $param eq 'address_step') {
 				$params->{$param} = $configHash->{$param};		# params->{address_start} = 0x07
 			}
@@ -1393,9 +1396,12 @@ sub parseForEepromData($;$$) {
 	foreach my $param (@hashArray) {
 		my $p = $configHash->{$param};
 
-		# Todo: Processing Array of hashes (type array) 
-
-		if ((ref ($p->{physical}) eq 'HASH') && $p->{physical} && $p->{physical}{interface} && ($p->{physical}{interface} eq 'eeprom') ) {
+		if(ref($p) eq "ARRAY" && $param eq "parameter"){
+		    foreach my $entry (@{$p}){
+			    my $result = getEEpromData($entry, $params);
+			    @{$adrHash}{keys %$result} = values %$result;
+			};			
+		} elsif ((ref ($p->{physical}) eq 'HASH') && $p->{physical} && $p->{physical}{interface} && ($p->{physical}{interface} eq 'eeprom') ) {
 			my $result = getEEpromData($p, $params);
 			@{$adrHash}{keys %$result} = values %$result;
 
@@ -1618,57 +1624,25 @@ sub getAllowedSets($) {
 					$commands = $behaviour;
 				}
 				
-				if (exists ($commands->{'id'})) {
-					#only one command
-					if ($commands->{'operations'}) {
-						my @values = split(',', $commands->{'operations'});
-  						foreach my $val (@values) {
-    					
-    						if ($val eq 'write' && 
-    							$commands->{'physical'}{'interface'} eq 'command') {
-								
-								if ($commands->{'control'}) {
-									my $ctrl = $commands->{'control'};
-									
+				foreach my $command (@{$commands}) {
+					if ($command->{'operations'}) {
+						my @values = split(',', $command->{'operations'});
+	  					foreach my $val (@values) {
+	    					if ($val eq 'write' && 
+    							$command->{'physical'}{'interface'} eq 'command') {
+								if ($command->{'control'}) {
+									my $ctrl = $command->{'control'};
 									if ($cmdOverwrite{$ctrl}) {
 										push @cmdlist, $cmdOverwrite{$ctrl};
 									}
-							
-									if($cmdArgs{$ctrl}) {
-										push @cmdlist, "$commands->{'id'}:$cmdArgs{$ctrl}";	
+								    if($cmdArgs{$ctrl}) {
+										push @cmdlist, $command->{id}.":".$cmdArgs{$ctrl};	
 									}
 								} else {
-									push @cmdlist, "$commands->{'id'}";
+									push @cmdlist, $command->{id};
 								}
 							}
-    					}
-					}
-				} else {
-					foreach my $command (sort (keys %{$commands})) {
-				
-						if ($commands->{$command}{'operations'}) {
-							my @values = split(',', $commands->{$command}{'operations'});
-	  						foreach my $val (@values) {
-	    					
-    							if ($val eq 'write' && 
-    								$commands->{$command}{'physical'}{'interface'} eq 'command') {
-									
-									if ($commands->{$command}{'control'}) {
-										my $ctrl = $commands->{$command}{'control'};
-										
-										if ($cmdOverwrite{$ctrl}) {
-											push @cmdlist, $cmdOverwrite{$ctrl};
-										}
-							
-										if($cmdArgs{$ctrl}) {
-											push @cmdlist, "$command:$cmdArgs{$ctrl}";	
-										}
-									} else {
-										push @cmdlist, "$command";
-									}
-								}
-	    					}
-						}
+	    				}
 					}
 				}
 			}

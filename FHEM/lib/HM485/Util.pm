@@ -4,6 +4,7 @@
 =head1 SYNOPSIS
 	Helper module for HomeMatic Wired (HM485) for FHEM
 	contributed by Dirk Hoffmann 2012 - 2013
+	               Thorsten Pferdekaemper 2014 - today  
 	$Id$
 
 =head1 DESCRIPTION
@@ -11,6 +12,7 @@
 
 =head1 AUTHOR - Dirk Hoffmann
 	dirk@FHEM_Forum (forum.fhem.de)
+	   AUTHOR - Thorsten Pferdekaemper
 =cut
 
 package HM485::Util;
@@ -47,6 +49,19 @@ sub searchValueInDefs($$) {
 	
 	return $retVal;
 }
+
+
+# Read an entry from an Array of Hashes where Id = $2
+sub getArrayEntryWithId($$){
+    my ($array,$id) = @_;
+	foreach my $entry (@{$array}) {
+	    next unless(ref($entry) eq "HASH"); 
+		next unless(defined($entry->{id}));
+	    return $entry if($entry->{id} eq $id);
+	}
+	return undef;
+};
+
 
 sub checkForAutocreate() {
 	my $retValue = 0;

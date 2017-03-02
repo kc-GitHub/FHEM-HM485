@@ -46,40 +46,25 @@ sub convertSettingsToDataFormat($) {
 sub getConfigFromDevice($$) {
 	my ($hash, $chNr) = @_;
 	
-	my $retVal = {};
+	my $retVal = [];
 	my $configHash = getConfigSettings($hash);
-	#print Dumper("getConfigFromDevice Channel: $chNr",$configHash);
+	# print Dumper("getConfigFromDevice Channel: $chNr",$configHash);
 
-	if (ref($configHash) eq 'HASH') {
-		
-		if (ref($configHash->{'parameter'}) eq 'HASH') {
-			if ($configHash->{'parameter'}{'id'}) {
-				#wenns eine id gibt sollte es keinen extra hash mit dem namen geben
-				my $id = $configHash->{'parameter'}{'id'};
-				$retVal->{$id} = writeConfigParameter($hash,
-					$configHash->{'parameter'},
-					$configHash->{'address_start'},
-					$configHash->{'address_step'}
-				);
-			# mehrere Config Parameter
-			} else {
-				foreach my $config (keys %{$configHash->{'parameter'}}) {
-					if (ref($configHash->{'parameter'}{$config}) eq 'HASH') {
-						$retVal->{$config} = writeConfigParameter($hash,
-							$configHash->{'parameter'}{$config},
-							$configHash->{'address_start'},
-							$configHash->{'address_step'}
-						);
-					}
-				}	
-			}
-		}
-	}
-	
-	if (keys %{$retVal}) {
-		$hash->{'.configManager'} = 1;
-	}
-	
+	return $retVal unless(ref($configHash) eq 'HASH');
+    for(my $i = 0; $i < @{$configHash->{parameter}}; $i++) {
+	    next unless(ref($configHash->{parameter}[$i]) eq 'HASH');
+		my $entry = writeConfigParameter($hash,
+						$configHash->{'parameter'}[$i],
+						$configHash->{'address_start'},
+						$configHash->{'address_step'}
+					);
+		$entry->{id} = $configHash->{parameter}[$i]{id};
+		push(@{$retVal},$entry); 
+	};
+	# TODO: Is the following needed?	
+    if(@{$retVal}){
+	    $hash->{'.configManager'} = 1;	
+	};
 	#print Dumper ("getConfigFromDevice", $retVal);
 	return $retVal;
 }
@@ -87,6 +72,13 @@ sub getConfigFromDevice($$) {
 sub writeConfigParameter($$;$$) {
 	
 	my ($hash, $parameterHash, $addressStart, $addressStep) = @_ ;
+	
+	#if($parameterHash->{id} eq "channel") {
+	#    print Dumper("channel");
+#		print Dumper($parameterHash);
+#		print Dumper($addressStart);
+#		print Dumper($addressStep);
+#	};
 	
 	my $retVal = convertSettingsToDataFormat($parameterHash);
 
@@ -103,6 +95,9 @@ sub writeConfigParameter($$;$$) {
 		$retVal->{'value'} = HM485::Device::getValueFromEepromData (
 			$hash, $parameterHash, $addrStart, $addrStep
 		);
+		#if($parameterHash->{id} eq "channel") {
+		#     print Dumper($retVal);
+        #};
 	} elsif (ref $parameterHash->{'physical'} eq 'ARRAY') {
 		my $peerHash;
 		foreach my $phyHash (@{$parameterHash->{'physical'}}) {
@@ -248,47 +243,38 @@ sub getConfigSettings($) {
 	my $devHash = $main::modules{'HM485'}{'defptr'}{substr($hmwId,0,8)};
 	my $configSettings = {};
 
-	# Todo: Caching for Config
-#	my $configSettings = $devHash->{'cache'}{'configSettings'};
+	my $name   = $devHash->{'NAME'};
+	my $deviceKey = HM485::Device::getDeviceKeyFromHash($devHash);
 
-#	if (!$configSettings) {
-		my $name   = $devHash->{'NAME'};
-		my $deviceKey = HM485::Device::getDeviceKeyFromHash($devHash);
+	if ($deviceKey && defined($chNr)) {
+	    my $chType  = HM485::Device::getChannelType($deviceKey, $chNr);
 
-		if ($deviceKey && defined($chNr)) {
-		    my $chType  = HM485::Device::getChannelType($deviceKey, $chNr);
-
-			if ($chNr == 0 && $chType eq 'maintenance') {
-				#channel 0 has a different path and has no address_start and address_step
-				$configSettings = HM485::Device::getValueFromDefinitions(
-				 	$deviceKey . '/paramset'
-				);
-			} else {
-				my $extension = HM485::Device::isBehaviour($hash) ? 
-						'/subconfig/paramset/hmw_io_ch_master' :
-						'/paramset/master';
+		if ($chNr == 0 && $chType eq 'maintenance') {
+			#channel 0 has a different path and has no address_start and address_step
+			$configSettings = HM485::Device::getValueFromDefinitions(
+			 	$deviceKey . '/paramset'
+			);
+		} else {
+			my $extension = HM485::Device::isBehaviour($hash) ? 
+					'/subconfig/paramset/hmw_io_ch_master' :
+					'/paramset/master';
 												   
-				$configSettings = HM485::Device::getValueFromDefinitions(
-				 	$deviceKey . '/channels/' . $chType . $extension
-				);
-			}
-
-			# "fold" parameters according to id (?)
-			# TODO: funktioniert das? (honk fragen?)
-			if (ref($configSettings) eq 'HASH') {
-				if (exists $configSettings->{'parameter'}{'id'}) {
-					#write id->parameter
-					my $id = $configSettings->{'parameter'}{'id'};
-					$configSettings->{'parameter'}{$id} = delete $configSettings->{'parameter'};
-
-
-				}
-				# delete hidden configs (Hashes mit dem Attribut hidden werden geloescht )
-				# TODO: Warum macht honk das nicht?
-				# $configSettings = removeHiddenConfig($configSettings);
-			}
+			$configSettings = HM485::Device::getValueFromDefinitions(
+			 	$deviceKey . '/channels/' . $chType . $extension
+			);
 		}
-	return $configSettings;
+
+		# "fold" parameters according to id (?)
+		# TODO: wahrscheinlich unnoetig
+		#if (ref($configSettings) eq 'HASH') {
+		#	if (exists $configSettings->{'parameter'}{'id'}) {
+		#		#write id->parameter
+		#		my $id = $configSettings->{'parameter'}{'id'};
+		#		$configSettings->{'parameter'}{$id} = delete $configSettings->{'parameter'};
+		#	}
+		#}
+	}
+    return $configSettings;
 }
 
 sub removeHiddenConfig($);  # wegen Rekursion

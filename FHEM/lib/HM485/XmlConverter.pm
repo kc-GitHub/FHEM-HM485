@@ -18,7 +18,7 @@ my $indentStyle = 2;
 sub convertFiles($$);
 sub dumperSortkey($);
 sub printDump($$$);
-sub reMap($);
+sub reMap($;$);
 sub checkId($;$$$);
 
 
@@ -121,11 +121,12 @@ sub printDump($$$) {
 	return $retVal;
 }
 
-sub reMap($) {
-	my ($hash) = @_;
+sub reMap($;$) {
+	my ($hash,$father) = @_;
+	$father = "" if(!defined($father));
 	
 	foreach my $param (keys %{$hash}) {
-		
+
 		if (ref($hash->{$param}) eq 'HASH') {
 			
 			if ($param eq 'type' && $hash->{$param}->{'id'}) {
@@ -147,7 +148,7 @@ sub reMap($) {
 
 					$hash->{$param} = $hash->{$param}{$param};
 				} else {
-					$hash->{$param} = reMap($hash->{$param});
+					$hash->{$param} = reMap($hash->{$param}, ($father eq "paramset") ? $father : $param);
 				};
 				
 			}
@@ -157,29 +158,36 @@ sub reMap($) {
 				}
 				$hash->{$param} = reMap($hash->{$param});
 			}
+		    # make sure that paramset/parameter is always an array
+            if($param eq "parameter" && $father eq "paramset") {
+			    $hash->{$param} = [$hash->{$param}];
+			};
 			
 		} elsif (ref($hash->{$param}) eq 'ARRAY') {
-			my $newHash;
-			my $id;
-			foreach my $item (@{$hash->{$param}}){
-				my $idField = ($item->{'id'}) ? 'id' : 'index';
-			
-				if ($item->{'type'} && $param eq 'channel') {
-					$idField = 'type';
-				}
-
-				if (defined($item->{$idField})) {
-					$id = $item->{$idField};
-					delete ($item->{$idField});
-					$id =~ s/-/_/g;
-				} else {
-					$id ++;
-				}
-
-				$newHash->{$id} = $item;
-			}
-
-			$hash->{$param} = reMap($newHash);
+		    # make sure that paramset/parameter is always an array
+            if($param eq "parameter" && $father eq "paramset") {
+			    for(my $i=0; $i < @{$hash->{$param}}; $i++){
+                    $hash->{$param}[$i] = reMap($hash->{$param}[$i]);    				
+		        };
+		    }else{
+			    my $newHash;
+			    my $id;
+			    foreach my $item (@{$hash->{$param}}){
+				    my $idField = ($item->{'id'}) ? 'id' : 'index';
+				    if ($item->{'type'} && $param eq 'channel') {
+					    $idField = 'type';
+				    }
+				    if (defined($item->{$idField})) {
+					    $id = $item->{$idField};
+					    delete ($item->{$idField});
+					    $id =~ s/-/_/g;
+				    } else {
+					    $id ++;
+				    }
+				    $newHash->{$id} = $item;
+			    }	
+			    $hash->{$param} = reMap($newHash, ($father eq "paramset") ? $father : $param);
+			};
 		}
 		
 	}
