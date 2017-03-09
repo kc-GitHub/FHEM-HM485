@@ -452,6 +452,7 @@ sub HM485_Set($@) {
 		my $peered = HM485::PeeringManager::getPeeredChannels($hash);
 		if (@{$peered}) {
 			$sets{'unpeer'} = join(",", @{$peered});
+			$sets{peeringdetails} = 0;
 		};
 	} else {
 		%sets = %setsDev;
@@ -500,7 +501,8 @@ sub HM485_Set($@) {
 			
 			} elsif ($cmd eq 'settings') {
 				$msg = HM485_SetSettings($hash, @params);
-			
+			} elsif ($cmd eq 'peeringdetails') {
+				$msg = HM485_SetPeeringDetails($hash, @params);			
 			} elsif ($cmd eq 'frequency') {
 				HM485_ReadingUpdate($hash, $cmd, $value);
 				$msg = HM485_SetChannelState($hash, $cmd, $value);			
@@ -579,38 +581,92 @@ sub HM485_ConfigVar2Json($){
 };
 
 
-sub HM485_GetPeerConfig($$$) {
-	my ($hash, $peerType, $peerId) = @_;
-	# peerType: sensor or actuator
+# FindPeering
+# params: hash, peername
+# finds peering between devices
+# returns a hash:
+#   sensor => hash of sensor
+#   actuator => hash of actuator
+#   sensorPeerid => peerid in sensor device
+#   actuatorPeerid => peerid in actuator device
+# in case of errors, an error text is returned
+sub HM485_FindPeering($$){
+    my ($hash, $peername) = @_;
+	my %retVal;
+    # Both devices need to be channels and defined in FHEM
+	return "Get Peering Details: ".$hash->{NAME}." must be a channel" unless(defined($hash->{devHash}));
+	my $peerhash = $main::defs{$peername};
+	return $peername." not found. (It must be a HM485 channel)" 
+	                                  unless(defined($peerhash) and $peerhash->{TYPE} eq 'HM485');
+	return $peerhash->{NAME}." must be a channel" unless(defined($peerhash->{devHash}));
+	# Both devices need to be ready to be configured
+	return "Device ".$hash->{devHash}{NAME}." not completely loadad. Try again later."
+	                   unless($hash->{devHash}{READINGS}{configStatus}{VAL} eq 'OK');
+	return "Device ".$peerhash->{devHash}{NAME}." not completely loadad. Try again later."
+	                   unless($peerhash->{devHash}{READINGS}{configStatus}{VAL} eq 'OK');
+    # now one needs to be a sensor and one an actuator
+    my $peerrole = HM485::PeeringManager::getPeerRole($hash);
+    return $hash->{NAME}." does not allow peerings" if($peerrole eq "none"); 
+    $retVal{$peerrole} = $hash;
+    $peerrole = HM485::PeeringManager::getPeerRole($peerhash);
+    return $peerhash->{NAME}." does not allow peerings" if($peerrole eq "none"); 
+    $retVal{$peerrole} = $peerhash;
+	return "Peering ".$hash->{NAME}.", ".$peerhash->{NAME}.": Needs exactly one sensor and one actuator" unless(defined($retVal{sensor}) and defined($retVal{actuator}));
 	
-	my $linkParams	= HM485::PeeringManager::getLinkParams($hash->{devHash});
-	my $retVal = [];
-	return $retVal unless(ref($linkParams->{$peerType}) eq 'HASH');
+	# Now we have a channel hash in $sensor and one in $actuator
+	# Try to find the channels in each other's peerings
+    $retVal{sensorPeerid} = HM485::PeeringManager::getPeerId ($retVal{sensor}{devHash}, $retVal{actuator}{DEF}, $retVal{sensor}{chanNo}, 1); 
+	return $retVal{actuator}{NAME}." is not peered with ".$retVal{sensor}{NAME} unless(defined($retVal{sensorPeerid}));
+    $retVal{actuatorPeerid} = HM485::PeeringManager::getPeerId ($retVal{actuator}{devHash}, $retVal{sensor}{DEF}, $retVal{actuator}{chanNo}, 0); 
+	return $retVal{sensor}{NAME}." is not peered with ".$retVal{actuator}{NAME} unless(defined($retVal{actuatorPeerid}));
 	
-	my $adrStart = $linkParams->{$peerType}{address_start} +
-		    ($peerId * $linkParams->{$peerType}{address_step});
-	my $parameter = $linkParams->{$peerType}{parameter};
-    my $sensor = undef;
-    for(my $i = 0; $i < @{$parameter}; $i++) {	
-		my $settingHash = HM485::ConfigurationManager::writeConfigParameter($hash->{devHash},
-				$parameter->[$i], $adrStart, $linkParams->{$peerType}{address_step});
-		next unless($settingHash);
-        $settingHash->{id} = $parameter->[$i]{id};		
-		push(@{$retVal}, $settingHash);
-		$sensor = $settingHash if($settingHash->{id} eq "sensor");
-	}
-	push(@{$retVal}, { id => "peerId", value => $peerId, hidden => 1 });
-	#insert the actuator address into the peering hash hmmmm!
-	#todo better way ?
-	push(@{$retVal}, { id => "hmid", value => $hash->{devHash}{DEF}, hidden => 1 });
-	#we also need the name of the sensor side channel
-	# TODO: das wird eigentlich nur gebraucht, weil "set settings" falsch herum ist
-	if($sensor){
-	    my $peerHash = $main::modules{HM485}{defptr}{$sensor->{value}};
-       	if (ref($peerHash) eq 'HASH') {
-	        push(@{$retVal}, { id => "sensorname", value => $peerHash->{NAME}, hidden => 1 });
-		};	
-	};
+	return \%retVal;
+}
+
+
+
+# GetPeeringDetails
+# Ermittelt zu einem Sensor- und einem Aktorkanal, die miteinander
+# gepeert sind die zugehörigen Settings 
+# Bei Erfolg wird ein hash zurückgeliefert, ansonsten ein Text
+sub HM485_GetPeeringDetails($$) {
+    my ($hash, $peername) = @_;
+	my $peering = HM485_FindPeering($hash,$peername);
+    # error?
+	return $peering unless(ref($peering) eq "HASH");
+    # prepare retval
+	my $retVal = { sensorname => $peering->{sensor}{NAME},
+	               actuatorname => $peering->{actuator}{NAME},
+				   sensorconfig => [],
+				   actuatorconfig => [] };
+				   
+	my $linkParams	= HM485::PeeringManager::getLinkParams($peering->{sensor}{devHash});
+	if(ref($linkParams->{actuator}) eq 'HASH') {
+	    my $adrStart = $linkParams->{actuator}{address_start} +
+		        ($peering->{sensorPeerid} * $linkParams->{actuator}{address_step});
+	    my $parameter = $linkParams->{actuator}{parameter};
+        for(my $i = 0; $i < @{$parameter}; $i++) {	
+		    my $settingHash = HM485::ConfigurationManager::writeConfigParameter($peering->{sensor}{devHash},
+				    $parameter->[$i], $adrStart, $linkParams->{actuator}{address_step});
+		    next unless($settingHash);
+            $settingHash->{id} = $parameter->[$i]{id};		
+		    push(@{$retVal->{sensorconfig}}, $settingHash);
+	    };
+    };
+
+	$linkParams	= HM485::PeeringManager::getLinkParams($peering->{actuator}{devHash});
+	if(ref($linkParams->{sensor}) eq 'HASH'){
+	    my $adrStart = $linkParams->{sensor}{address_start} +
+		        ($peering->{actuatorPeerid} * $linkParams->{sensor}{address_step});
+	    my $parameter = $linkParams->{sensor}{parameter};
+        for(my $i = 0; $i < @{$parameter}; $i++) {	
+		    my $settingHash = HM485::ConfigurationManager::writeConfigParameter($peering->{actuator}{devHash},
+			    	$parameter->[$i], $adrStart, $linkParams->{sensor}{address_step});
+		    next unless($settingHash);
+            $settingHash->{id} = $parameter->[$i]{id};		
+		    push(@{$retVal->{actuatorconfig}}, $settingHash);
+	    }
+    }
 	return $retVal;
 }
 
@@ -625,41 +681,6 @@ sub HM485_GetCheckCompletelyLoadad($){
 			    { "value" => "Device not completely loaded yet. Try again later.",
 			      "input" => 0,
 				  "type" => "text" } };			
-};
-
-
-# get list of peerings for channel
-sub HM485_GetPeerlist($){
-    my ($hash) = @_; 
-	my $chNr = substr($hash->{DEF}, 9, 2);
-	my $deviceLinks = HM485::PeeringManager::getLinksFromDevice($hash->{devHash});
-	my $peerings = { };
-	foreach my $peerNum (keys %{$deviceLinks->{actuators}}) {
-	    next if($deviceLinks->{actuators}{$peerNum}{channel} != $chNr);
-		#found a peering for this channel
-		#get readable name
-		my $peerHash = $main::modules{HM485}{defptr}{$deviceLinks->{actuators}{$peerNum}{actuator}};
-		# TODO: can it be that a channel is sensor and actor?
-	   	if (ref($peerHash) eq 'HASH') {
-		    $peerings->{actuators}{$peerNum} = $peerHash->{NAME};
-	    }else{
-		    $peerings->{actuators}{$peerNum} = "(".$deviceLinks->{actuators}{$peerNum}{actuator}.")";
-		};
-	};
-	foreach my $peerNum (keys %{$deviceLinks->{sensors}}) {
-	    next if(!defined($deviceLinks->{sensors}{$peerNum}{channel}));
-	    next if($deviceLinks->{sensors}{$peerNum}{channel} != $chNr);
-		#found a peering for this channel
-		#get readable name
-		my $peerHash = $main::modules{HM485}{defptr}{$deviceLinks->{sensors}{$peerNum}{sensor}};
-		# TODO: can it be that a channel is sensor and actor?
-       	if (ref($peerHash) eq 'HASH') {
-		    $peerings->{sensors}{$peerNum} = $peerHash->{NAME};
-        }else{
-		    $peerings->{sensors}{$peerNum} = "(".$deviceLinks->{sensors}{$peerNum}{sensor}.")";
-		};
-	};
-    return $peerings;
 };
 
 
@@ -682,9 +703,13 @@ sub HM485_Get($@) {
 	my $msg  = '';
 	my $data = '';
 	
+	my $peered;
     if($chNr){	
 		$gets{'peerlist'} = 'noArg';
-		$gets{'peerconfig'} = 0;
+		$peered = HM485::PeeringManager::getPeeredChannels($hash);
+		if (@{$peered}) {
+			$gets{'peeringdetails'} = join(",", @{$peered});
+		};
 	}
 	
 	if (@params < 2) {
@@ -715,13 +740,16 @@ sub HM485_Get($@) {
 		        $config = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
 			};			
 		    $msg = HM485_ConfigVar2Json($config);
-		}elsif ($cmd eq 'peerconfig') {
-		    # do we have a valid config?
-			my $config = HM485_GetCheckCompletelyLoadad($hash);
-            if(!$config) { # i.e. no error message
-                $config = HM485_GetPeerConfig($hash,$args, $params[3]);
-			};	
-		    $msg = HM485_ConfigVar2Json($config);		
+		} elsif ($cmd eq 'peeringdetails') {
+		    my $details = HM485_GetPeeringDetails($hash,$args);
+			if(ref($details) eq 'HASH') {
+			    $msg = HM485_ConfigVar2Json($details);
+			}else{
+			    $msg = HM485_ConfigVar2Json({ ".message" =>
+			    { "value" => $details,
+			      "input" => 0,
+				  "type" => "text" } });			
+			};       
 		} elsif ($cmd eq 'state') {
 			# abfragen des aktuellen Status
 			$data = sprintf ('53%02X', $chNr-1);  # Channel als hex- Wert
@@ -730,7 +758,7 @@ sub HM485_Get($@) {
 		    # do we have a valid config?
 			my $peerings = HM485_GetCheckCompletelyLoadad($hash);
             if(!$peerings) { # i.e. no error message
-                $peerings = HM485_GetPeerlist($hash);
+                $peerings = $peered;
             };
 			$msg = HM485_ConfigVar2Json($peerings);
 		}
@@ -809,11 +837,16 @@ sub HM485_FhemwebShowConfig($$$) {
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
     my $isChannel = $chNr ? "yes" : "no";
 	# if this is a channel, does it have peerings?
+	my $peerRole = "none";
 	my $peered = "no";
-	my $peeredChannels = HM485::PeeringManager::getPeeredChannels($hash);
-	if($isChannel eq "yes" and HM485::PeeringManager::getPeerRole($hash) eq "actuator"
-	                       and @{$peeredChannels}) {
-	    $peered = "yes";
+	if($isChannel eq "yes") { # && HM485::PeeringManager::getPeerRole($hash) eq "actuator") {
+	    $peerRole = HM485::PeeringManager::getPeerRole($hash);
+		if($peerRole ne "none"){
+	        my $peeredChannels = HM485::PeeringManager::getPeeredChannels($hash);
+	        if(@{$peeredChannels}) {
+	            $peered = "yes";
+		    };
+        };			
 	};
     # does this channel/device have config?
 	my $hasConfig = 'no';
@@ -824,7 +857,7 @@ sub HM485_FhemwebShowConfig($$$) {
 		last;
 	};
 	
-	return '<div id="configArea" data-name="'.$name.'" data-hasconfig="'.$hasConfig.'" data-ischannel="'.$isChannel.'" data-peered="'.$peered.'"></div>'. 
+	return '<div id="configArea" data-name="'.$name.'" data-hasconfig="'.$hasConfig.'" data-ischannel="'.$isChannel.'" data-peerrole="'.$peerRole.'" data-peered="'.$peered.'"></div>'. 
 	'<script type="text/javascript">{ FW_HM485CloseConfigDialog();} </script>';
 }
 
@@ -1400,6 +1433,71 @@ sub HM485_SetConfig($@) {
 	
 	# if we reach this, everything should be ok	
 	return "";
+}
+
+
+# SetPeeringDetails
+# 
+sub HM485_SetPeeringDetails($@) {
+	my ($hash, @values) = @_;
+		
+	shift(@values); # name
+	shift(@values); # command
+    my $peername = shift(@values);
+	# get sensor, actuator and peerIds
+	my $peering = HM485_FindPeering($hash,$peername);
+	# error?
+	return $peering unless(ref($peering) eq "HASH");
+	
+	my $msg = '';
+	
+	return "set peeringdetails needs at least 3 parameters" if (@values < 2);
+	
+	# Split list of configurations
+	my $setSettingsHash = {};
+	for(my $i = 0; $i < @values; $i += 2) {
+	    return "set peeringdetails needs an odd number of parameters" unless(defined($values[$i+1]));
+		$setSettingsHash->{$values[$i]} = $values[$i+1];
+	}
+	my $params = HM485::PeeringManager::getLinkParams($peering->{actuator}{devHash});
+	my $validatedConfig = {};
+	for my $entry (@{$params->{sensor}{parameter}}){
+	    my $param = $entry->{id};
+		next unless exists($setSettingsHash->{$param});
+		$setSettingsHash->{$param} = HM485::PeeringManager::valueToSettings($entry,$setSettingsHash->{$param});
+		#validate settings
+		$msg = HM485_ValidateSettings ($entry,	$param, $setSettingsHash->{$param});
+		return $msg if($msg);
+		$validatedConfig->{$param}{value} = $setSettingsHash->{$param};
+		$validatedConfig->{$param}{config} = $entry;
+	}
+	# If validation success
+	$validatedConfig->{channel}{peerId} = $peering->{actuatorPeerid};
+	$validatedConfig->{channel}{id} = 'peer';
+	$validatedConfig->{channel}{value} = $peering->{actuatorPeerid};;
+	my $convertetSettings = HM485::PeeringManager::convertPeeringsToEepromData(
+				$peering->{actuator}, $validatedConfig, "sensor");
+	foreach my $adr (sort keys %$convertetSettings) {
+		next unless($adr);
+		HM485::Util::Log3($peering->{actuator}, 4, 'Set peerdetails: ' . $convertetSettings->{$adr}{'text'});
+		my $size  = $convertetSettings->{$adr}{'size'} ? $convertetSettings->{$adr}{'size'} : 1;
+		my $value = $convertetSettings->{$adr}{'value'};
+		if ($convertetSettings->{$adr}{'le'}) {
+			if ($size >= 1) {
+				$value = sprintf ('%0' . ($size*2) . 'X' , $value);
+				$value = reverse( pack('H*', $value) );
+				$value = hex(unpack('H*', $value));
+			}
+		}
+		$size     = sprintf ('%02X' , $size);
+		$value 	  = sprintf ('%0' . ($size * 2) . 'X', $value);
+		$adr 	  = sprintf ('%04X' , $adr);
+		HM485_SendCommand($peering->{actuator}, $peering->{actuator}{'DEF'}, '57' . $adr . $size . $value);
+	}
+	HM485_SendCommand($peering->{actuator}, $peering->{actuator}{'DEF'}, '43');
+	#update peerings
+	delete $hash->{'peerings'};
+	return $msg;
 }
 
 

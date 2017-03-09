@@ -338,6 +338,8 @@ sub getLinkParams($) {
 					my $name   		= $devHash->{NAME};
 					my $deviceKey 	= HM485::Device::getDeviceKeyFromHash($devHash);
 					my $chHash 		= $main::modules{HM485}{defptr}{$devHash->{DEF}.'_'.$ch};
+					# this might be called when not all channels are created yet
+					next unless($chHash);
 					my ($behaviour,$bool,$role) = HM485::Device::getChannelBehaviour($chHash);
 					
 					if ($role && $role eq 'switch') { 

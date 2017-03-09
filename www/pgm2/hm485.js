@@ -11,33 +11,20 @@ function FW_HM485ConfigSaveClicked(name) {
 }
 
 
-function FW_HM485PeerConfigSaveClicked(name) {
+function FW_HM485PeerConfigSaveClicked(sensor,actuator) {
 	var submitBtn = $("#submit.HM485.config");
 	if (!submitBtn) return;
     if(submitBtn.attr('disabled')) return;	
 	var configValue = '';
-	var sensorName = '';
-	var sensorAddress = '';
-	var isSensor = false;
 	$( ".argHM485config" ).each(function() {
 		switch($(this).attr('name')){
 			case 'actuator':
-			    // this means there are no settings
-				FW_errmsg("Sensors don't have peer settings. Configure from actuator channel.",5000);
-				isSensor = true;
-				return false;
             case 'sensor':
-			    // just save for error message
-				sensorAddress = $(this).val();
-				break;
 			case 'sensorname':
-                sensorName = $(this).val();
-                break;
 			case 'channel':
+            case 'hmid':
                 // ignore
                 break;				
-            case 'hmid':
-		        configValue += 'actuator ' + $(this).val() + ' ';
 			default:
 			    // check if there is a special_value and whether it is clicked
 				var special = $("#HM485-config-" + $(this).attr('name') + "-special_value");
@@ -50,12 +37,7 @@ function FW_HM485PeerConfigSaveClicked(name) {
 		        configValue += $(this).attr('name') + ' ' + val + ' ';
 		};
     });
-	if(isSensor) return;
-	if(sensorName == ''){
-	    FW_errmsg("Sensor is not defined in FHEM: " + sensorAddress,5000);
-		return;
-	};	
-	var cmd = '/fhem?XHR=1&cmd=set ' + sensorName + ' settings ' + configValue;
+	var cmd = '/fhem?XHR=1&cmd=set ' + sensor + ' peeringdetails ' + actuator + " " + configValue;
     FW_cmd(cmd,FW_HM485SaveClickedCallback);		
 }
 
@@ -84,10 +66,10 @@ function FW_HM485OpenPeerList() {
 };	
 
 
-function FW_HM485OpenPeerConfigDialog(peerId) {
+function FW_HM485OpenPeerConfigDialog(peer) {
 	var configArea = $("#configArea");
 	// XMLHTTP request to get config options with current values
-	FW_cmd('/fhem?XHR=1&cmd=get ' + configArea.attr('data-name') + ' peerconfig sensor ' + peerId,
+	FW_cmd('/fhem?XHR=1&cmd=get ' + configArea.attr('data-name') + ' peeringdetails ' + peer,
 	           FW_HM485PeerConfigCallback);
 };	
 
@@ -152,9 +134,9 @@ function FW_HM485MakeConfigTable(config, htmlObj) {
 	for(var i = 0; i < config.length; i++){
 	    // hidden options are needed for later reference when saving
 		if(parseInt(config[i].hidden)){
-	        htmlObj.html += "<tr><td><input type=\"hidden\" name=\"" + config[i].id + 
+	        /* htmlObj.html += "<tr><td><input type=\"hidden\" name=\"" + config[i].id + 
 			                "\" value=\"" + config[i].value + 
-							"\" class=\"argHM485config\" style=\"text-align:right;\" /></td></tr>";
+							"\" class=\"argHM485config\" style=\"text-align:right;\" /></td></tr>"; */
 		    continue;
 		};
 		// start of the table row
@@ -257,19 +239,31 @@ function FW_HM485SpecialValueClicked(name){
 
 function FW_HM485PeerlistCallback(configJson) {	
 
-    var config = JSON.parse(configJson);
+    var peerlist = JSON.parse(configJson);
 	// error message?
-	if(config[".message"]) {
-		FW_errmsg(config[".message"].value,5000);
+	if(peerlist[".message"]) {
+		FW_errmsg(peerlist[".message"].value,5000);
 		return;
 	};	
 
 	var configArea = $("#configArea");	
+    // do we have actuators or sensors as peers?
+	// we assume that we do not have both
+	var actsen = configArea.attr('data-peerrole');
     var even = false;
-	var html = "<div class=\"makeTable wide\">Sensors peered to " + configArea.attr('data-name') + "<br><table class=\"block wide\"><tbody>";
+ 	var html = "<div class=\"makeTable wide\">";
+	switch(actsen){
+		case "actuator":
+		    html += "Sensors"; break;
+		case "sensor":
+            html += "Actuators"; break;
+        default:
+            html += "Channels";		
+	};	
+	html += " peered to " + configArea.attr('data-name') + "<br><table class=\"block wide\"><tbody>";
 	// loop through the peers options
     // this only displays peerings from the actor side. I.e. the list are only sensors 
- 	for(var cName in config.sensors){
+ 	for(var i = 0; i < peerlist.length; i++){
 	    // start of the table row
 		html += "<tr class=";
 		if(even){
@@ -278,7 +272,7 @@ function FW_HM485PeerlistCallback(configJson) {
 			html += "\"odd\"";
         };			
 		// number and name of the peer 
-		html += "><td>" + cName + "</td><td>" + config.sensors[cName] + "</td><td><input type=\"button\" id=\"peersettings.HM485.config\" value=\"Configure Peering\" class=\"attr\" onClick = \"FW_HM485OpenPeerConfigDialog('"+cName+"')\"></td></tr>";
+		html += "><td>" + peerlist[i] + "</td><td><input type=\"button\" id=\"peersettings.HM485.config\" value=\"Configure Peering\" class=\"attr\" onClick = \"FW_HM485OpenPeerConfigDialog('"+peerlist[i]+"')\"></td></tr>";
 		even = !even;
 	};	
 	html += "<tr class=";
@@ -306,28 +300,17 @@ function FW_HM485PeerConfigCallback(configJson) {
     var htmlObj = { even : false,
 	                html : "<div class=\"makeTable wide\">Peering "
 				  };
-	var peerId = "";
-    var sensorname = "";
-    for(var i = 0; i < config.length; i++) {
-        switch(config[i].id){
-			case "peerId": 
-			    peerId = config[i].value;
-				break;
-			case "sensorname":
-                sensorname = config[i].value;
-                break;				
-        };			
-    };	
-	htmlObj.html += peerId + ' ' + sensorname + ' → ' + configArea.attr('data-name')
+	htmlObj.html += config.sensorname + ' → ' + config.actuatorname
                             + "<br><table class=\"block wide\"><tbody>"; 	
-	FW_HM485MakeConfigTable(config, htmlObj)
+	// it is always actuatorconfig						
+	FW_HM485MakeConfigTable(config.actuatorconfig, htmlObj)
 	htmlObj.html += "<tr class=";
 	if(htmlObj.even){
 	    htmlObj.html += "\"even\"";	 
     }else{
 		htmlObj.html += "\"odd\"";
     };			
-    htmlObj.html += "><td colspan=\"2\"><input type=\"button\" id=\"submit.HM485.config\" value=\"Write to Device\" class=\"attr\" onClick = \"FW_HM485PeerConfigSaveClicked('" + configArea.attr('data-name') + "')\">" +
+    htmlObj.html += "><td colspan=\"2\"><input type=\"button\" id=\"submit.HM485.config\" value=\"Write to Device\" class=\"attr\" onClick = \"FW_HM485PeerConfigSaveClicked('" + config.sensorname + "','" + config.actuatorname + "')\">" +
 	"<input type=\"button\" id=\"cancel.HM485.config\" value=\"Cancel\" class=\"attr\" onClick = \"FW_HM485CloseConfigDialog()\"></td></tr></tbody></table></div><br>";
 	
 	configArea.html(htmlObj.html);
