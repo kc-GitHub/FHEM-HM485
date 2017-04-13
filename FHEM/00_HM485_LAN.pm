@@ -171,8 +171,6 @@ sub HM485_LAN_Define($$) {
 	# via fhem.save. This means that the device will never be really opened.
 	$hash->{STATE} = '';
 
-	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday();
-
 	return $ret;
 }
 =head2
@@ -184,7 +182,7 @@ sub HM485_LAN_Define($$) {
 sub HM485_LAN_Ready($) {
 	my ($hash) = @_;
 
-	if ( ! $hash->{STATE} eq "disconnected" ) {
+	if ( $hash->{STATE} ne "disconnected" ) {
 		return undef;  # nothing to do in this case
 	};
 	# It seems we are disconnected (not closed intentionally)
@@ -841,6 +839,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	}		
 
 	if ($canDispatch && length($message) > 3) {
+   		HM485::Util::Log3($hash, 5, 'Dispatch: '.uc(unpack('H*', $message)));
 		Dispatch($hash, $message, '');
 	}
 
@@ -1186,9 +1185,9 @@ sub HM485_LAN_HM485dStart($) {
 	The following hardware interfaces can be used with this module.
 	<br>
 	<ul>
-		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
-		<li>Ethernet to RS485 converter like WIZ108SR.</li>
 		<li>RS232/USB to RS485 converter like DIGITUS DA-70157</li>
+		<li>Ethernet to RS485 converter like WIZ108SR.</li>
+		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
 		<li>A RS485 Tranceiver, which is e.g. directly connected to the UART of a Raspberry Pi</li> 
 	</ul>
 	<br>	
@@ -1197,23 +1196,23 @@ sub HM485_LAN_HM485dStart($) {
     <br><br>
 	<b>Minimum configuration examples</b><br>
 	<ul>
-		<li>HomeMatic Wired RS485 LAN Gateway<br>
+		<li>USB to RS485 converter<br>
 			<code>
-			define hm485 HM485_LAN 192.168.178.164:1000
+			define hm485 HM485_LAN localhost:2000<br>
+			attr hm485 HM485d_bind 1<br>
+			attr hm485 HM485d_device /dev/ttyUSB0
 			</code>
 		</li><br>
-		<li>Ethernet to RS485 converter<br>
+	    <li>Ethernet to RS485 converter<br>
 			<code>
 			define hm485 HM485_LAN localhost:2000<br>
 			attr hm485 HM485d_bind 1<br>
 			attr hm485 HM485d_device 192.168.178.165:5000
 			</code>
 		</li><br>
-		<li>USB to RS485 converter<br>
+		<li>HomeMatic Wired RS485 LAN Gateway<br>
 			<code>
-			define hm485 HM485_LAN localhost:2000<br>
-			attr hm485 HM485d_bind 1<br>
-			attr hm485 HM485d_device /dev/ttyUSB0
+			define hm485 HM485_LAN 192.168.178.164:1000
 			</code>
 		</li>
 	</ul>
@@ -1258,7 +1257,8 @@ sub HM485_LAN_HM485dStart($) {
 	<br>
 	<li><code>set &lt;name&gt; <b>discovery</b> start</code><br>
 	This starts the discovery mode. The system then searches for unknown devices on the RS485 bus connected to the HM485_LAN device &lt;name&gt;. New devices are automatically created in FHEM and paired with &lt;name&gt;. Refer to the documentation for HM485 devices for details.<br>
-	The discovery mode might not find all HM485 devices. E.g. some "Homebrew" devices do not send an answer on discovery messages. In this case, some message needs to be triggered by the device itself in order to detect and auto-create it.
+	The discovery mode might not find all HM485 devices. E.g. some "Homebrew" devices do not send an answer on discovery messages. In this case, some message needs to be triggered by the device itself in order to detect and auto-create it.<br>
+	The discovery mode does not work with the HomeMatic Wired RS485 LAN Gateway.
 	</li>
 	<br>
 	<li><code>set &lt;name&gt; <b>broadcastSleepMode</b> off</code><br>

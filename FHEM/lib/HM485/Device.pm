@@ -1,5 +1,4 @@
 package HM485::Devicefile;
-# Version 0.5.141
 
 use constant false => 0;
 use constant true => 1;
@@ -98,7 +97,8 @@ sub init () {
 		if (scalar(keys %deviceDefinitions) < 1 ) {
 			return 'HM485: Warning, no device definitions loaded!';
 		}
-		initModels();
+		# TODO remove
+		# initModels();
 	} else {
 		$retVal = 'HM485: ERROR! Can\'t read devicePath: ' . $devicesPath . $!;
 	}
@@ -106,123 +106,135 @@ sub init () {
 	return $retVal;
 }
 
-=head2
-	Initialize all loaded models
-=cut
-sub initModels() {
 
-	foreach my $deviceKey (keys %deviceDefinitions) {					
-		if ($deviceDefinitions{$deviceKey}{'supported_types'}) {		
-			foreach my $modelKey (keys (%{$deviceDefinitions{$deviceKey}{'supported_types'}})) {
-				if ($deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'0'}{'const_value'}) {
-					$models{$modelKey}{'model'} = $modelKey;
-					$models{$modelKey}{'name'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'name'};
-					$models{$modelKey}{'type'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'0'}{'const_value'};
+# TODO remove
+# =head2
+	# Initialize all loaded models
+# =cut
+# sub initModels() {
+
+	# foreach my $deviceKey (keys %deviceDefinitions) {					
+		# if ($deviceDefinitions{$deviceKey}{'supported_types'}) {		
+			# foreach my $modelKey (keys (%{$deviceDefinitions{$deviceKey}{'supported_types'}})) {
+				# if ($deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'0'}{'const_value'}) {
+					# $models{$modelKey}{'model'} = $modelKey;
+					# $models{$modelKey}{'name'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'name'};
+					# $models{$modelKey}{'type'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'0'}{'const_value'};
 					
-					my $minFW = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'2'}{'const_value'};
-					$minFW = $minFW ? $minFW : 0;
-					$models{$modelKey}{'versionDeviceKey'}{$minFW} = $deviceKey;
-				}
-				# Handling of the "generic" device
-                # This is probably not perfect, but should work
-				  elsif($deviceKey eq 'HMW_GENERIC') {
-                    $models{$modelKey}{'model'} = $modelKey;
-                    $models{$modelKey}{'name'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'name'};
-					$models{$modelKey}{'type'} = 0;
-					$models{$modelKey}{'versionDeviceKey'}{0} = $deviceKey;  
-				}
-			}
-		}
-	}
-#	my $t = getModelName(getModelFromType(91));
+					# my $minFW = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'2'}{'const_value'};
+					# $minFW = $minFW ? $minFW : 0;
+					# $models{$modelKey}{'versionDeviceKey'}{$minFW} = $deviceKey;
+				# }
+				# # Handling of the "generic" device
+                # # This is probably not perfect, but should work
+				  # elsif($deviceKey eq 'HMW_GENERIC') {
+                    # $models{$modelKey}{'model'} = $modelKey;
+                    # $models{$modelKey}{'name'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'name'};
+					# $models{$modelKey}{'type'} = 0;
+					# $models{$modelKey}{'versionDeviceKey'}{0} = $deviceKey;  
+				# }
+			# }
+		# }
+	# }
+# }
+
+
+sub getDeviceKeyAndModel($$) {
+	my ($rawDevType, $rawFwVersion) = @_;
+
+	# search for matching device descriptions
+    my $bestPriority = -1;  # priority of the generic device is 0
+	my @retVal;
+	foreach my $deviceKey (keys %deviceDefinitions) {	
+	    # ignore the "central" device
+		next if($deviceKey eq "HMW_CENTRAL");
+        foreach my $modelKey (keys %{$deviceDefinitions{$deviceKey}{supported_types}}) {
+			my $model = $deviceDefinitions{$deviceKey}{supported_types}{$modelKey};
+			# this should have parameter 
+			next unless(defined($model->{parameter}));
+			# there might be some bad HBW-XMLs out there... make sure they have higher prio 
+			# then the generic device
+			my $priority = defined($model->{priority}) ? $model->{priority} : 1;
+			# if we already have something, which is as good, go on
+			next if($priority <= $bestPriority);
+			# check device type, but only if present
+			if(defined($model->{parameter}{"0"}) and defined($model->{parameter}{"0"}{const_value})) {
+			    next unless($model->{parameter}{"0"}{const_value} == $rawDevType);
+			};
+			# check fw version, if present
+			if(defined($model->{parameter}{"2"}) and defined($model->{parameter}{"2"}{const_value})) {
+			    my $op = defined($model->{parameter}{"2"}{cond_op}) ? $model->{parameter}{2}{cond_op} : "EQ";
+				if($op eq "EQ") {
+				    next unless($model->{parameter}{"2"}{const_value} == $rawFwVersion);
+                }elsif($op eq "NE") {
+				    next unless($model->{parameter}{"2"}{const_value} != $rawFwVersion);
+                }elsif($op eq "GT") {
+				    next unless($model->{parameter}{"2"}{const_value} < $rawFwVersion);
+                }elsif($op eq "GE") {
+				    next unless($model->{parameter}{"2"}{const_value} <= $rawFwVersion);
+                }elsif($op eq "LT") {
+				    next unless($model->{parameter}{"2"}{const_value} > $rawFwVersion);
+                }elsif($op eq "LE") {
+				    next unless($model->{parameter}{"2"}{const_value} >= $rawFwVersion);
+                }else{
+				    # weird
+					next;
+				};				
+			};
+			# if we came that far, we have found a match
+			@retVal = ($deviceKey,$modelKey);
+			$bestPriority = $priority;
+		};
+	};		
+	return @retVal;	
 }
+
 
 =head2
 	Get device key depending on firmware version
+	Device Key is in principle the name of the device file
 =cut
 sub getDeviceKeyFromHash($) {
 	my ($hash) = @_;
 
+	# $DB::single = 1;
+	
+	# channel?
 	if(defined($hash->{devHash})) {
 		$hash = $hash->{devHash};
 	}
-	
-	my $retVal = '';
-	if ($hash->{'MODEL'}) {
-		my $model    = $hash->{'MODEL'};
-		my $fw  = $hash->{'FW_VERSION'} ? $hash->{'FW_VERSION'} : 0;
-		my $fw1 = $fw ? int($fw) : 0;
-		my $fw2 = ($fw * 100) - int($fw) * 100;
+	# do we have it as a reading?
+	return $hash->{READINGS}{"D-deviceKey"}{VAL} if(defined($hash->{READINGS}{"D-deviceKey"}));
 
-		my $fwVersion = hex(
-			sprintf ('%02X%02X', ($fw1 ? $fw1 : 0), ($fw2 ? $fw2 : 0))
-		);
-
-		foreach my $version (keys (%{$models{$model}{'versionDeviceKey'}})) {
-			if ($version <= $fwVersion) {
-				$retVal = $models{$model}{'versionDeviceKey'}{$version};
-			} else {
-				last;
-			}
-		}
-	}
-	
-	return $retVal;
+	# do we have device type and firmware version?
+	return '' unless(defined($hash->{RawDeviceType}) and defined($hash->{RawFwVersion}));
+	# now search for matching device descriptions
+	my ($devicekey,undef) = getDeviceKeyAndModel($hash->{RawDeviceType},$hash->{RawFwVersion});
+	main::HM485_ReadingUpdate($hash,"D-deviceKey",$devicekey) if($devicekey);
+	return $devicekey;	
 }
 
 
-=head2
-	Get the model from numeric hardware type
+# =head2
+	# Get the model from numeric hardware type
 	
-	@param	int      the numeric hardware type
-	@return	string   the model
-=cut
-sub getModelFromType($) {
-	my ($hwType) = @_;
+	# @param	int      the numeric hardware type
+	# @return	string   the model
+# =cut
+# sub getModelFromType($) {
+	# my ($hwType) = @_;
 
-	foreach my $model (keys (%models)) {
-		if (exists($models{$model}{'type'}) && $models{$model}{'type'} == $hwType) {
-			return $model;
-		}
-	}
+	# foreach my $model (keys (%models)) {
+		# if (exists($models{$model}{'type'}) && $models{$model}{'type'} == $hwType) {
+			# return $model;
+		# }
+	# }
 
-	HM485::Util::Log3(undef, 1, 'Unknown device type '.$hwType.'. Setting model to Generic' );
+	# HM485::Util::Log3(undef, 1, 'Unknown device type '.$hwType.'. Setting model to Generic' );
 	
-	return 'HMW_Generic';
-}
+	# return 'HMW_Generic';
+# }
 
-=head2 getModelName
-	Get the model name from model type
-	
-	@param	string   the model type e.g. HMW_IO_12_Sw7_DR
-	@return	string   the model name
-=cut
-sub getModelName($) {
-	my ($hwType) = @_;
-	my $retVal = 'unknown';
-
-	if (defined($models{$hwType}{'name'})) {
-		$retVal = $models{$hwType}{'name'};
-	}
-	
-	return $retVal;
-}
-
-=head2 getModelList
-	Get a list of models from $models hash
-
-	@return	string   list of models
-=cut
-sub getModelList() {
-	my @modelList;
-	foreach my $type (keys %models) {
-		if ($models{$type}{'model'}) {
-			push (@modelList, $models{$type}{'model'});
-		}
-	}
-
-	return join(',', @modelList);
-}
 
 =head2 isBehaviour
 	Looks if channels behaviour is activ
@@ -275,13 +287,15 @@ sub getBehaviour($) {
 			if ( $channelConfig->{'special_parameter'}{'behaviour'} && 
 				 $channelConfig->{'special_parameter'}{'behaviour'}{'physical'}{'address'}{'index'}) {
 					$chConfig = HM485::ConfigurationManager::getConfigFromDevice($hash, $chNr);
-				if ($channelConfig->{'link_roles'}{'source'}{'name'}) {
-					$extension = $channelConfig->{'link_roles'}{'source'}{'name'};
+				if ($channelConfig->{link_roles}{source}{name}) {
+					$extension = $channelConfig->{link_roles}{source}{name};
 				} else {
-					foreach my $option (keys @{$chConfig->{'behaviour'}{'possibleValues'}}) {
-						if (exists ($chConfig->{'behaviour'}{'possibleValues'}[$option]{'default'})) {
-							#$extension = $option;
-							$extension = $chConfig->{'behaviour'}{'possibleValues'}[$option]{'id'};
+				    my $behaviour = HM485::Util::getArrayEntryWithId($chConfig, "behaviour");
+                    if($behaviour) {
+					    foreach my $option (@{$behaviour->{possibleValues}}) {
+						    next unless($option->{default});
+							$extension = $option->{id};
+							last;
 						}
 					}
 				}
@@ -297,32 +311,28 @@ sub getBehaviourCommand($) {
 	my $retVal = undef;
 	
 	my ($chConfig, $chType, $extension) = getBehaviour($hash);
-	
 
-
-	if ($chConfig->{'behaviour'}{'value'} && $chConfig->{'behaviour'}{'value'} eq '1') {	
-		my $deviceKey = getDeviceKeyFromHash($hash);
-		#i only found switch as link_role
-		if ($extension eq 'switch') {
-			$extension = $extension .'_ch';
-		}
-		
-		my $search  = getValueFromDefinitions(
-						$deviceKey . '/channels/' . $chType .'/subconfig/paramset/'
-					  );
-		if (ref($search) eq 'HASH') {
-			#leider kann getValueFromDefinitions nicht tiefer suchen
-			foreach my $valueHash (keys %{$search}) {
-				my $item = $search->{$valueHash};
-				foreach my $found (keys %{$item}) {
-					if ($found eq 'type' && $search->{$valueHash}{$found} eq 'values') {
-						$retVal = $search->{$valueHash}{'parameter'};
-					}
+	my $behaviour = HM485::Util::getArrayEntryWithId($chConfig,"behaviour");
+    return undef unless($behaviour && defined($behaviour->{value}) && $behaviour->{value} eq "1"); 	
+	my $deviceKey = getDeviceKeyFromHash($hash);
+	#i only found switch as link_role
+	if ($extension eq 'switch') {
+		$extension = $extension .'_ch';
+	}
+	my $search  = getValueFromDefinitions(
+					$deviceKey . '/channels/' . $chType .'/subconfig/paramset/'
+				  );
+    if (ref($search) eq 'HASH') {
+		#leider kann getValueFromDefinitions nicht tiefer suchen
+		foreach my $valueHash (keys %{$search}) {
+			my $item = $search->{$valueHash};
+			foreach my $found (keys %{$item}) {
+				if ($found eq 'type' && $search->{$valueHash}{$found} eq 'values') {
+					$retVal = $search->{$valueHash}{'parameter'};
 				}
 			}
 		}
 	}
-	
 	return $retVal;
 }
 
@@ -341,9 +351,12 @@ sub getChannelBehaviour($) {
 	
 	my ($chConfig, $chType, $extension) = getBehaviour($hash);
 
-	if (ref ($chConfig) eq 'HASH') {
-		$bool = $chConfig->{'behaviour'}{'value'};
-		$retVal = HM485::ConfigurationManager::convertValueToOption( $chConfig->{behaviour}{possibleValues}, $bool);
+	if (ref ($chConfig) eq 'ARRAY') {
+	    my $behaviour = HM485::Util::getArrayEntryWithId($chConfig, "behaviour");
+		if($behaviour) {
+		    $bool = $behaviour->{value};
+		    $retVal = HM485::ConfigurationManager::convertValueToOption( $behaviour->{possibleValues}, $bool);
+		};
 	}
 	
 	return ($retVal, $bool, $extension);
@@ -355,16 +368,16 @@ sub getChannelBehaviour($) {
 ### we should rework below this ###
 
 
-=head2 getHwTypeList
-	Title		: getHwTypeList
-	Usage		: my $modelHwList = getHwTypeList();
-	Function	: Get a list of model harwaretypes from $models hash
-	Returns 	: string
-	Args 		: nothing
-=cut
-sub getHwTypeList() {
-	return join(',', sort keys %models);
-}
+# =head2 getHwTypeList
+	# Title		: getHwTypeList
+	# Usage		: my $modelHwList = getHwTypeList();
+	# Function	: Get a list of model harwaretypes from $models hash
+	# Returns 	: string
+	# Args 		: nothing
+# =cut
+# sub getHwTypeList() {
+	# return join(',', sort keys %models);
+# }
 
 =head2 getValueFromDefinitions
 	Get values from definition hash by given path.
@@ -460,7 +473,10 @@ sub parseFrameData($$$) {
 	my $channel           	= sprintf("%02d",hex (substr($data, 2, 2)) +1);
 	my $hmwId              	= $hash->{'DEF'};
 	my $chHash             	= $main::modules{'HM485'}{'defptr'}{$hmwId . '_' . $channel};
-	($behaviour, undef) 	= getChannelBehaviour($chHash);
+	if($chHash) {
+	    # i.e. not for generic devices or for bugs...
+	    ($behaviour, undef) 	= getChannelBehaviour($chHash);
+	};
 	my $frameData       	= getFrameInfos($deviceKey, $data, 1, $behaviour, 'from_device');
 	my $retVal          	= convertFrameDataToValue($hash, $deviceKey, $frameData);
 
@@ -989,7 +1005,7 @@ sub translateValueToFrameData ($$) {
 		} else {
 			my $value = undef;
 			
-			foreach my $index (keys %{$frameParam}) {
+			foreach my $index (sort keys %{$frameParam}) {
 				my $paramLen = $frameParam->{$index}{'size'} ? $frameParam->{$index}{'size'} : 1;
 				my $singleVal;
 				# fixed value?
@@ -1360,7 +1376,7 @@ sub setRawEEpromData($$$$) {
 			last;
 		}
 	}
-    delete $hash->{'cache'};
+    delete $hash->{cache};
 }
 
 =head2
@@ -1540,11 +1556,10 @@ sub internalUpdateEEpromData($$) {
     delete $devHash->{'cache'};
 }
 
-sub parseModuleType($) {
-	my ($data) = @_;
+sub parseModuleType($$) {
+	my ($data,$rawFwVersion) = @_;
 	
 	# Todo sometimes there comes a big number don't now how to parse
-	my $retVal;
 	if (length ($data) > 4) {
 		my $modelNr = hex(substr($data,4,2));
 		print Dumper ("parseModuleType bigstring:$modelNr",$data);
@@ -1552,12 +1567,11 @@ sub parseModuleType($) {
 	}	
 	my $modelNr = hex(substr($data,0,2));
 	if (!defined($modelNr)) { return undef };
-	$retVal  = getModelFromType($modelNr);
-	if ( $retVal) {
-		$retVal =~ s/-/_/g;
+	my (undef, $model)  = getDeviceKeyAndModel($modelNr,$rawFwVersion);
+	if ( $model) {
+		$model =~ s/-/_/g;
 	}
-	
-	return $retVal;
+	return $model;
 }
 
 sub parseSerialNumber($) {
@@ -1580,12 +1594,8 @@ sub parseFirmwareVersion($) {
 	return $retVal;
 }
 
-sub getAllowedSets($) {
+sub getAllowedSetsUnbuffered($) {
 	my ($hash) = @_;
-	#Todo peerings abfragen für press_long press_short
-	
-	my $name   = $hash->{'NAME'};
-	my $model  = $hash->{'MODEL'};
 	
 	my %cmdOverwrite = (
 		'switch.state'	=> "on:noArg off:noArg toggle:noArg on-for-timer:textField"
@@ -1601,56 +1611,51 @@ sub getAllowedSets($) {
    		'button.short'	=> "noArg",
    		'digital_analog_output.frequency' => "slider,0,1,50000",
 	);
+
+    my $commands = getBehaviourCommand($hash);
+	if(!$commands){
+	    my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
+        return '' unless($deviceKey);
+	    my $chType    = getChannelType($deviceKey, $hash->{chanNo});
+	    return '' unless($chType);		
+	    $commands  = getValueFromDefinitions($deviceKey . '/channels/' . $chType .'/paramset/values/parameter');
+	};
 	
-	my @cmdlist;
-	my $retVal = undef;
-
-	if (defined($model) && $model) {
-		
-		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-
-		if (defined($chNr)) {
-			
-			my $deviceKey = HM485::Device::getDeviceKeyFromHash($hash);
-			my $chType    = getChannelType($deviceKey, $chNr);
-			
-			if ($chType) {
-				my $commands  = getValueFromDefinitions(
-					$deviceKey . '/channels/' . $chType .'/paramset/values/parameter'
-				);
-				
-				my $behaviour = getBehaviourCommand($hash);
-				if ($behaviour) {
-					$commands = $behaviour;
+    my @cmdlist;		
+	foreach my $command (@{$commands}) {
+		next unless($command->{operations});
+		my @values = split(',', $command->{'operations'});
+		foreach my $val (@values) {
+			next unless($val eq 'write' && $command->{'physical'}{'interface'} eq 'command');
+			if ($command->{'control'}) {
+				my $ctrl = $command->{'control'};
+				if ($cmdOverwrite{$ctrl}) {
+					push @cmdlist, $cmdOverwrite{$ctrl};
 				}
-				
-				foreach my $command (@{$commands}) {
-					if ($command->{'operations'}) {
-						my @values = split(',', $command->{'operations'});
-	  					foreach my $val (@values) {
-	    					if ($val eq 'write' && 
-    							$command->{'physical'}{'interface'} eq 'command') {
-								if ($command->{'control'}) {
-									my $ctrl = $command->{'control'};
-									if ($cmdOverwrite{$ctrl}) {
-										push @cmdlist, $cmdOverwrite{$ctrl};
-									}
-								    if($cmdArgs{$ctrl}) {
-										push @cmdlist, $command->{id}.":".$cmdArgs{$ctrl};	
-									}
-								} else {
-									push @cmdlist, $command->{id};
-								}
-							}
-	    				}
-					}
+			    if($cmdArgs{$ctrl}) {
+					push @cmdlist, $command->{id}.":".$cmdArgs{$ctrl};	
 				}
+			} else {
+				push @cmdlist, $command->{id};
 			}
 		}
 	}
-	
-	$retVal = join(" ",@cmdlist);
-	return $retVal;
+	return join(" ",@cmdlist);
 }
+
+
+sub getAllowedSets($) {
+	my ($hash) = @_;
+	# only for channels
+	return '' unless(defined($hash->{devHash}));
+	# buffer 
+	my $result = $hash->{devHash}{cache}{$hash->{chanNo}}{allowedSets};
+	if(!defined($result)) {
+	    # not in buffer
+	    $result = getAllowedSetsUnbuffered($hash);
+	    $hash->{devHash}{cache}{$hash->{chanNo}}{allowedSets} = $result;
+	};
+	return $result;
+};
 
 1;

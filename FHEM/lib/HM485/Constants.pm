@@ -31,12 +31,6 @@ our %commands = (
 	'CB' => 'Key press simmulation',						# (Ë) to device
 );
 
-our %responseAttrMap = (
-	'68' => 'model',
-	'6E' => 'serialNr',
-	'76' => 'firmwareVersion',
-);
-
 #FRAME_START_SHORT{0xFE};
 
 use constant {

@@ -1,5 +1,5 @@
-#
-#
+
+
 package HM485::PeeringManager;
 
 use strict;
@@ -10,47 +10,6 @@ use lib::HM485::Constants;
 
 use Data::Dumper;
 
-
-
-sub brokenPeers ($$) {
-	my ($hash, $chList) = @_;
-	
-	my @list = @{$chList};
-	my $retVal = undef;
-	
-	my $devHash = $main::modules{HM485}{defptr}{substr($hash->{DEF}, 0, 8)};
-	my $channel = substr($hash->{DEF}, 9, 2);
-	my $devchannels = $devHash->{cache}{peered_act};
-	my @chArray = ();
-	
-	#first we create a array of peers with the aprobiate channel,
-	#then compare two arrays
-	
-	foreach my $peerId (keys %{$devchannels}) {
-		if ($channel eq $devchannels->{$peerId}{channel}) {
-			my $name = getDevNameByHmwId($devchannels->{$peerId}{name});
-			push @chArray, $name;
-		}
-	}
-	
-	my (@intersection, @difference) = ();
-    
-    my %count = ();
-    my $element;
-    
-    foreach $element (@chArray, @list) { 
-    	$count{$element}++;
-    }
-    foreach $element (keys %count) {
-            push @{ $count{$element} > 1 ? \@intersection : \@difference }, $element;
-    }
-
-    if (@difference && $devHash->{READINGS}{configStatus}{VAL} eq 'OK') {
-    	$retVal = \@difference;
-    }
-
-    return $retVal;
-}
 
 #get next free peerID from Device
 sub getFreePeerId ($$) {
@@ -101,8 +60,6 @@ sub getPeerId ($$$$) {
 # Determine peer role for channel hash
 # This is buffered in internal peerRole
 # Result can be "sensor", "actuator" or "none"
-# TODO: Do we have to reset this for devices which can change the role?
-#       Does such a thing exist? 
 sub getPeerRole($){
     my ($channelHash) = @_;
 	# buffered?
@@ -127,133 +84,46 @@ sub getPeerRole($){
 			return "sensor"; 
 		}
 	};	
+    $channelHash->{peerRole} = "none";
     return "none";
 }
 
 
-sub actuatorPeerList($$) {
-	my ($hash,$peerLinks) = @_;
-	
-	my @peerlist;
-	my $retVal;
-	
-	foreach my $peerId (keys %{$peerLinks->{sensors}}) {
-		if ($peerLinks->{sensors}{$peerId}{channel} && 
-			$peerLinks->{sensors}{$peerId}{channel} eq substr($hash->{DEF}, 9, 2)) {
-			my $name = $peerLinks->{sensors}{$peerId}{sensor};
-			push @peerlist, getDevNameByHmwId($name);
-		}
-	}
-	
-	$hash->{PeerList} = join(' ', @peerlist);
-	$retVal = join(',', @peerlist);
-	return $retVal;
-}
-
-# sub getPeerableChannels($) {
-	# my ($hash) = @_;
-		
-	# my @peered;
-	# my @peerable;
-	# my $retVal;
-	# my $devHash    		= $main::modules{HM485}{defptr}{substr($hash->{DEF},0,8)};
-	# my $devPeerLinks 	= getLinksFromDevice($devHash);
-	
-	# if ($devPeerLinks->{sensors}{0}{sensor} &&
-		# $devPeerLinks->{sensors}{0}{sensor} eq 'none') {
-		# return undef;
-	# }
-	
-	# foreach my $hmwId (sort keys %{$main::modules{HM485}{defptr}}) {
-		
-		# if (length($hmwId) > 8) { next; } # only channel 0
-		
-		# my $devHash    	= $main::modules{HM485}{defptr}{$hmwId};
-		# my $peerLinks 	= getLinksFromDevice($devHash);
-		
-		# if ($peerLinks->{sensors}{0}{sensor} && $peerLinks->{sensors}{0}{sensor} eq 'none') {
-			# next;
-		# }
-		
-		# if (!$peerLinks) { last; }
-		
-		# my $peerChannels = getLinkParams($devHash);
-		
-		# if (exists($peerChannels->{sensor}{channels})) {
-			# my @channels = split(' ',$peerChannels->{sensor}{channels});
-		
-			# foreach my $num (@channels) {
-				
-				# my $alreadyPeered = 0;
-			
-				# if ($num eq substr($hash->{DEF}, 9, 2) && substr($hash->{DEF}, 0, 8) eq $hmwId) {
-					# $retVal->{actpeered} = actuatorPeerList($hash,$peerLinks);
-					# return $retVal;
-				# }
-			
-				# foreach my $actId (keys %{$peerLinks->{sensors}}) {
-					
-					# if (defined ($peerLinks->{sensors}{$actId}{channel}) &&
-					    # $peerLinks->{sensors}{$actId}{channel} eq $num &&
-						# $peerLinks->{sensors}{$actId}{sensor} eq $hash->{DEF}) {
-						# $alreadyPeered = 1;
-					# }
-				# }
-						
-				# if ($alreadyPeered) {
-					# push @peered, getDevNameByHmwId($hmwId.'_'.$num);
-					# next;
-				# } else {
-					# push @peerable, getDevNameByHmwId($hmwId.'_'.$num);
-				# }
-				
-			# }
-		# }					
-	# }
-	
-	# if (@peered) {
-		# $hash->{PeerList} = join(" ",@peered);
-	# } else {
-		# delete $hash->{PeerList};
-	# }
-	
-	# $retVal->{peerable} = join(",",@peerable);
-	
-	# # peered could be empty but broken could be set
-	# # we concatenate broken and peered, so we can also
-	# # delete broken peers
-	# my $broken = brokenPeers($hash, \@peered);
-	# if ($broken) {
-		# push @peered, @{$broken};
-		# $hash->{BrokenPeers} = join(" ",@{$broken});
-	# } else {
-		# delete $hash->{BrokenPeers};
-	# }
-	# $retVal->{peered} = join(",",@peered);
-	
-	# return $retVal;
-# }
-
-
-sub getPeeredChannels($) {
+sub getPeeredChannelsUnbuffered($) {
 	my ($channelHash) = @_;
     my $peerRole = getPeerRole($channelHash);
 	# can this channel have peerings at all?
     return [] if($peerRole eq "none");
     my $devHash = $channelHash->{devHash};
+	return [] unless($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
 	my $devLinks = getLinksFromDevice($devHash);
 	my @result;
-	# what role would the other side have?
-	my $actsen = $peerRole eq "actuator" ? "sensor" : "actuator";
-	foreach my $peerId (keys %{$devLinks->{$actsen."s"}}) {
-	    # correct channel?
-		next unless($devLinks->{$actsen."s"}{$peerId}{channel} eq $channelHash->{chanNo});			
-		push(@result, getDevNameByHmwId($devLinks->{$actsen."s"}{$peerId}{$actsen}));			
+	# we need to check both roles, even though only one can be correct
+	# otherwise, broken peerings through behaviour changes cannot be deleted
+	foreach my $actsen ("actuator","sensor") {
+	    foreach my $peerId (keys %{$devLinks->{$actsen."s"}}) {
+	        # correct channel?
+		    next unless($devLinks->{$actsen."s"}{$peerId}{channel} eq $channelHash->{chanNo});			
+		    push(@result, getDevNameByHmwId($devLinks->{$actsen."s"}{$peerId}{$actsen}));			
+	    };
 	};
 	my @sortedResult = sort(@result);
     return \@sortedResult;	
 };
 
+
+sub getPeeredChannels($) {
+	my ($channelHash) = @_;
+	# only for channels
+    my $devHash = $channelHash->{devHash};
+	return [] unless(defined($devHash));
+    my $result = $devHash->{cache}{$channelHash->{chanNo}}{peeredChannels};
+	if(!defined($result)) {
+	    $result = getPeeredChannelsUnbuffered($channelHash);
+		$devHash->{cache}{$channelHash->{chanNo}}{peeredChannels} = $result;
+	};
+	return $result;
+};
 
 
 sub getPeerableChannels($) {
@@ -261,24 +131,19 @@ sub getPeerableChannels($) {
     my $peerRole = getPeerRole($channelHash);
 	# can this channel have peerings at all?
     return [] if($peerRole eq "none");
+	return [] unless($channelHash->{devHash}{READINGS}{configStatus}{VAL} eq 'OK');
     my @peerable;
-    foreach my $hmwId (keys %{$main::modules{HM485}{defptr}}) {
-        next if (length($hmwId) > 8); # only the device itself
-		my $peerChannels = getLinkParams($main::modules{HM485}{defptr}{$hmwId});
-		# is there something we can peer to?
-		next unless(exists($peerChannels->{$peerRole}{channels}));
-		my @channels = split(' ',$peerChannels->{$peerRole}{channels});
-		foreach my $num (@channels) {
-			push @peerable, getDevNameByHmwId($hmwId.'_'.$num);
-		};
+	my $otherRole = ($peerRole eq "sensor" ? "actuator" : "sensor");
+	my $IODev = $channelHash->{devHash}{IODev};
+    foreach my $otherChannel (values %{$main::modules{HM485}{defptr}}) {
+	    # we are only interested in channels
+        next unless(defined($otherChannel->{devHash}));
+		# direct peering only via the same gateway
+		next unless($otherChannel->{devHash}{IODev} == $IODev);
+        next unless(getPeerRole($otherChannel) eq $otherRole);
+        push @peerable, $otherChannel->{NAME};		
 	};
-
-	# TODO:
-	# # if (@peered) {
-		# # $hash->{PeerList} = join(" ",@peered);
-    
-	# remove what is already peered
-	
+	# remove what is already peered	
 	my $alreadyPeered = getPeeredChannels($channelHash);
 	my %in_alreadyPeered = map {$_ => 1} @{$alreadyPeered};
     my @notYetPeered  = grep {not $in_alreadyPeered{$_}} @peerable;
@@ -313,7 +178,7 @@ sub getHmwIdByDevName ($) {
 	my @parts = split("_",$name);
 	# some plausibility check
 	return undef unless(@parts == 3 && $parts[0] eq "unknown" && length($parts[1]) == 8 
-	                      && length($parts[2] > 1));
+	                      && length($parts[2]) > 1);
 	return $parts[1]."_".$parts[2];					  
 }
 
@@ -325,7 +190,8 @@ sub getLinkParams($) {
 	my $linkParams = $devHash->{cache}{linkParams};
 	
 	if (!$linkParams) {
-		my $channels = getChannelsFromDevice($devHash);
+	
+   	    my $channels = getChannelsFromDevice($devHash);
 		
 		if ($channels) {
 			foreach my $subType (sort keys %{$channels}) {
@@ -409,7 +275,8 @@ sub getLinksFromDevice($) {
 		
 	my $peers = $devHash->{cache}{peers};
 	if (!$peers) {
-
+        # check if config reading is ready
+		return $peers unless($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
         # avoid double definition
         my $channelParam = undef;		
 		my $linkParams = getLinkParams($devHash);
@@ -437,7 +304,9 @@ sub getLinksFromDevice($) {
 						$peers->{actuators}{$peerId}{actuator} = $addrHash->{value};
 						$peers->{actuators}{$peerId}{channel} = sprintf("%02d",$chHash->{value} + 1);
 						my $peerHash = $main::modules{HM485}{defptr}{$peers->{actuators}{$peerId}{actuator}};
-						if (!$peerHash) { $peerHash->{NAME} = 'unknown_'.$peers->{actuators}{$peerId}{actuator}};
+						if (!$peerHash) {
+						    $peerHash->{NAME} = 'unknown_'.$peers->{actuators}{$peerId}{actuator};
+						};
 						$devHash->{'peer_act_'.$peerId} = 'channel_'.$peers->{actuators}{$peerId}{channel}.
 								' → '. $peerHash->{NAME};
 						$devHash->{cache}{peered_act}{$peerId}{name} = $peers->{actuators}{$peerId}{actuator};
@@ -469,6 +338,9 @@ sub getLinksFromDevice($) {
 						$peers->{sensors}{$peerId}{sensor} = $addrHash->{value};
 						$peers->{sensors}{$peerId}{channel} = sprintf("%02d",$chHash->{value} + 1);
 						my $peerHash = $main::modules{HM485}{defptr}{$peers->{sensors}{$peerId}{sensor}};
+						if (!$peerHash) {
+						    $peerHash->{NAME} = 'unknown_'.$peers->{sensors}{$peerId}{sensor};
+						};
 						if (!$peerHash) { $peerHash->{NAME} = 'unknown_'.$peers->{sensors}{$peerId}{sensor}};
 						$devHash->{'peer_sen_'.$peerId} = 'channel_'.$peers->{sensors}{$peerId}{channel}.
 								' ← '. $peerHash->{NAME};
@@ -482,11 +354,9 @@ sub getLinksFromDevice($) {
 		
 		if ($peers) {
 			$devHash->{cache}{peers} = $peers;
-		} elsif ($linkParams->{sensor}{count} || $linkParams->{actuator}{count}) {
-			$devHash->{cache}{peers}{sensors}{0}{sensor}{channel} = 255;
 		} else {
 			#dummy for caching if device has no peering implemented
-			$devHash->{cache}{peers}{sensors}{0}{sensor} = 'none';
+			$devHash->{cache}{peers}{sensors} = {};
 		}
         # print Dumper($peers);
 	}

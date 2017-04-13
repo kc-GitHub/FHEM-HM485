@@ -51,6 +51,7 @@ sub getConfigFromDevice($$) {
 	# print Dumper("getConfigFromDevice Channel: $chNr",$configHash);
 
 	return $retVal unless(ref($configHash) eq 'HASH');
+	return $retVal unless(defined($configHash->{parameter}));
     for(my $i = 0; $i < @{$configHash->{parameter}}; $i++) {
 	    next unless(ref($configHash->{parameter}[$i]) eq 'HASH');
 		my $entry = writeConfigParameter($hash,
@@ -60,10 +61,6 @@ sub getConfigFromDevice($$) {
 					);
 		$entry->{id} = $configHash->{parameter}[$i]{id};
 		push(@{$retVal},$entry); 
-	};
-	# TODO: Is the following needed?	
-    if(@{$retVal}){
-	    $hash->{'.configManager'} = 1;	
 	};
 	#print Dumper ("getConfigFromDevice", $retVal);
 	return $retVal;
@@ -87,8 +84,10 @@ sub writeConfigParameter($$;$$) {
 	my $addrStep = $addressStep ? $addressStep : 0;
 	#physical can be a ARRAY
 	if (ref $parameterHash->{'physical'} eq 'HASH') {
-        # we are only interested in what's stored in the EEPROM
-        return undef if($parameterHash->{physical}{interface} ne 'eeprom');		
+        # we are only interested in what's stored in the EEPROM 
+		# or internal (behaviour)
+        return undef unless($parameterHash->{physical}{interface} eq 'eeprom' or	
+                            $parameterHash->{physical}{interface} eq 'internal');		
 		if($parameterHash->{'physical'}{'address'}{'step'}) {
 			$addrStep = $parameterHash->{'physical'}{'address'}{'step'};
 		};
@@ -241,40 +240,19 @@ sub getConfigSettings($) {
 
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 	my $devHash = $main::modules{'HM485'}{'defptr'}{substr($hmwId,0,8)};
-	my $configSettings = {};
 
 	my $name   = $devHash->{'NAME'};
 	my $deviceKey = HM485::Device::getDeviceKeyFromHash($devHash);
-
-	if ($deviceKey && defined($chNr)) {
-	    my $chType  = HM485::Device::getChannelType($deviceKey, $chNr);
-
-		if ($chNr == 0 && $chType eq 'maintenance') {
-			#channel 0 has a different path and has no address_start and address_step
-			$configSettings = HM485::Device::getValueFromDefinitions(
-			 	$deviceKey . '/paramset'
-			);
-		} else {
-			my $extension = HM485::Device::isBehaviour($hash) ? 
-					'/subconfig/paramset/hmw_io_ch_master' :
-					'/paramset/master';
-												   
-			$configSettings = HM485::Device::getValueFromDefinitions(
-			 	$deviceKey . '/channels/' . $chType . $extension
-			);
-		}
-
-		# "fold" parameters according to id (?)
-		# TODO: wahrscheinlich unnoetig
-		#if (ref($configSettings) eq 'HASH') {
-		#	if (exists $configSettings->{'parameter'}{'id'}) {
-		#		#write id->parameter
-		#		my $id = $configSettings->{'parameter'}{'id'};
-		#		$configSettings->{'parameter'}{$id} = delete $configSettings->{'parameter'};
-		#	}
-		#}
-	}
-    return $configSettings;
+    # no deviceKey -> no config
+	return {} unless($deviceKey);
+	# no channel -> device config
+    return HM485::Device::getValueFromDefinitions($deviceKey.'/paramset') unless($chNr);	
+    # channel config
+    my $chType  = HM485::Device::getChannelType($deviceKey, $chNr);
+	my $extension = HM485::Device::isBehaviour($hash) ? 
+				'/subconfig/paramset/hmw_io_ch_master' :
+				'/paramset/master';
+	return HM485::Device::getValueFromDefinitions($deviceKey.'/channels/'.$chType.$extension);
 }
 
 sub removeHiddenConfig($);  # wegen Rekursion

@@ -1,36 +1,126 @@
-package HM485::XmlConverter;
+#!/usr/bin/perl
+
+=head1 NAME
+
+XMLHelper.pl Version 0.12 vom 03.04.2015
+
+=head1 SYNOPSIS
+
+XMLHelper.pl -inputFile </input/path> -outputPath </output/path> [-indentStyle <0..2>]
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-help>
+
+Print a brief help message and exits.
+
+=item B<-man>
+
+Prints the manual page and exits.
+
+=item B<-imputFile>
+
+The path to the input xml file
+
+=item B<-outputPath>
+
+The path to the output pm file
+
+=item B<-indentStyle>
+
+Controls the style of indentation. It can be set to 0, 1, 2.
+0: spews output without any newlines, indentation, or spaces between list items. It is the most compact format possible that can still be called valid perl.
+1: (the default) outputs a readable form with newlines but no fancy indentation (each level in the structure is simply indented by a fixed amount of whitespace).
+2: outputs a very readable form which takes into account the length of hash keys (so the hash value lines up).
+
+=back
+
+=head1 DESCRIPTION
+
+This is the helper to convert and translate the device xml files to device pm files 
+ used by the HM485 FHEM module.
+ 
+Contributed by Dirk Hoffmann 2014
+
+=cut
+
+package main;
 
 use strict;
 use warnings;
 use Cwd qw(abs_path);
 use File::Basename;
 use Getopt::Long;
+use Pod::Usage;
 use XML::Simple;
 use FindBin;
-use lib abs_path("$FindBin::Bin");
+use lib abs_path("$FindBin::Bin/..");
 use Data::Dumper;
 use POSIX;
 
-use lib::HM485::Util;
-
 my $indentStyle = 2;
+my $Version = '0.12';
+sub Convert_Log($);
+my $Zeit = strftime( "%Y-%m-%d\x5f%H-%M-%S", localtime);
+my $LogOffen = undef;
 
+sub main();
 sub convertFiles($$);
 sub dumperSortkey($);
 sub printDump($$$);
-sub reMap($;$);
+sub reMap($);
 sub checkId($;$$$);
 
+################################################
+
+sub main() {
+	my $scriptPath = '';
+	$scriptPath = dirname(abs_path($0)) . '/';
+
+	my $inputFile = '';
+	my $outputPath = '';
+	my $help = 0;
+	my $man = 0;
+	GetOptions (
+		'inputFile=s'  => \$inputFile,
+		'outputPath=s' => \$outputPath,
+		'indentStyle:1' => \$indentStyle,
+		'help|?'       => \$help,
+		'man'          => \$man
+	);
+
+	pod2usage(1) if ($help);
+	pod2usage(-verbose => 2) if ($man);
+
+	if (!$inputFile || !$outputPath || $indentStyle < 0 || $indentStyle > 2) {
+		pod2usage()
+	} else {
+		if (-d $outputPath) {
+			my @inputFiles = @ARGV;
+			push (@inputFiles, $inputFile);
+			if (scalar(@inputFiles) > 0) {
+				print "\n" . 'processing file' . ((scalar(@inputFiles) > 1) ? 's' : '') . ":\n";
+				foreach my $item (@inputFiles){
+					convertFile($item, $outputPath . '/', $indentStyle);
+				}			
+			} 
+		} else {
+			print 'The output path must be a directory.' . "\n";
+		}
+	}
+}
 
 sub convertFile($$) {
 	my ($inputFile, $outputPath) = @_;
 	my $outputFile = $outputPath . substr(basename($inputFile),0,-4) . '.pm';
 	$outputFile=~ s/\/\//\//g;
 	
-	HM485::Util::Log3(undef,4, $inputFile . ' -> ' . $outputFile);
+	print $inputFile . ' -> ' . $outputFile . "\n";
 	
 	my $xml = XMLin("$inputFile", KeyAttr => {});
-	# print Dumper($xml);
+	# my $xml = XMLin("$inputFile", KeyAttr => {'logical type'=>"option"});
 	$xml = reMap($xml);
 	$xml->{'frames'} = $xml->{'frames'}->{'frame'};
 	$xml->{'channels'} = $xml->{'channels'}->{'channel'};
@@ -121,28 +211,25 @@ sub printDump($$$) {
 	return $retVal;
 }
 
-sub reMap($;$) {
-	my ($hash,$father) = @_;
-	$father = "" if(!defined($father));
+sub reMap($) {
+	my ($hash) = @_;
 	
 	foreach my $param (keys %{$hash}) {
-
+		
 		if (ref($hash->{$param}) eq 'HASH') {
 			
 			if ($param eq 'type' && $hash->{$param}->{'id'}) {
+				
 				my $idField = ($hash->{$param}->{'type'}) ? 'type' : 'id';
 				my $id = $hash->{$param}->{$idField};
+
 				delete ($hash->{$param}->{$idField});
+
 				$id =~ s/-/_/g;
+
 				$hash->{$id} = reMap($hash->{$param});
 				delete ($hash->{$param});
-			}elsif ($param eq 'special_parameter' && $hash->{special_parameter}{id}) {
-			    # special_parameter => { id => behaviour ...  ->   special_parameter => { behaviour => { id ...
-				my $id = $hash->{special_parameter}{id};
-				$id =~ s/-/_/g;
-                my $remapped = reMap($hash->{special_parameter});
-				delete ($hash->{special_parameter});
-				$hash->{special_parameter}{$id} = $remapped;
+
 			} else {
 				if (defined($hash->{$param}{'type'}) && ($hash->{$param}{'type'} eq 'option')) {
 
@@ -150,7 +237,7 @@ sub reMap($;$) {
 
 					$hash->{$param} = $hash->{$param}{$param};
 				} else {
-					$hash->{$param} = reMap($hash->{$param}, ($father eq "paramset") ? $father : $param);
+					$hash->{$param} = reMap($hash->{$param});
 				};
 				
 			}
@@ -160,36 +247,29 @@ sub reMap($;$) {
 				}
 				$hash->{$param} = reMap($hash->{$param});
 			}
-		    # make sure that paramset/parameter is always an array
-            if($param eq "parameter" && $father eq "paramset") {
-			    $hash->{$param} = [$hash->{$param}];
-			};
 			
 		} elsif (ref($hash->{$param}) eq 'ARRAY') {
-		    # make sure that paramset/parameter is always an array
-            if($param eq "parameter" && $father eq "paramset") {
-			    for(my $i=0; $i < @{$hash->{$param}}; $i++){
-                    $hash->{$param}[$i] = reMap($hash->{$param}[$i]);    				
-		        };
-		    }else{
-			    my $newHash;
-			    my $id;
-			    foreach my $item (@{$hash->{$param}}){
-				    my $idField = ($item->{'id'}) ? 'id' : 'index';
-				    if ($item->{'type'} && $param eq 'channel') {
-					    $idField = 'type';
-				    }
-				    if (defined($item->{$idField})) {
-					    $id = $item->{$idField};
-					    delete ($item->{$idField});
-					    $id =~ s/-/_/g;
-				    } else {
-					    $id ++;
-				    }
-				    $newHash->{$id} = $item;
-			    }	
-			    $hash->{$param} = reMap($newHash, ($father eq "paramset") ? $father : $param);
-			};
+			my $newHash;
+			my $id;
+			foreach my $item (@{$hash->{$param}}){
+				my $idField = ($item->{'id'}) ? 'id' : 'index';
+			
+				if ($item->{'type'} && $param eq 'channel') {
+					$idField = 'type';
+				}
+
+				if (defined($item->{$idField})) {
+					$id = $item->{$idField};
+					delete ($item->{$idField});
+					$id =~ s/-/_/g;
+				} else {
+					$id ++;
+				}
+
+				$newHash->{$id} = $item;
+			}
+
+			$hash->{$param} = reMap($newHash);
 		}
 		
 	}
@@ -201,7 +281,7 @@ sub fixChannelPeerAdresses($) {
 	my ($hash) = @_;
 
 	foreach my $param (keys %{$hash}) {
-		# convert long keys into short. E.g. hmw_input_ch_link -> link
+		# first we convert long keys into short. E.g. hmw_input_ch_link -> link
 		if ($param ne 'MAINTENANCE') {
 			foreach my $param2 (keys %{$hash->{$param}{'paramset'}}) {
 				my @paramArray = split('_', $param2);
@@ -209,7 +289,22 @@ sub fixChannelPeerAdresses($) {
 
 				$hash->{$param}{'paramset'}{$newParam2} = $hash->{$param}{'paramset'}{$param2};
 				delete ($hash->{$param}{'paramset'}{$param2});
-			}			
+			}
+			
+			if (defined ($hash->{$param}{'paramset'}{'link'}{'channel_param'})){
+#				my $channelParam = $hash->{$param}{'paramset'}{'link'}{'channel_param'};
+#				$hash->{$param}{'paramset'}{'link'}{'channel_offset'}      = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$channelParam}{'physical'}{'address'}{'index'};
+
+#				my $peerParam = $hash->{$param}{'paramset'}{'link'}{'peer_param'};
+#				$hash->{$param}{'paramset'}{'link'}{'peer_address_offset'} = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[0]{'address'}{'index'};
+#				$hash->{$param}{'paramset'}{'link'}{'peer_address_size'}   = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[0]{'size'};
+#				$hash->{$param}{'paramset'}{'link'}{'peer_channel_offset'} = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[1]{'address'}{'index'};
+#				$hash->{$param}{'paramset'}{'link'}{'peer_channel_size'}   = $hash->{$param}{'paramset'}{'link'}{'parameter'}{$peerParam}{'physical'}[1]{'size'};
+#
+#				delete ($hash->{$param}{'paramset'}{'link'}{'parameter'}); 
+#				delete ($hash->{$param}{'paramset'}{'link'}{'channel_param'}); 
+#				delete ($hash->{$param}{'paramset'}{'link'}{'peer_param'}); 
+			}
 		}
 	}
 	
@@ -224,7 +319,13 @@ sub checkId($;$$$){
 			if ( $k1 eq 'conversion' || $k1 eq 'logical' || $k1 eq 'physical') {
 				$noConvert = 1;
 			}
+			#Convert_Log( ' ');
+			#Convert_Log( 'checkId: key1 = ' . $k1 . ' noConvert = ' . $noConvert);
+			if ( $value){
+					#Convert_Log( 'checkId: value = ' . $value);
+			}
 			if ( $k1 eq 'id' && $value && !$noConvert && !defined( $hash->{parameter})) {
+				#Convert_Log( 'checkId: id1 = ' . $k1 . ' halt = ' . $halt);
 				$newHash = {};
 				$newHash->{$hash->{$k1}} = $halt;
 				my $oldHash = $newHash->{$hash->{$k1}}->{$value};
@@ -236,15 +337,28 @@ sub checkId($;$$$){
 			my $h2 = $hash->{$k1};
 			if ( ref( $h2) eq 'HASH') {
 				foreach my $k2 (keys %{$h2}) {
+					if ( $value){
+					#Convert_Log( 'checkId: key2 = ' . $k2 . ' value = ' . $value . ' noConvert = ' . $noConvert);
+					} else {
+						#Convert_Log( 'checkId: key2 = ' . $k2);
+					}
 					if ( $k2 eq 'conversion' || $k2 eq 'logical' || $k2 eq 'physical') {
 						$noConvert = 1;
 					}
+					#if ( $k2 eq 'id' && !defined( $h2->{parameter}) && $value && $value ne 'conversion' && $value ne 'logical' && $value ne 'physical') {
 					if ( $k2 eq 'id' && !$noConvert && !defined( $h2->{parameter})) {
+						#Convert_Log( 'checkId: id2 = ' . $k2);
 						$newHash = {};
 						$newHash->{$h2->{$k2}} = reMap($hash->{$k1});
 						$hash->{$k1} = reMap($newHash);
+						#$hash->{$k1}->{$h2->{$k2}} = reMap($NewHash);
+						#$hash->{$param} = reMap($newHash);
+						#last;
+						
 					} else {
 						my $h3 = $h2->{$k2};
+						#Convert_Log( ' ');
+						#Convert_Log( 'checkId: k2 = ' . $k2);
 						checkId( $h3, $h2, $k2, $noConvert);
 						if ( $k1 ne 'conversion' && $k1 ne 'logical' && $k1 ne 'physical' && $k2 ne 'conversion' && $k2 ne 'logical' && $k2 ne 'physical') {
 							if (( $value && $value ne 'conversion' && $value ne 'logical' && $value ne 'physical') || !$value) {
@@ -259,5 +373,27 @@ sub checkId($;$$$){
 		$noConvert = 0;
 	}
 }
+
+sub Convert_Log($){
+	my ( $LogText) = @_;
+	my $ZeitStr = strftime( "%Y-%m-%d\x5f%H:%M:%S", localtime);
+	#my $LogName = "$main::attr{global}{modpath}/log/Convert-log" . $Zeit . ".log";
+	my $LogName = "P:/FHEM/Entwicklung/Convert-log.log";
+	if ( $LogOffen) {
+		print Datei "$ZeitStr $LogText\n";
+	} else {
+		open( Datei, ">$LogName") || die "Datei nicht gefunden\n";    # Datei zum Schreiben oeffnen
+		Datei->autoflush(1);
+		$LogOffen = "offen";
+		print Datei "aktuelle Version ist jetzt $Version\n";
+		print Datei "$ZeitStr $LogText\n";
+	}
+}
+
+################################################################################
+
+main();
+
+exit(0);
 
 1;
