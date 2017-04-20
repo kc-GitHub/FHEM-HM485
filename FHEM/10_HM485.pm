@@ -439,9 +439,6 @@ sub HM485_Set($@) {
 						  $hash->{'READINGS'}{'sim_counter'}{'VAL'} : 0;
 			HM485_ReadingUpdate($hash, 'state', $cmd .' '.$counter);
 			return (HM485_SetKeyEvent($hash, $cmd),1);
-		} elsif ($cmd eq 'frequency') {
-			HM485_ReadingUpdate($hash, $cmd, $value);
-			return (HM485_SetChannelState($hash, $cmd, $value),1);			
 		} elsif ( $cmd eq 'on-for-timer') {
 			if ( $value && $value > 0) {
 				# remove any internal timer, which switches the channel off
@@ -1702,17 +1699,25 @@ sub HM485_ProcessResponse($$$) {
 		my $hash        = $modules{HM485}{defptr}{$hmwId};
 		my $chHash		= undef;
 		my $Logging		= 'off';
-		my $chNr 		= substr( $msgData, 2, 2);
+		my $chNr 		= $msgData ? substr( $msgData, 2, 2) : undef;
 		my $deviceKey	= '';
 		my $LoggingTime = 2;
 		
 		# Check if main device exists or we need create it
 		if ( $hash->{DEF} && $hash->{DEF} eq $hmwId) {
+			$deviceKey 	= uc( HM485::Device::getDeviceKeyFromHash($hash));
 			if ($requestType ne '52') { 
 				HM485::Util::Log3( $ioHash, 5, 'HM485_ProcessResponse: deviceKey = ' . $deviceKey . ' requestType = ' . $requestType . ' requestData = ' . $requestData . ' msgData = ' . $msgData);
 			}
-			
-			$deviceKey 	= uc( HM485::Device::getDeviceKeyFromHash($hash));
+            # special handling for 0x73 and ACK instead of proper response
+            # we assume that the device has a matching "INFO_LEVEL" message
+            # this is at least true for the known devices
+            if(!$msgData and $requestType eq "73" and length($requestData) > 2) {
+				HM485_ProcessChannelState($hash, $hmwId, "69".$requestData, 'response');
+				# this should not be in any queue, so just return
+				delete ($ioHash->{'.waitForResponse'}{$msgId});
+				return;
+            };   			
 			
 			if (grep $_ ne $requestType, ('68', '6E', '76')) {
 				if ( $deviceKey eq 'HMW_LC_BL1_DR' && ( defined( $msgData) && $msgData)) {
@@ -1752,8 +1757,6 @@ sub HM485_ProcessResponse($$$) {
 							InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0);
 						}
 					}
-				} elsif ( $deviceKey eq 'HMW_IO12_SW14_DR') {
-					#
 				}
 			
 				HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
@@ -1768,9 +1771,7 @@ sub HM485_ProcessResponse($$$) {
 
 #			} elsif ($requestType eq '72') {                                # r (report firmwared data, only in bootloader mode)
 			} elsif ($requestType eq '73') {                                # s ( Aktor setzen)
-				#if ( $deviceKey eq 'HMW_IO12_SW14_DR') {
 					HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
-				#}
 			}
 
 		} else {
@@ -2035,7 +2036,7 @@ sub HM485_DoSendCommand($) {
 	my @validRequestTypes = ('4B', '52', '53', '68', '6E', '70', '72', '73', '76', '78', 'CB');
 
 	# frame types which must be acked only
-	my @waitForAckTypes   = ('21', '43', '57', '67', '6C', '73');
+	my @waitForAckTypes   = ('21', '43', '57', '67', '6C');
 
 	if ($requestId && grep $_ eq $requestType, @validRequestTypes) {
 		$ioHash->{'.waitForResponse'}{$requestId}{requestType} = $requestType;
