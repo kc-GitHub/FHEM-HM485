@@ -7,7 +7,7 @@ UPD 2017-04-20_21:33:34 99843 FHEM/10_HM485.pm
 UPD 2017-01-28_22:36:08 172 FHEM/lib/HM485/Communication.pm
 UPD 2017-04-09_22:24:32 11152 FHEM/lib/HM485/ConfigurationManager.pm
 UPD 2017-03-19_22:42:11 2563 FHEM/lib/HM485/Constants.pm
-UPD 2017-04-11_21:03:57 50011 FHEM/lib/HM485/Device.pm
+UPD 2017-04-22_21:10:56 50150 FHEM/lib/HM485/Device.pm
 UPD 2017-01-28_22:36:09 2195 FHEM/lib/HM485/Devices/xml/hmw_central.xml
 UPD 2017-01-28_22:36:10 194 FHEM/lib/HM485/Devices/xml/hmw_generic.xml
 UPD 2017-01-28_22:36:10 8452 FHEM/lib/HM485/Devices/xml/hmw_io12_sw14_dr.xml

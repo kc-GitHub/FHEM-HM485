@@ -569,9 +569,14 @@ sub getFrameInfos($$;$$$) {
 			my $chTyp	= getChannelType( $deviceKey, $retVal->{ch});
 			my $values = getValueFromDefinitions($deviceKey . '/channels/' . $chTyp . '/paramset/values/parameter/');
 			if(!$values){ next; }  # no Frames for this channel?
-			foreach my $value (keys %{$values}) {
-				if ( defined( $values->{$value}{'physical'}{'get'}{'response'})
-					&& $values->{$value}{'physical'}{'get'}{'response'} eq $retVal->{id} ) {
+			foreach my $value (@$values) {
+				if ( defined( $value->{'physical'}{'get'})
+					&& $value->{'physical'}{'get'}{'response'} eq $retVal->{id} ) {
+					# found a match, return it
+					return $retVal;
+				}
+				if ( defined( $value->{'physical'}{'event'})
+					&& $value->{'physical'}{'event'}{'frame'} eq $retVal->{id} ) {
 					# found a match, return it
 					return $retVal;
 				}
