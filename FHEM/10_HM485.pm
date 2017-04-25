@@ -2071,6 +2071,7 @@ sub HM485_ProcessChannelState($$$$;$) {
 	  return;
 	}
 	if(!HM485::Device::getDeviceKeyFromHash($hash)) {	
+	    $DB::single = 1;
         HM485::Util::Log3( $hash, 3, 'HM485_ProcessChannelState: hmwId = ' . $hmwId . ' No Device Key');
         return;
 	};

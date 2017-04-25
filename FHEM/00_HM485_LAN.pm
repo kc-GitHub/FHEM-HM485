@@ -439,7 +439,6 @@ sub HM485_LAN_SendQueue($$$$$) {
 
 sub HM485_LAN_SendQueueNextItem($) {
 	my ($hash) = @_;
-	my $name = $hash->{NAME};
 	delete ($hash->{sendQueue}{0});
 
 	my $queueCount = scalar(keys (%{$hash->{sendQueue}}));
@@ -468,9 +467,7 @@ sub HM485_LAN_SendQueueNextItem($) {
 		
 		InternalTimer(
 			gettimeofday() + $checkResendQueueItemsDelay,
-			'HM485_LAN_CheckResendQueueItems',
-			$name . ':queueTimer:' . $currentQueueId, 0
-		);
+			'HM485_LAN_CheckResendQueueItems', $hash->{NAME}.":".$currentQueueId, 0);
 	} else {
 		$hash->{queueRunning} = 0;
 	}
@@ -478,19 +475,24 @@ sub HM485_LAN_SendQueueNextItem($) {
 
 sub HM485_LAN_CheckResendQueueItems($) {
 	my ($param) = @_;
+	my ($name,$currentQueueId) = split(":", $param);
+	my $hash = $defs{$name};
 
-	my($name, $timerName, $currentQueueId) = split(':', $param);
-	
-	if ($timerName eq 'queueTimer') {
-		my $hash = $defs{$name};
- 	    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: QID: '.$currentQueueId );
-		if (exists($hash->{sendQueue}{$currentQueueId})) {
-		    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: DispatchNack' );
-			HM485_LAN_DispatchNack($hash, $currentQueueId);
-		}
-		# prozess next queue item.
-		HM485_LAN_SendQueueNextItem($hash);
+    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: QID: '.$currentQueueId );
+	if (exists($hash->{sendQueue}{$currentQueueId})) {
+        # If something in fhem blocks, it can happen that timers are processed before 
+        # the I/O select. This means that what we are waiting for might already be 
+        # there. Try to read this first.
+        HM485_LAN_Read($hash);
+        # If this was successful, then our queue item is gone now and SendQueueNextItem 
+        # has already been called. 		
+		return unless(exists($hash->{sendQueue}{$currentQueueId}));
+	    # if we reach here, something is really missing
+	    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: DispatchNack' );
+		HM485_LAN_DispatchNack($hash, $currentQueueId);
 	}
+	# process next queue item.
+	HM485_LAN_SendQueueNextItem($hash);
 }
 
 sub HM485_LAN_DeleteCurrentItemFromQueue($$) {
@@ -851,11 +853,12 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	       && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId
 		   && $msgCmd != HM485::CMD_ALIVE) {  # probably not needed, but no harm either
 	    HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: Removing Queue '.$currentQueueId);
-		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
+		RemoveInternalTimer($name.":".$currentQueueId, "HM485_LAN_CheckResendQueueItems");
 		HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
-		HM485_LAN_CheckResendQueueItems($name . ':queueTimer:' . $currentQueueId);
+		HM485_LAN_SendQueueNextItem($hash);
 	}
 }
+
 
 =head2
 	Connect to the defined device or start HM485d
