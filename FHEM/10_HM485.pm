@@ -136,6 +136,9 @@ sub HM485_ReadingUpdate($$$) {
 sub HM485_Initialize($) {
 	my ($hash) = @_;
 
+	my $initResult = HM485::Device::init();
+	HM485::Util::Log3($hash, 1, $initResult) if ($initResult);
+	
 	$hash->{'Match'}          = '^FD.*';
 	$hash->{'DefFn'}          = 'HM485_Define';
 	$hash->{'UndefFn'}        = 'HM485_Undefine';
@@ -149,17 +152,20 @@ sub HM485_Initialize($) {
 	# The following line means that the overview is shown
 	# as header, even though there is a FW_detailFn
 	$hash->{'FW_deviceOverview'} = 1;
+	$data{'webCmdFn'}{'textField'}  = "HM485_FrequencyFormField";
 
-	$hash->{'AttrList'}       =	'autoReadConfig:atstartup,always,never '. 
+	my $attrlist = 'autoReadConfig:atstartup,always,never '. 
 							  'configReadRetries '.	
 							  'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 ' .
 	                          'stateFormat setList ' .
-							  #'model subType firmwareVersion serialNr '.   # deprecated, but to avoid error messages
 	                          'event-min-interval event-aggregator IODev ' .
 	                          'event-on-change-reading event-on-update-reading';
 
-	$data{'webCmdFn'}{'textField'}  = "HM485_FrequencyFormField";
+	$hash->{'AttrList'}  =	$attrlist.' model subType firmwareVersion serialNr ';   
+	                                       # deprecated, but to avoid error messages
+	# remove deprecated attributes after init
+    InternalTimer(gettimeofday(), sub {$hash->{'AttrList'} = $attrlist}, $hash, 0);	
 }
 
 =head2
@@ -221,6 +227,13 @@ sub HM485_Define($$) {
 		$hash->{FailedConfigReads} = 0;
 		InternalTimer (gettimeofday(), 'HM485_WaitForConfigCond', $hash, 0);
 	}
+	# delete deprecated attributes
+	InternalTimer(gettimeofday(), 
+	      sub { delete($attr{$name}{model}); 
+		        delete($attr{$name}{subType}); 
+				delete($attr{$name}{firmwareVersion}); 
+				delete($attr{$name}{serialNr});
+		  }, $hash, 0);
 	return undef;
 }
 
@@ -290,6 +303,9 @@ sub HM485_WaitForConfigCond($) {
 
 sub HM485_WaitForConfig($) {
 	my ($hash) = @_;
+	
+	# not if issue with device files
+	return if($HM485::Device::deviceFilesOutdated);
 	
 	my $hmwId = $hash->{DEF};
 	
@@ -761,6 +777,12 @@ sub HM485_Get($@) {
 sub HM485_FhemwebShowConfig($$$) {
 	my ($fwName, $name, $roomName) = @_;
 	my $hash = $defs{$name};
+	
+	# This all does not make sense if the device files are not ok
+	if($HM485::Device::deviceFilesOutdated) {
+	    return "<div style='color:red'>Device definition files could not be updated.<br>You cannot configure your devices and they will not work properly. Make sure that perl module XML::Simple is installed. Check the FHEM Logfile for HM485 messages for more details.</div>";
+	};
+	
 	# get html to show config
 	my $devHash = (defined($hash->{devHash}) ? $hash->{devHash} : $hash);
 	my $configReady = ($devHash->{READINGS}{configStatus}{VAL} eq 'OK');

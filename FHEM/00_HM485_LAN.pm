@@ -72,36 +72,29 @@ sub HM485_LAN_Initialize($) {
 	my $dev  = $hash->{DEF};
 	my $name = $hash->{NAME};
 	
-	my $initResult = HM485::Device::init();
+	require $attr{global}{modpath} . '/FHEM/DevIo.pm';
 
-	if ($initResult) {
-		HM485::Util::Log3($hash, 1, $initResult);
-	} else {
-
-		require $attr{global}{modpath} . '/FHEM/DevIo.pm';
-
-		$hash->{DefFn}      = 'HM485_LAN_Define';
-		$hash->{ReadyFn}    = 'HM485_LAN_Ready';
-		$hash->{UndefFn}    = 'HM485_LAN_Undef';
-		$hash->{ShutdownFn} = 'HM485_LAN_Shutdown';
-		$hash->{ReadFn}     = 'HM485_LAN_Read';
-		$hash->{WriteFn}    = 'HM485_LAN_Write';
-		$hash->{SetFn}      = 'HM485_LAN_Set';
-		$hash->{AttrFn}     = "HM485_LAN_Attr";
+	$hash->{DefFn}      = 'HM485_LAN_Define';
+	$hash->{ReadyFn}    = 'HM485_LAN_Ready';
+	$hash->{UndefFn}    = 'HM485_LAN_Undef';
+	$hash->{ShutdownFn} = 'HM485_LAN_Shutdown';
+	$hash->{ReadFn}     = 'HM485_LAN_Read';
+	$hash->{WriteFn}    = 'HM485_LAN_Write';
+	$hash->{SetFn}      = 'HM485_LAN_Set';
+	$hash->{AttrFn}     = "HM485_LAN_Attr";
 	
-		$hash->{AttrList}   = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
-		                     'HM485d_startTimeout HM485d_device ' . 
-		                     'HM485d_serialNumber HM485d_logfile ' .
-		                     'HM485d_detach:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
-		                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
-		                     'HM485d_gpioTxenCmd1 '.
-							 'autoReadConfig:atstartup,always,never '.
-							 'configReadRetries';
+	$hash->{AttrList}   = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
+	                     'HM485d_startTimeout HM485d_device ' . 
+	                     'HM485d_serialNumber HM485d_logfile ' .
+	                     'HM485d_detach:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
+	                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
+	                     'HM485d_gpioTxenCmd1 '.
+						 'autoReadConfig:atstartup,always,never '.
+						 'configReadRetries';
 		
-		my %mc = ('1:HM485' => '^.*');
-		$hash->{Clients}    = ':HM485:';
-		$hash->{MatchList}  = \%mc;
-	}
+	my %mc = ('1:HM485' => '^.*');
+	$hash->{Clients}    = ':HM485:';
+	$hash->{MatchList}  = \%mc;
 }
 
 =head2

@@ -17,7 +17,7 @@ use FindBin;
 use lib abs_path("$FindBin::Bin");
 use lib::HM485::Constants;
 use lib::HM485::Util;
-use lib::HM485::XmlConverter;   # TODO: Only if needed
+# use lib::HM485::XmlConverter;   # TODO: remove 
 
 # prototypes
 sub parseForEepromData($;$$);
@@ -25,6 +25,8 @@ sub parseForEepromData($;$$);
 my %deviceDefinitions;
 my %models = ();
 
+# are device Files ok?
+our $deviceFilesOutdated = 0;
 
 sub convertXmls() {
 	my $xmlsPath = $main::attr{global}{modpath} . HM485::DEVICE_PATH."xml/";
@@ -35,6 +37,7 @@ sub convertXmls() {
 	
 	# get modification time of XmlConverter.pm
 	my $converterTime = (stat($main::attr{global}{modpath}."/FHEM/lib/HM485/XmlConverter.pm"))[9];
+    my $converterLoaded = 0;
 	foreach my $m (sort readdir(DH)) {
 		next if($m !~ m/(.*)\.xml$/);
 		# check if we need to convert
@@ -52,6 +55,21 @@ sub convertXmls() {
 			};
 		};
         HM485::Util::Log3(undef,3, 'Converting '.$m);
+		if(!$converterLoaded) {
+		    eval {
+			    require lib::HM485::XmlConverter;
+				HM485::XmlConverter->import();
+			};
+			# error ?
+			if($@) {
+			    HM485::Util::Log3(undef,0, 'Device definition files could not be updated');
+                HM485::Util::Log3(undef,0, 'Could not load XML converter, probably perl module XML::Simple is missing');
+                HM485::Util::Log3(undef,0, $@);
+			    $deviceFilesOutdated = $@;
+				return;
+			};
+			$converterLoaded = 1;
+		};
 		HM485::XmlConverter::convertFile($xmlsPath.$m, $devicesPath);
     };
 };
@@ -65,78 +83,40 @@ sub init () {
 
     convertXmls();
 
-	my $retVal      = '';
+	return "Device definition files could not be updated" if($deviceFilesOutdated);
+	
 	my $devicesPath = $main::attr{global}{modpath} . HM485::DEVICE_PATH;
 
-	if (opendir(DH, $devicesPath)) {
-		HM485::Util::Log3(undef, 3, 'HM485: Loading available device files');
-		HM485::Util::Log3(undef, 3, '=====================================');
-		foreach my $m (sort readdir(DH)) {
-			next if($m !~ m/(.*)\.pm$/);
-			
-			my $deviceFile = $devicesPath . $m;
-			if(-r $deviceFile) {
-				HM485::Util::Log3(undef, 3, 'Loading device file: ' .  $deviceFile);
-				my $includeResult = do $deviceFile;
-	
-				if($includeResult) {
-					foreach my $dev (keys %HM485::Devicefile::definition) {
-						$deviceDefinitions{$dev} = $HM485::Devicefile::definition{$dev};
-					}
-				} else {
-					HM485::Util::Log3(undef, 1,	'HM485: Error in device file: ' . $deviceFile . ' deactivated:' . "\n $@");
+	return 'HM485: ERROR! Can\'t read devicePath: ' . $devicesPath . $!
+	           unless(opendir(DH, $devicesPath));
+	HM485::Util::Log3(undef, 3, 'Loading available device files');
+	HM485::Util::Log3(undef, 3, '==============================');
+	foreach my $m (sort readdir(DH)) {
+		next if($m !~ m/(.*)\.pm$/);
+		my $deviceFile = $devicesPath . $m;
+		if(-r $deviceFile) {
+			HM485::Util::Log3(undef, 3, 'Loading device file: ' .  $deviceFile);
+			my $includeResult = do $deviceFile;
+			if($includeResult) {
+				foreach my $dev (keys %HM485::Devicefile::definition) {
+					$deviceDefinitions{$dev} = $HM485::Devicefile::definition{$dev};
 				}
-				%HM485::Devicefile::definition = ();
-
 			} else {
-				HM485::Util::Log3(undef, 1, 'HM485: Error loading device file: ' .  $deviceFile);
+				HM485::Util::Log3(undef, 1,	'Error in device file: ' . $deviceFile . ' deactivated:' . "\n $@");
 			}
+			%HM485::Devicefile::definition = ();
+		} else {
+			HM485::Util::Log3(undef, 1, 'Error loading device file: ' .  $deviceFile);
 		}
-		closedir(DH);
-	
-		if (scalar(keys %deviceDefinitions) < 1 ) {
-			return 'HM485: Warning, no device definitions loaded!';
-		}
-		# TODO remove
-		# initModels();
-	} else {
-		$retVal = 'HM485: ERROR! Can\'t read devicePath: ' . $devicesPath . $!;
 	}
-		
-	return $retVal;
+	closedir(DH);
+	
+	if (scalar(keys %deviceDefinitions) < 1 ) {
+		return 'Warning, no device definitions loaded!';
+	}
+
+	return '';
 }
-
-
-# TODO remove
-# =head2
-	# Initialize all loaded models
-# =cut
-# sub initModels() {
-
-	# foreach my $deviceKey (keys %deviceDefinitions) {					
-		# if ($deviceDefinitions{$deviceKey}{'supported_types'}) {		
-			# foreach my $modelKey (keys (%{$deviceDefinitions{$deviceKey}{'supported_types'}})) {
-				# if ($deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'0'}{'const_value'}) {
-					# $models{$modelKey}{'model'} = $modelKey;
-					# $models{$modelKey}{'name'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'name'};
-					# $models{$modelKey}{'type'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'0'}{'const_value'};
-					
-					# my $minFW = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'parameter'}{'2'}{'const_value'};
-					# $minFW = $minFW ? $minFW : 0;
-					# $models{$modelKey}{'versionDeviceKey'}{$minFW} = $deviceKey;
-				# }
-				# # Handling of the "generic" device
-                # # This is probably not perfect, but should work
-				  # elsif($deviceKey eq 'HMW_GENERIC') {
-                    # $models{$modelKey}{'model'} = $modelKey;
-                    # $models{$modelKey}{'name'} = $deviceDefinitions{$deviceKey}{'supported_types'}{$modelKey}{'name'};
-					# $models{$modelKey}{'type'} = 0;
-					# $models{$modelKey}{'versionDeviceKey'}{0} = $deviceKey;  
-				# }
-			# }
-		# }
-	# }
-# }
 
 
 sub getDeviceKeyAndModel($$) {
@@ -213,27 +193,6 @@ sub getDeviceKeyFromHash($) {
 	main::HM485_ReadingUpdate($hash,"D-deviceKey",$devicekey) if($devicekey);
 	return $devicekey;	
 }
-
-
-# =head2
-	# Get the model from numeric hardware type
-	
-	# @param	int      the numeric hardware type
-	# @return	string   the model
-# =cut
-# sub getModelFromType($) {
-	# my ($hwType) = @_;
-
-	# foreach my $model (keys (%models)) {
-		# if (exists($models{$model}{'type'}) && $models{$model}{'type'} == $hwType) {
-			# return $model;
-		# }
-	# }
-
-	# HM485::Util::Log3(undef, 1, 'Unknown device type '.$hwType.'. Setting model to Generic' );
-	
-	# return 'HMW_Generic';
-# }
 
 
 =head2 isBehaviour
