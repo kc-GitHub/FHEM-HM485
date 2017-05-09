@@ -95,7 +95,6 @@ sub getPeeredChannelsUnbuffered($) {
 	# can this channel have peerings at all?
     return [] if($peerRole eq "none");
     my $devHash = $channelHash->{devHash};
-	return [] unless($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
 	my $devLinks = getLinksFromDevice($devHash);
 	my @result;
 	# we need to check both roles, even though only one can be correct
@@ -119,6 +118,7 @@ sub getPeeredChannels($) {
 	return [] unless(defined($devHash));
     my $result = $devHash->{cache}{$channelHash->{chanNo}}{peeredChannels};
 	if(!defined($result)) {
+		return [] unless($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
 	    $result = getPeeredChannelsUnbuffered($channelHash);
 		$devHash->{cache}{$channelHash->{chanNo}}{peeredChannels} = $result;
 	};
