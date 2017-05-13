@@ -72,36 +72,29 @@ sub HM485_LAN_Initialize($) {
 	my $dev  = $hash->{DEF};
 	my $name = $hash->{NAME};
 	
-	my $initResult = HM485::Device::init();
+	require $attr{global}{modpath} . '/FHEM/DevIo.pm';
 
-	if ($initResult) {
-		HM485::Util::Log3($hash, 1, $initResult);
-	} else {
-
-		require $attr{global}{modpath} . '/FHEM/DevIo.pm';
-
-		$hash->{DefFn}      = 'HM485_LAN_Define';
-		$hash->{ReadyFn}    = 'HM485_LAN_Ready';
-		$hash->{UndefFn}    = 'HM485_LAN_Undef';
-		$hash->{ShutdownFn} = 'HM485_LAN_Shutdown';
-		$hash->{ReadFn}     = 'HM485_LAN_Read';
-		$hash->{WriteFn}    = 'HM485_LAN_Write';
-		$hash->{SetFn}      = 'HM485_LAN_Set';
-		$hash->{AttrFn}     = "HM485_LAN_Attr";
+	$hash->{DefFn}      = 'HM485_LAN_Define';
+	$hash->{ReadyFn}    = 'HM485_LAN_Ready';
+	$hash->{UndefFn}    = 'HM485_LAN_Undef';
+	$hash->{ShutdownFn} = 'HM485_LAN_Shutdown';
+	$hash->{ReadFn}     = 'HM485_LAN_Read';
+	$hash->{WriteFn}    = 'HM485_LAN_Write';
+	$hash->{SetFn}      = 'HM485_LAN_Set';
+	$hash->{AttrFn}     = "HM485_LAN_Attr";
 	
-		$hash->{AttrList}   = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
-		                     'HM485d_startTimeout HM485d_device ' . 
-		                     'HM485d_serialNumber HM485d_logfile ' .
-		                     'HM485d_detach:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
-		                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
-		                     'HM485d_gpioTxenCmd1 '.
-							 'autoReadConfig:atstartup,always,never '.
-							 'configReadRetries';
+	$hash->{AttrList}   = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
+	                     'HM485d_startTimeout HM485d_device ' . 
+	                     'HM485d_serialNumber HM485d_logfile ' .
+	                     'HM485d_detach:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
+	                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
+	                     'HM485d_gpioTxenCmd1 '.
+						 'autoReadConfig:atstartup,always,never '.
+						 'configReadRetries';
 		
-		my %mc = ('1:HM485' => '^.*');
-		$hash->{Clients}    = ':HM485:';
-		$hash->{MatchList}  = \%mc;
-	}
+	my %mc = ('1:HM485' => '^.*');
+	$hash->{Clients}    = ':HM485:';
+	$hash->{MatchList}  = \%mc;
 }
 
 =head2
@@ -171,8 +164,6 @@ sub HM485_LAN_Define($$) {
 	# via fhem.save. This means that the device will never be really opened.
 	$hash->{STATE} = '';
 
-	$data{FWEXT}{test}{SCRIPT} = 'hm485.js?' . gettimeofday();
-
 	return $ret;
 }
 =head2
@@ -184,9 +175,7 @@ sub HM485_LAN_Define($$) {
 sub HM485_LAN_Ready($) {
 	my ($hash) = @_;
 
-	HM485::Util::Log3($hash, 5, 'HM485_LAN_Ready called');
-	
-	if ( ! $hash->{STATE} eq "disconnected" ) {
+	if ( $hash->{STATE} ne "disconnected" ) {
 		return undef;  # nothing to do in this case
 	};
 	# It seems we are disconnected (not closed intentionally)
@@ -443,7 +432,6 @@ sub HM485_LAN_SendQueue($$$$$) {
 
 sub HM485_LAN_SendQueueNextItem($) {
 	my ($hash) = @_;
-	my $name = $hash->{NAME};
 	delete ($hash->{sendQueue}{0});
 
 	my $queueCount = scalar(keys (%{$hash->{sendQueue}}));
@@ -472,9 +460,7 @@ sub HM485_LAN_SendQueueNextItem($) {
 		
 		InternalTimer(
 			gettimeofday() + $checkResendQueueItemsDelay,
-			'HM485_LAN_CheckResendQueueItems',
-			$name . ':queueTimer:' . $currentQueueId, 0
-		);
+			'HM485_LAN_CheckResendQueueItems', $hash->{NAME}.":".$currentQueueId, 0);
 	} else {
 		$hash->{queueRunning} = 0;
 	}
@@ -482,19 +468,24 @@ sub HM485_LAN_SendQueueNextItem($) {
 
 sub HM485_LAN_CheckResendQueueItems($) {
 	my ($param) = @_;
+	my ($name,$currentQueueId) = split(":", $param);
+	my $hash = $defs{$name};
 
-	my($name, $timerName, $currentQueueId) = split(':', $param);
-	
-	if ($timerName eq 'queueTimer') {
-		my $hash = $defs{$name};
- 	    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: QID: '.$currentQueueId );
-		if (exists($hash->{sendQueue}{$currentQueueId})) {
-		    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: DispatchNack' );
-			HM485_LAN_DispatchNack($hash, $currentQueueId);
-		}
-		# prozess next queue item.
-		HM485_LAN_SendQueueNextItem($hash);
+    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: QID: '.$currentQueueId );
+	if (exists($hash->{sendQueue}{$currentQueueId})) {
+        # If something in fhem blocks, it can happen that timers are processed before 
+        # the I/O select. This means that what we are waiting for might already be 
+        # there. Try to read this first.
+        HM485_LAN_Read($hash);
+        # If this was successful, then our queue item is gone now and SendQueueNextItem 
+        # has already been called. 		
+		return unless(exists($hash->{sendQueue}{$currentQueueId}));
+	    # if we reach here, something is really missing
+	    HM485::Util::Log3($hash, 5, 'HM485_LAN_CheckResendQueueItems: DispatchNack' );
+		HM485_LAN_DispatchNack($hash, $currentQueueId);
 	}
+	# process next queue item.
+	HM485_LAN_SendQueueNextItem($hash);
 }
 
 sub HM485_LAN_DeleteCurrentItemFromQueue($$) {
@@ -843,6 +834,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	}		
 
 	if ($canDispatch && length($message) > 3) {
+   		HM485::Util::Log3($hash, 5, 'Dispatch: '.uc(unpack('H*', $message)));
 		Dispatch($hash, $message, '');
 	}
 
@@ -854,11 +846,12 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	       && $hash->{sendQueue}{$currentQueueId}{msgId} == $msgId
 		   && $msgCmd != HM485::CMD_ALIVE) {  # probably not needed, but no harm either
 	    HM485::Util::Log3($hash, 5, 'HM485_LAN_parseIncommingCommand: Removing Queue '.$currentQueueId);
-		RemoveInternalTimer($name . ':queueTimer:' . $currentQueueId);
+		RemoveInternalTimer($name.":".$currentQueueId, "HM485_LAN_CheckResendQueueItems");
 		HM485_LAN_DeleteCurrentItemFromQueue($hash, $currentQueueId);
-		HM485_LAN_CheckResendQueueItems($name . ':queueTimer:' . $currentQueueId);
+		HM485_LAN_SendQueueNextItem($hash);
 	}
 }
+
 
 =head2
 	Connect to the defined device or start HM485d
@@ -926,6 +919,7 @@ sub HM485_LAN_KeepAliveCheck($) {
 	my $hash = $defs{$name};
 
 	if (!$hash->{keepalive}{ok}) {
+	    HM485::Util::Log3($hash, 5, 'HM485_LAN_KeepAliveCheck failed');
 		# we got no keepalive answer 
 		if ($hash->{keepalive}{retry} >= KEEPALIVE_MAXRETRY) {
 			# keepalive retry count reached. Disonnect.
@@ -1187,9 +1181,9 @@ sub HM485_LAN_HM485dStart($) {
 	The following hardware interfaces can be used with this module.
 	<br>
 	<ul>
-		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
-		<li>Ethernet to RS485 converter like WIZ108SR.</li>
 		<li>RS232/USB to RS485 converter like DIGITUS DA-70157</li>
+		<li>Ethernet to RS485 converter like WIZ108SR.</li>
+		<li>HomeMatic Wired RS485 LAN Gateway (HMW-LGW-O-DR-GS-EU)</li>
 		<li>A RS485 Tranceiver, which is e.g. directly connected to the UART of a Raspberry Pi</li> 
 	</ul>
 	<br>	
@@ -1198,23 +1192,23 @@ sub HM485_LAN_HM485dStart($) {
     <br><br>
 	<b>Minimum configuration examples</b><br>
 	<ul>
-		<li>HomeMatic Wired RS485 LAN Gateway<br>
+		<li>USB to RS485 converter<br>
 			<code>
-			define hm485 HM485_LAN 192.168.178.164:1000
+			define hm485 HM485_LAN localhost:2000<br>
+			attr hm485 HM485d_bind 1<br>
+			attr hm485 HM485d_device /dev/ttyUSB0
 			</code>
 		</li><br>
-		<li>Ethernet to RS485 converter<br>
+	    <li>Ethernet to RS485 converter<br>
 			<code>
 			define hm485 HM485_LAN localhost:2000<br>
 			attr hm485 HM485d_bind 1<br>
 			attr hm485 HM485d_device 192.168.178.165:5000
 			</code>
 		</li><br>
-		<li>USB to RS485 converter<br>
+		<li>HomeMatic Wired RS485 LAN Gateway<br>
 			<code>
-			define hm485 HM485_LAN localhost:2000<br>
-			attr hm485 HM485d_bind 1<br>
-			attr hm485 HM485d_device /dev/ttyUSB0
+			define hm485 HM485_LAN 192.168.178.164:1000
 			</code>
 		</li>
 	</ul>
@@ -1259,7 +1253,8 @@ sub HM485_LAN_HM485dStart($) {
 	<br>
 	<li><code>set &lt;name&gt; <b>discovery</b> start</code><br>
 	This starts the discovery mode. The system then searches for unknown devices on the RS485 bus connected to the HM485_LAN device &lt;name&gt;. New devices are automatically created in FHEM and paired with &lt;name&gt;. Refer to the documentation for HM485 devices for details.<br>
-	The discovery mode might not find all HM485 devices. E.g. some "Homebrew" devices do not send an answer on discovery messages. In this case, some message needs to be triggered by the device itself in order to detect and auto-create it.
+	The discovery mode might not find all HM485 devices. E.g. some "Homebrew" devices do not send an answer on discovery messages. In this case, some message needs to be triggered by the device itself in order to detect and auto-create it.<br>
+	The discovery mode does not work with the HomeMatic Wired RS485 LAN Gateway.
 	</li>
 	<br>
 	<li><code>set &lt;name&gt; <b>broadcastSleepMode</b> off</code><br>

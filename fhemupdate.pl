@@ -30,8 +30,8 @@ my @filelist2 = (
   "FHEM/.*.pm",
   "FHEM/lib/HM485/.*.pm",
   "FHEM/lib/HM485/Devices/.*.pm",
-  "FHEM/lib/HM485/HM485d/.*.pm",
-  "FHEM/lib/HM485/HM485d/.*.pl",
+  "FHEM/lib/HM485/Devices/xml/.*.xml",
+  "FHEM/lib/HM485/HM485d/.*",
   "www/pgm2/.*"
 );
 
@@ -56,7 +56,12 @@ foreach my $fspec (@filelist2) {
     my @mt = localtime($st[9]);
     $filetime2{"$tdir/$file"} = sprintf "%04d-%02d-%02d_%02d:%02d:%02d",
                 $mt[5]+1900, $mt[4]+1, $mt[3], $mt[2], $mt[1], $mt[0];
-    $filesize2{"$tdir/$file"} = $st[7];
+				
+	open(FH, "$dir/$file");
+    my $data = join("", <FH>);
+    close(FH);			
+					
+    $filesize2{"$tdir/$file"} = length($data); # $st[7];
     $filedir2{"$tdir/$file"} = $dir;
   }
   closedir(DH);
