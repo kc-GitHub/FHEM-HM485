@@ -118,7 +118,7 @@ sub printDump($$$) {
 	
 	}
 
-	return $retVal;
+	return $retVal; 
 }
 
 sub reMap($;$) {
@@ -221,6 +221,7 @@ sub checkId($;$$$){
 	if ( ref( $hash) eq 'HASH') {
 		my $newHash = {};
 		foreach my $k1 (keys %{$hash}) {
+		    next if($k1 eq "special_parameter");
 			if ( $k1 eq 'conversion' || $k1 eq 'logical' || $k1 eq 'physical') {
 				$noConvert = 1;
 			}
