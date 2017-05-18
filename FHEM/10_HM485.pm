@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0801 2017-05-17 22:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0802 2017-05-18 22:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.01
+	Version 0.8.02
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -156,13 +156,14 @@ sub HM485_Initialize($) {
 
 	my $attrlist = 'autoReadConfig:atstartup,always,never '. 
 							  'configReadRetries '.	
+							  'subType '.
 							  'do_not_notify:0,1 ' .
 	                          'ignore:1,0 dummy:1,0 showtime:1,0 ' .
 	                          'stateFormat setList ' .
 	                          'event-min-interval event-aggregator IODev ' .
 	                          'event-on-change-reading event-on-update-reading';
 
-	$hash->{'AttrList'}  =	$attrlist.' model subType firmwareVersion serialNr ';   
+	$hash->{'AttrList'}  =	$attrlist.' model firmwareVersion serialNr ';   
 	                                       # deprecated, but to avoid error messages
 	# remove deprecated attributes after init
     InternalTimer(gettimeofday(), sub {$hash->{'AttrList'} = $attrlist}, $hash, 0);	
@@ -230,7 +231,6 @@ sub HM485_Define($$) {
 	# delete deprecated attributes
 	InternalTimer(gettimeofday(), 
 	      sub { delete($attr{$name}{model}); 
-		        delete($attr{$name}{subType}); 
 				delete($attr{$name}{firmwareVersion}); 
 				delete($attr{$name}{serialNr});
 		  }, $hash, 0);
@@ -1092,8 +1092,8 @@ sub HM485_CreateChannels($) {
 						my $devHash = $modules{HM485}{defptr}{$chHmwId};
 						$devName    = $devHash->{NAME};
 					};
-					# sub type in reading schreiben
-					HM485_ReadingUpdate($modules{HM485}{defptr}{$chHmwId}, "D-subType", $subType);				
+					# sub type in Attribut schreiben fuer Default-Sortierung in FHEMWEB 
+                    CommandAttr(undef, $devName." subType ".$subType);					
 					if($subType eq 'blind') {
 						# Blinds go up and down by default (but only by default)
 						my $val = AttrVal($devName, 'webCmd', undef);
@@ -2545,7 +2545,6 @@ sub HM485_QueueStepFailed($$) {
 		<li><b>D-serialNr</b>: Serial number of the device.</li><br>
 		<li><b>D-deviceKey</b>: In principle, this is the model of the device, like "HMW_LC_Sw2_DR". However, some devices have different versions. In this case, this reading usually contains some version information as well. (Technically, it is the file name of the device description file.)</li><br>
 		<li><b>D-fwVersion</b>: Version of the device firmware.</li><br>
-		<li><b>D-subType</b>: Type of a channel, like e.g. "switch", "key" or "blind".</li><br>
 		<li><b>R-central_address</b> shows the central address the device is paired to. This reading is available on device level for every paired device. If it is not there or it shows FFFFFFFF, something is wrong. The address shown should be the same as shown in the attribute <code>hmwId</code> of the HM485_LAN device, which is assigned. In most cases, this is 00000001.</li>
 		<br>
 		<li><b>configStatus</b> shows the status of the synchronization of the device configuration with FHEM. It can have the following values:
@@ -2602,6 +2601,9 @@ sub HM485_QueueStepFailed($$) {
 			Normally, you do not need to change this. The device should be automatically created with the correct IO-Device (HM485_LAN) assigned. However, if you restructure your HM485 bus, devices might get a new gateway. You can then change the attribute <code>IODev</code> manually.<br>
 			Consider that direct peerings only work for devices which are directly connected. I.e. direct peerings won't work for devices which are assigned to different IO-Devices. 	
 		</li>
+		<br>
+		<li><b>subType</b>: Type of a channel, like e.g. "switch", "key" or "blind"<br>
+		    This attribute is used by FHEMWEB to group devices (in this case channels) if attribute <code>group</code> is not set. Do not try to change it. You cannot change the behaviour of the channel by changing <code>subType</code>. In addition, it is re-determined automatically when the configuration is read from the device, i.e. in most cases with the next FHEM restart.  
 		</ul>	
 </ul>
 =end html
