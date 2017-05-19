@@ -38,7 +38,7 @@ sub HM485_LAN_Define($$);
 sub HM485_LAN_Ready($);
 sub HM485_LAN_Undef($$);
 sub HM485_LAN_Shutdown($);
-sub HM485_LAN_Read($);
+sub HM485_LAN_Read($;$);  #optional timeout
 sub HM485_LAN_Write($$;$);
 sub HM485_LAN_Set($@);
 sub HM485_LAN_Attr(@);
@@ -237,12 +237,17 @@ sub HM485_LAN_Shutdown($) {
 
 	@param	hash    hash of device addressed
 =cut
-sub HM485_LAN_Read($) {
-	my ($hash) = @_;
+sub HM485_LAN_Read($;$) {
+	my ($hash, $timeout) = @_;
 
 	my $name   = $hash->{NAME};
-	my $buffer = DevIo_SimpleRead($hash);
-
+	my $buffer;
+	if($timeout) {
+	    $buffer = DevIo_SimpleReadWithTimeout($hash, $timeout);
+	}else{
+	    $buffer = DevIo_SimpleRead($hash);
+	};
+	
 	if ($buffer) {
  	    # Remove timer to avoid duplicates
 		RemoveInternalTimer(KEEPALIVECK_TIMER . $name);
@@ -476,7 +481,7 @@ sub HM485_LAN_CheckResendQueueItems($) {
         # If something in fhem blocks, it can happen that timers are processed before 
         # the I/O select. This means that what we are waiting for might already be 
         # there. Try to read this first.
-        HM485_LAN_Read($hash);
+        HM485_LAN_Read($hash,0.01);  #with short timeout
         # If this was successful, then our queue item is gone now and SendQueueNextItem 
         # has already been called. 		
 		return unless(exists($hash->{sendQueue}{$currentQueueId}));
