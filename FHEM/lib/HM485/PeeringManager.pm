@@ -506,19 +506,6 @@ sub convertPeeringsToEepromData($$$) {
 	return $addressData;
 }
 
-sub valueToSettings($$) {
-	my ($paramHash, $value) = @_;
-	
-	my $retVal  = $value;
-
-	if (exists $paramHash->{'logical'}{'unit'} && 
-				$paramHash->{'logical'}{'unit'} eq '100%') {
-				$retVal = $value / 100;
-			}
-	
-	return $retVal;
-}
-
 
 sub loadDefaultPeerSettings($) {
 	my ($configTypeHash) = @_;

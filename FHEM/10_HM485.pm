@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0803 2017-05-19 22:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0804 2017-06-25 22:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.02
+	Version 0.8.04
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -1423,7 +1423,6 @@ sub HM485_SetPeeringDetails($@) {
 	for my $entry (@{$params->{sensor}{parameter}}){
 	    my $param = $entry->{id};
 		next unless exists($setSettingsHash->{$param});
-		$setSettingsHash->{$param} = HM485::PeeringManager::valueToSettings($entry,$setSettingsHash->{$param});
 		#validate settings
 		$msg = HM485_ValidateSettings ($entry,	$param, $setSettingsHash->{$param});
 		return $msg if($msg);
