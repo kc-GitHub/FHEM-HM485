@@ -150,7 +150,8 @@ sub reMap($;$) {
 
 					$hash->{$param} = $hash->{$param}{$param};
 				} else {
-					$hash->{$param} = reMap($hash->{$param}, ($father eq "paramset") ? $father : $param);
+				    # special handling for paramset/../parameter and frames/../parameter
+					$hash->{$param} = reMap($hash->{$param}, ($father eq "paramset" or $father eq "frames") ? $father : $param);
 				};
 				
 			}
@@ -164,7 +165,19 @@ sub reMap($;$) {
             if($param eq "parameter" && $father eq "paramset") {
 			    $hash->{$param} = [$hash->{$param}];
 			};
-			
+			# make sure that frames/../parameter is always a hash
+			if($param eq "parameter" && $father eq "frames") {
+			    my $newHash;
+			    my $index;
+			    if (defined($hash->{$param}{index})) {
+				    $index = $hash->{$param}{index};
+				    delete ($hash->{$param}{index});
+			    } else {
+				    $index = "11.0";  # this is somehow the default
+			    }
+			    $newHash->{$index} = $hash->{$param};
+			    $hash->{$param} = $newHash;
+			};			
 		} elsif (ref($hash->{$param}) eq 'ARRAY') {
 		    # make sure that paramset/parameter is always an array
             if($param eq "parameter" && $father eq "paramset") {
@@ -188,7 +201,8 @@ sub reMap($;$) {
 				    }
 				    $newHash->{$id} = $item;
 			    }	
-			    $hash->{$param} = reMap($newHash, ($father eq "paramset") ? $father : $param);
+     		    # special handling for paramset/../parameter and frames/../parameter
+			    $hash->{$param} = reMap($newHash, ($father eq "paramset" or $father eq "frames") ? $father : $param);
 			};
 		}
 		

@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0804 2017-06-25 22:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0805 2017-09-15 22:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.04
+	Version 0.8.05
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -14,8 +14,7 @@
 	10_HM485 handle individual HomeMatic Wired (HM485) devices via the
 	00_HM485_LAN interface
 
-=head1 AUTHOR - Dirk Hoffmann
-	dirk@FHEM_Forum (forum.fhem.de)
+=head1 AUTHOR - Thorsten Pferdekaemper
 =cut
 
 package main;
@@ -473,6 +472,13 @@ sub HM485_Set($@) {
 		} elsif ($cmd eq 'toggle') {
 			# toggle is a bit special
 			return (HM485_SetToggle($hash),1);
+		} elsif	 ($cmd eq 'inhibit') {
+		    # inhibit does not really return a good feedback, 
+			# and it does not really change the channel's state
+			$value = '' unless defined($value);
+			return 'set inhibit argument "'.$value.'" must be one of on,off,yes,no,1,0' unless (grep {$_ eq $value} ('on','off','yes','no','1','0'));
+            HM485_ReadingUpdate($hash, 'inhibit', 'set_'.$value);
+			return (HM485_SetChannelState($hash, $cmd, $value),1);			            			
 		# "else" includes level, stop, on, off
 		} else {  
 			my $state = 'set_'.$cmd;
@@ -1577,7 +1583,7 @@ sub HM485_SetKeyEvent($$) {
 				my $data = HM485::Device::buildFrame($hash, 
 								$frameType, $frameData, $peerHash->{'actuators'}{$peerId}{'actuator'});
 				HM485_ReadingUpdate($hash, 'sim_counter', $frameValue);
-				HM485::Util::Log3( $hash, 3, 'Send ' .$frameType. ': ' .$peerHash->{'actuators'}{$peerId}{'actuator'});
+				HM485::Util::Log3( $hash, 4, 'Send ' .$frameType. ': ' .$peerHash->{'actuators'}{$peerId}{'actuator'});
 				HM485_SendCommand($hash,
 								substr( $peerHash->{'actuators'}{$peerId}{'actuator'}, 0, 8),
 								$data) if length $data;									
@@ -1820,7 +1826,12 @@ sub HM485_ProcessResponse($$$) {
 					$devHash->{".updateConfigReadingsTimer"} = [$hash, "UpdateConfigReadings"];
 				}
 				InternalTimer(gettimeofday() + 1,'HM485_UpdateConfigReadings',$devHash->{".updateConfigReadingsTimer"},0);
-			}
+			};
+			if ($requestType eq '6C') {     # inhibit
+				my $channel	= sprintf("%02d",hex (substr($requestData, 2, 2)) +1);
+	            my $chHash = HM485_GetHashByHmwid($hmwId.'_'.$channel);
+                HM485_ReadingUpdate($chHash,'inhibit',(substr($requestData,4,2) eq '00' ? 'off' : 'on'));
+			};
 		}
 	}
 	
@@ -2478,7 +2489,7 @@ sub HM485_QueueStepFailed($$) {
 
 	</ul>
 	<br>
-	The set options config, peer, peeringdetails and unpeer are available on channel level.
+	The set options config, peer, peeringdetails, unpeer and inhibit are available on channel level.
 	<ul>
 		<li><code>set &lt;channel&gt; <b>config</b> &lt;parameter&gt; &lt;value&gt; ...</code><br>
 		This is the same as <code>set &lt;name&gt; config</code> on device level, only for configuration options on channel level. See <code>set &lt;name&gt; config</code> on device level for details.
@@ -2494,6 +2505,13 @@ sub HM485_QueueStepFailed($$) {
 		<br>
 		<li><code>set &lt;channel&gt; <b>unpeer</b> &lt;peered-channel&gt;</code><br>
 		This command is used to delete a peering. It can be used from both the sensor and the actor side. When using it from the input mask in Fhemweb, a drop down list with currently peered channels is provided.
+		</li>
+    	<br>
+		<li><code>set &lt;channel&gt; <b>inhibit on</b></code><br>
+		    <code>set &lt;channel&gt; <b>inhibit off</b></code><br>
+		This command is available for peerable actor channels. <code>set ... inhibit on</code> temporarily deactivates all peerings for the actor channel it is used for. E.g. when a switch is peered with a key, the state of the switch will not change anymore when the key is pressed. However, the channel can still be changed with a command from the central. In other words: <code>inhibit</code> only deactivates direct peerings, but not e.g. the <code>set ... on</code> command.<br>
+        With <code>set ... inhibit off</code>, the peerings are activated again.<br>
+        <code>inhibit</code> is not a configuration option, i.e. it is usually reset after a power loss.  		
 		</li>
 		</ul>
 		<br>
@@ -2514,7 +2532,7 @@ sub HM485_QueueStepFailed($$) {
 		This switches the channel on, when it is currently off and vice versa. There are HMW devices, which have a toggle command themselves. In these cases, FHEM uses this directly. However, some devices do not have a toggle command, even though they have on and off. In these cases, <code>set ... toggle</code> is implemented in FHEM. This implementation relies on the state of the channel being correctly synchronized with FHEM, which is usually not the case directly after switching the channel.
 		</li>
 		</ul>
-		<br>
+		<br>	
 		<b>Get</b>
 		<br>
 		The get option <code>config</code> is available on device and channel level. <code>state</code>, <code>peeringdetails</code> and <code>peerlist</code> are for channels. The options <code>config</code>, <code>peerlist</code> and <code>peeringdetails</code> are normally only needed internally. From a user's perspective, it is better to use the "Device Configuration", "Channel Configuration" and "Peering Configuration" dialogs.  
@@ -2566,6 +2584,11 @@ sub HM485_QueueStepFailed($$) {
 		Usually, the "set_" values in <code>state</code> vanish again after a few seconds. However, this might not always be the case. If e.g. a switch is switched on and logging is disabled, FHEM never receives the new state. This means that <code>state</code> will stay "set_on". To change this, an explicit <code>get ... state</code> is needed.<br>
 		If possible, do not use <code>state</code> at all. It is better to use the channel specific readings like <code>press_short</code> for keys or <code>level</code> for shutter controls.
 		</li>
+		<br>
+		<li><b>inhibit</b> shows whether direct peerings of an actor channel have been deactivated. This is closely connected to the command <code>set ... inhibit on|off</code>. The reading <code>inhibit</code> only appears after the <code>inhibit</code> command has been used at least once. It then shows <code>on</code> or <code>off</code>, depending on the last <code>inhibit</code> command.<br>
+		The reading <code>inhibit</code> is not 100% reliable. There is no (known) possibility to read the "inhibit state" from an HMW device. In addition, HMW devices do not inform about a change of the "inhibit state" (via an event). The only feedback, which is given after an <code>inhibit</code> command is an ACK. This means that the HM485 module just sets the reading according to the command. This behaviour (most likely) leads to a wrong <code>inhibit on</code> reading, when the device has been restarted (after a power loss).<br>
+        If the <code>inhibit</code> command is sent and no ACK is received, the reading remains on <code>set_on</code> or <code>set_off</code>. 		
+		</li>  	
 		<br>
 		<li><b>R-&lt;config-option&gt;</b> shows the value of the configuration parameter &lt;config-option&gt;. For each of these parameters on device and channel level, FHEM generates a reading. E.g. if a channel has a configuration option named <code>long_press_time</code>, then there is a reading <code>R-long_press_time</code>. Each of these parameters can be changed using the <code>set ... config</code>. When using this command, you see the new parameter value prefixed by "set-" for a moment before the new value only is shown. If the "set-" prefix stays there, then there is an issue with the communication to the device.</li>  	
 		<br>

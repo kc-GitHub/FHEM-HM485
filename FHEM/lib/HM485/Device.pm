@@ -460,13 +460,6 @@ sub getFrameInfos($$;$$$) {
 	if(!$frames){ return {}; }; #Device has no Frames, give up 
 	
 	foreach my $frame (keys %{$frames}) {
-		if ($frames->{$frame}{'parameter'}{'index'}) {
-			# Rewrite the new configuration to the old one
-			# TODO: Is this still needed? Maybe for "old" Homebrew devices 
-			my $replace = convertFrameIndexToHash ($frames->{$frame}{'parameter'});
-			delete ($frames->{$frame}{'parameter'});
-			$frames->{$frame}{'parameter'} = $replace;
-		}
 		# TODO: This behaviour handling looks a bit hard-coded
 		#       Can we read this from the XML?
 		if ($behaviour) {
@@ -550,19 +543,6 @@ sub getFrameInfos($$;$$$) {
 	return $retVals[0];
 }
 
-sub convertFrameIndexToHash($) {
-	my ($configSettings) = @_;
-	
-	my $ConvertHash; # = {};
-	my $index = sprintf("%.1f",$configSettings->{'index'});
-	
-	if ($index) {
-		$ConvertHash->{$index} = $configSettings;
-		delete $ConvertHash->{$index}{'index'};
-	}
-	
-	return $ConvertHash;
-}
 
 sub getValueFromEepromData($$$$;$) {
 	my ($hash, $configHash, $adressStart, $adressStep, $wholeByte) = @_;
@@ -883,22 +863,28 @@ sub onOffToState($$) {
 sub valueToState($$) {
 	my ($valueHash, $value) = @_;
 	# Transformieren des FHEM- Wertebereichs in den Modulwertebereich
-	my $state = undef;
+	# TODO: Eigentlich ist es nicht so toll, dass es das zweimal gibt: 
+	#       einmal fuer EEPROM-Kram und nochmal fuer set-Befehle
 	
-	if ( defined( $value)) {
+	return undef unless(defined($value));
 	
-		if ( exists $valueHash->{'logical'}{'unit'} && $valueHash->{'logical'}{'unit'} eq '100%') {
-			# Da wir in FHEM einen State von 0 - 100 anzeigen lassen,
-			# muss der an das Modul gesendete Wert in den Bereich von 0 - 1 
-			# transferiert werden
-			$value = $value / 100;
-		}
-		my $factor = $valueHash->{conversion}{factor} ? $valueHash->{conversion}{factor} : 1;
+	if ( exists $valueHash->{logical}{type} && $valueHash->{logical}{type} eq 'boolean') {
+	    if( !$value || $value eq '0' || $value eq 'off' || $value eq 'no') {
+		    $value = 0;
+		}else{
+            $value = 1;
+        };			
+    }
 	
-		$state = int($value * $factor);
+	if ( exists $valueHash->{'logical'}{'unit'} && $valueHash->{'logical'}{'unit'} eq '100%') {
+		# Da wir in FHEM einen State von 0 - 100 anzeigen lassen,
+		# muss der an das Modul gesendete Wert in den Bereich von 0 - 1 
+		# transferiert werden
+		$value = $value / 100;
 	}
+	my $factor = $valueHash->{conversion}{factor} ? $valueHash->{conversion}{factor} : 1;
 
-	return $state;
+	return int($value * $factor);
 }
 
 
@@ -917,40 +903,35 @@ sub simCounter($$$) {
 	}
 
 	return $ret;
-
-
 }
+
 
 sub buildFrame($$$;$) {
 	my ($hash, $frameType, $frameData, $peer) = @_;
 
-
-
 	my $retVal;
-
-	if (ref($frameData) eq 'HASH') {
-		my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
-		my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
-		my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
-
-		my $frameHash = HM485::Device::getValueFromDefinitions(
-			$deviceKey . '/frames/' . $frameType .'/'
-		);
-		
-		if (ref($frameHash->{'parameter'}) eq 'HASH') {
-			
-			if ($peer) {
-				#send a keysym (CB)
-				$retVal  = sprintf('%02X%02X%02X', '203', $chNr-1 ,substr($peer,9,2) - 1 );
-				$retVal .= translateValueToFrameData ($frameHash->{'parameter'},$frameData);
-				$retVal .= substr($hmwId,0,8);
-			} else {
-				$retVal  = sprintf('%02X%02X', $frameHash->{'type'}, $chNr-1);
-				$retVal .= translateValueToFrameData ($frameHash->{'parameter'},$frameData);
-			}
+	return undef unless(ref($frameData) eq 'HASH');
+	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
+	my $devHash        = $main::modules{HM485}{defptr}{substr($hmwId,0,8)};
+	my $deviceKey      = HM485::Device::getDeviceKeyFromHash($devHash);
+	my $frameHash = HM485::Device::getValueFromDefinitions($deviceKey . '/frames/' . $frameType .'/');
+	return undef unless(ref($frameHash->{'parameter'}) eq 'HASH');
+	if ($peer) {
+		#send a keysym (CB)
+		$retVal  = sprintf('%02X%02X%02X', '203', $chNr-1 ,substr($peer,9,2) - 1 );
+		$retVal .= translateValueToFrameData ($frameHash->{'parameter'},$frameData);
+		$retVal .= substr($hmwId,0,8);
+	} else {
+		$retVal  = sprintf('%02X', $frameHash->{'type'});
+		# The channel field is sometimes "later" (only for inhibit?)
+		if(defined($frameHash->{channel_field})) {
+		    for (my $i = $frameHash->{channel_field}; $i > 10; $i--) {
+			    $retVal .= '00';
+		    }
 		}
+		$retVal .= sprintf('%02X', $chNr-1);
+		$retVal .= translateValueToFrameData ($frameHash->{'parameter'},$frameData);
 	}
-
 	return $retVal;
 }
 
@@ -963,37 +944,29 @@ sub translateValueToFrameData ($$) {
 	my $valueId = $frameData->{$key}{'physical'}{'value_id'};
 	
 	if ($valueId && $key) {
-		if ($frameParam->{'size'}) {
-			my $paramLen = $frameParam->{'size'};
-			$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $frameData->{$key}{'value'});
-		} else {
-			my $value = undef;
-			
-			foreach my $index (sort keys %{$frameParam}) {
-				my $paramLen = $frameParam->{$index}{'size'} ? $frameParam->{$index}{'size'} : 1;
-				my $singleVal;
-				# fixed value?
-				if (defined ($frameParam->{$index}{'const_value'})) {
-					$singleVal = $frameParam->{$index}{'const_value'};
-				} else {
-					$singleVal = $frameData->{$key}{'value'};
-				}
-				
-				if ($paramLen >= 1) {
-					$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $singleVal);
-				} else {
-					# bitschupsen
-					# the following needs to be done with split as floating point 
-					# calculations are not precise (it was done by multiplying the decimals with 10)
-					my (undef, $shift) = split('\.',$index);
-					$shift = $shift ? $shift : 0;
-					$value += ($singleVal << $shift);
-				}
+		my $value = undef;
+		foreach my $index (sort keys %{$frameParam}) {
+			my $paramLen = $frameParam->{$index}{'size'} ? $frameParam->{$index}{'size'} : 1;
+			my $singleVal;
+			# fixed value?
+			if (defined ($frameParam->{$index}{'const_value'})) {
+				$singleVal = $frameParam->{$index}{'const_value'};
+			} else {
+				$singleVal = $frameData->{$key}{'value'};
 			}
-			
-			if (defined $value) {
-				$retVal .= sprintf('%02X', $value);
+			if ($paramLen >= 1) {
+				$retVal.= sprintf('%0' . $paramLen * 2 . 'X', $singleVal);
+			} else {
+				# bitschupsen
+				# the following needs to be done with split as floating point 
+				# calculations are not precise (it was done by multiplying the decimals with 10)
+				my (undef, $shift) = split('\.',$index);
+				$shift = $shift ? $shift : 0;
+				$value += ($singleVal << $shift);
 			}
+		}
+		if (defined $value) {
+			$retVal .= sprintf('%02X', $value);
 		}
 	}
 	
@@ -1566,7 +1539,6 @@ sub getAllowedSetsUnbuffered($) {
 	);
 		
 	my %cmdArgs = (
-		'none'			=> "noArg",
    		'blind.level'	=> "slider,0,1,100 on:noArg off:noArg up:noArg down:noArg",
    		'blind.stop'	=> "noArg",
    		'dimmer.level' 	=> "slider,0,1,100 on:noArg off:noArg",
@@ -1595,9 +1567,15 @@ sub getAllowedSetsUnbuffered($) {
 				my $ctrl = $command->{'control'};
 				if ($cmdOverwrite{$ctrl}) {
 					push @cmdlist, $cmdOverwrite{$ctrl};
-				}
-			    if($cmdArgs{$ctrl}) {
+				}elsif($cmdArgs{$ctrl}) {
 					push @cmdlist, $command->{id}.":".$cmdArgs{$ctrl};	
+				}elsif($ctrl eq "none") {
+				    # TODO: as well for other data types, maybe even for other controls
+				    if($command->{logical}{type} and $command->{logical}{type} eq "boolean") {
+					    push @cmdlist, $command->{id}.":on,off";
+					}else{
+   					    push @cmdlist, $command->{id}.":noArg";
+					};
 				}
 			} else {
 				push @cmdlist, $command->{id};
