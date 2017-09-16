@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0805 2017-09-15 22:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0806 2017-09-16 21:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.05
+	Version 0.8.06
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -1602,7 +1602,7 @@ sub HM485_ValidateSettings($$$) {
 		# special values are always ok
 		return $msg if(defined($logical->{special_value}) && $logical->{special_value}{id} eq $value);
 		if ($logical->{type}) {
-			if ($logical->{type} eq 'float' || $logical->{type} eq 'int') {
+			if ($logical->{type} eq 'float' || $logical->{type} eq 'integer') {
 				if (HM485::Device::isNumber($value)) {
 				    if (defined($logical->{min}) && defined($logical->{max})) {
 						if ($value < $logical->{min}) {
