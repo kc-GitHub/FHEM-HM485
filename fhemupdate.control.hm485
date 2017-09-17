@@ -2,3 +2,4 @@ DIR FHEM/lib
 DIR FHEM/lib/HM485
 DIR FHEM/lib/HM485/Devices/xml
 DIR FHEM/lib/HM485/HM485d
+MOV FHEM/lib/HM485/helper/xmlHelper.pl unused
