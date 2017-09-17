@@ -1535,7 +1535,7 @@ sub getAllowedSetsUnbuffered($) {
 	my ($hash) = @_;
 	
 	my %cmdOverwrite = (
-		'switch.state'	=> "on:noArg off:noArg toggle:noArg on-for-timer:textField"
+		'switch.state'	=> "on:noArg off:noArg toggle:noArg"
 	);
 		
 	my %cmdArgs = (

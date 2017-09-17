@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0806 2017-09-16 21:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0807 2017-09-17 21:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.06
+	Version 0.8.07
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -32,11 +32,13 @@ use lib::HM485::Device;
 use lib::HM485::Util;
 use lib::HM485::ConfigurationManager;
 use lib::HM485::PeeringManager;
-#use lib::HM485::Command;
 
 use Scalar::Util qw(looks_like_number);
 
 use vars qw {%attr %defs %modules %data $FW_ME};
+
+# on-for-timer and similar commands
+use SetExtensions;
 
 # Function prototypes
 
@@ -454,22 +456,9 @@ sub HM485_Set($@) {
 						  $hash->{'READINGS'}{'sim_counter'}{'VAL'} : 0;
 			HM485_ReadingUpdate($hash, 'state', $cmd .' '.$counter);
 			return (HM485_SetKeyEvent($hash, $cmd),1);
-		} elsif ( $cmd eq 'on-for-timer') {
-			if ( $value && $value > 0) {
-				# remove any internal timer, which switches the channel off
-				my $offcommand = 'set ' . $name . ' off';
-				RemoveInternalTimer($offcommand);
-				# switch channel on	
-				my $msg = HM485_SetChannelState($hash, 'on', $value);
-				return ($msg,1) if($msg);
-				HM485::Util::Log3($hash, 5, 'set ' . $name . ' on-for-timer ' . $value);
-				# set internal timer to switch channel off
-				InternalTimer( gettimeofday() + $value, 'fhem', $offcommand, 0 );
-				return ('',1);
-			} else {
-				return (HM485_SetChannelState($hash, 'off', $value),1);
-			}
 		} elsif ($cmd eq 'toggle') {
+		    # on-for-timer etc. abbrechen
+		    SetExtensionsCancel($hash);
 			# toggle is a bit special
 			return (HM485_SetToggle($hash),1);
 		} elsif	 ($cmd eq 'inhibit') {
@@ -483,6 +472,8 @@ sub HM485_Set($@) {
 		} else {  
 			my $state = 'set_'.$cmd;
 			if($value) { $state .= '_'.$value; }
+		    # on-for-timer etc. abbrechen
+		    SetExtensionsCancel($hash);
 			HM485_ReadingUpdate($hash, 'state', $state);
 			return (HM485_SetChannelState($hash, $cmd, $value),1);
 		}
@@ -545,10 +536,28 @@ sub HM485_Set($@) {
 	
 	# if we reach here, it is either "?" or total rubbish
 	my $arguments = ' ';
+	my $canToggle = 0;
 	foreach my $arg (sort keys %sets) {
 		$arguments.= $arg . ($sets{$arg} ? (':' . $sets{$arg}) : '') . ' ';
+		$canToggle = 1 if($arg eq 'toggle'); 
 	}
-	return 'Unknown argument ' . $cmd . ', choose one of ' . $arguments;
+	# set extensions can in principle do everything, but not toggle
+	# cmd was toggle and device can toggle -> we don't come here
+	# cmd was toggle and device cannot toggle -> get error list from set extensions and remove toggle
+	# cmd was not toggle and device can toggle -> call set extensions normally
+	# cmd was not toggle and device cannot toggle -> call set extensions, but remove toggle from result
+	if($cmd eq 'toggle') {
+	    $params[1] = 'someidioticcommandwhichnobodyeveruses';
+	};
+    my $msg = SetExtensions($hash, $arguments, @params); 	
+    # can the device toggle?
+	if(not $canToggle) {
+	    # remove toggle from list
+		$msg =~ s/ toggle//g;
+		# replace $$toggle$$ by toggle
+		$msg =~ s/someidioticcommandwhichnobodyeveruses/toggle/g;
+	};
+	return $msg;
 }
 
 
@@ -2485,8 +2494,6 @@ sub HM485_QueueStepFailed($$) {
 		You can use multiple &lt;parameter&gt; &lt;value&gt; pairs in one command. The following command would set both "input_locked" to "yes" and "long_press_time" to 5 seconds.<br>
 		<code>set &lt;name&gt; config input_locked 1 long_press_time 5.00</code>
 		</li>
-		<br>
-
 	</ul>
 	<br>
 	The set options config, peer, peeringdetails, unpeer and inhibit are available on channel level.
@@ -2515,7 +2522,7 @@ sub HM485_QueueStepFailed($$) {
 		</li>
 		</ul>
 		<br>
-		Apart from the general set options, HMW devices have specific set options on channel level. They are used to directly manipulate the channel's state. The easiest way to find out which set options are possible is by using the drop down list on the related input field in Fhemweb. Here are some of set options for a switch channel as an example:
+		Apart from the general set options, HMW devices have specific set options on channel level. They are used to directly manipulate the channel's state. The easiest way to find out which set options are possible is by using the drop down list on the related input field in Fhemweb. Here are some of the set options for a switch channel as an example:
 		<br>
 		<ul>
 		<li><code>set &lt;switch-channel&gt; <b>on</b></code><br>
@@ -2523,16 +2530,13 @@ sub HM485_QueueStepFailed($$) {
 		This switches the channel on or off.
 		</li>
 		<br>
-		<li><code>set &lt;switch-channel&gt; <b>on-for-timer</b> &lt;seconds&gt;</code><br>
-		This switches the channel on. After &lt;seconds&gt; seconds, the channel is switched off.<br>
-		Normally, commands to change the state of a channel are implemented by just sending the related command to the device and letting the device do the rest. However, there is no <code>on-for-timer</code>, which could be directly triggered for HMW devices. The <code>set ... on-for-timer</code> is implemented in FHEM using an internal <code>at</code>.
-		</li>
-		<br>
 		<li><code>set &lt;switch-channel&gt; <b>toggle</b></code><br>
 		This switches the channel on, when it is currently off and vice versa. There are HMW devices, which have a toggle command themselves. In these cases, FHEM uses this directly. However, some devices do not have a toggle command, even though they have on and off. In these cases, <code>set ... toggle</code> is implemented in FHEM. This implementation relies on the state of the channel being correctly synchronized with FHEM, which is usually not the case directly after switching the channel.
 		</li>
 		</ul>
-		<br>	
+		<br>
+		HMW channels, which support <code>set ... on</code> and <code>set ... off</code> also support the <b>set extensions</b>. (See <a href="#setExtensions">here for details</a>.) However, <code>set ... toggle</code> is an exception. <code>toggle</code> is not implemented via set extensions, but by the HM485 Module itself, and only available for switch channels. Other set extension commands (like <code>on-for-timer</code>) are available for all channels which have <code>set on/off</code>, including e.g. shutters. 
+		<br><br>
 		<b>Get</b>
 		<br>
 		The get option <code>config</code> is available on device and channel level. <code>state</code>, <code>peeringdetails</code> and <code>peerlist</code> are for channels. The options <code>config</code>, <code>peerlist</code> and <code>peeringdetails</code> are normally only needed internally. From a user's perspective, it is better to use the "Device Configuration", "Channel Configuration" and "Peering Configuration" dialogs.  
