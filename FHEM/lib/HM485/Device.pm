@@ -183,13 +183,21 @@ sub getDeviceKeyFromHash($) {
 	if(defined($hash->{devHash})) {
 		$hash = $hash->{devHash};
 	}
-	# do we have it as a reading?
-	return $hash->{READINGS}{"D-deviceKey"}{VAL} if(defined($hash->{READINGS}{"D-deviceKey"}));
+	# do we have it buffered?
+	return $hash->{".deviceKey"} if($hash->{".deviceKey"}); 
 
-	# do we have device type and firmware version?
-	return '' unless(defined($hash->{RawDeviceType}) and defined($hash->{RawFwVersion}));
-	# now search for matching device descriptions
-	my ($devicekey,undef) = getDeviceKeyAndModel($hash->{RawDeviceType},$hash->{RawFwVersion});
+	my $devicekey;
+	#virtual device is special
+	if($hash->{virtual}) {
+		$devicekey = "HMW_CENTRAL";
+	}else{	
+		# do we have device type and firmware version?
+		return '' unless(defined($hash->{RawDeviceType}) and defined($hash->{RawFwVersion}));
+		# now search for matching device descriptions
+		($devicekey,undef) = getDeviceKeyAndModel($hash->{RawDeviceType},$hash->{RawFwVersion});
+	};	
+	$hash->{".deviceKey"} = $devicekey;
+	# set it as a reading as well
 	main::HM485_ReadingUpdate($hash,"D-deviceKey",$devicekey) if($devicekey);
 	return $devicekey;	
 }
@@ -683,10 +691,23 @@ sub translateFrameDataToValue($$) {
 	my %retVal;
 		
 	if ($params) {
-		foreach my $param (keys %{$params}) {	# params = info_level/parameter
+		foreach my $param (keys %{$params}) {	# params = info_level/parameter		
 			my $index = $param - 9;
 			my $size  = ($params->{$param}{size});
 			my $value = getValueFromHexData($data, $index, $size);
+			
+			# if signed then check if negative and do 2s complement
+			if($params->{$param}{signed}) {
+				my ($bytes, $bits) = split('\.',$size);
+				$bytes = ($bytes ? $bytes : 0);
+				$bits = ($bits ? $bits : 0);
+                # is it negative?
+                if($value >> $bytes * 8 + $bits -1) {
+				    # complement
+				    $value -= (1 << ($bytes * 8 + $bits)); 	
+				};
+			};			
+			
 			my $constValue = $params->{$param}{const_value};
 			if ( !defined($constValue) || $constValue eq $value) {
 				$retVal{$param}{val} = $value;
@@ -892,7 +913,7 @@ sub simCounter($$$) {
 	my ($stateHash, $cmd, $lastCounter) = @_;
 	
 	my $ret;
-	my $countersize = $stateHash->{'conversion'}{'counter_size'} ? int($stateHash->{'conversion'}{'counter_size'}) : 1;
+	my $countersize = $stateHash->{'conversion'}{'counter_size'} ? int($stateHash->{'conversion'}{'counter_size'}) : 6;
 	my $oldcounter = $lastCounter ? $lastCounter : 1;
 
 	
@@ -942,6 +963,7 @@ sub translateValueToFrameData ($$) {
 	my $retVal;
 	my $key     = (keys %{$frameData})[0];
 	my $valueId = $frameData->{$key}{'physical'}{'value_id'};
+	$valueId = $frameData->{$key}{'physical'}{counter} unless $valueId;
 	
 	if ($valueId && $key) {
 		my $value = undef;
@@ -1562,7 +1584,8 @@ sub getAllowedSetsUnbuffered($) {
 		next unless($command->{operations});
 		my @values = split(',', $command->{'operations'});
 		foreach my $val (@values) {
-			next unless($val eq 'write' && $command->{'physical'}{'interface'} eq 'command');
+			next unless($val eq 'write' && ( $command->{physical}{interface} eq 'command'
+			                              or $command->{physical}{interface} eq 'central_command' ));
 			if ($command->{'control'}) {
 				my $ctrl = $command->{'control'};
 				if ($cmdOverwrite{$ctrl}) {

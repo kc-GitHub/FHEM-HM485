@@ -15,6 +15,16 @@ use Data::Dumper;
 sub getFreePeerId ($$) {
 	my ($devhash,$peerType) = @_;
 	
+	# The virtual device can do unlimited peers
+	if($devhash->{virtual}) {
+	    if(defined($devhash->{currPeerId})) {
+		    $devhash->{currPeerId} += 1;
+		}else{
+			$devhash->{currPeerId} = 0;
+		};
+        return $devhash->{currPeerId};		
+	};
+	
 	$peerType = $peerType ? $peerType : 'sensor';
 	
 	my $linkParams = getLinkParams($devhash);
@@ -34,27 +44,41 @@ sub getFreePeerId ($$) {
 
 sub getPeerId ($$$$) {
 	my ($hash, $hmwid, $channel, $isAct) = @_;
-	
-	my $ch 			= int($channel) -1;
+
+# TODO: remove old coding	
+#	my $ch 			= int($channel) -1;
 	my $peertype 	= $isAct ? 'actuator' : 'sensor';
-	my $linkParams 	= getLinkParams($hash);
+#	my $linkParams 	= getLinkParams($hash);
 		
-	return undef unless(ref($linkParams->{$peertype}) eq 'HASH');
-	for (my $peerId = 0 ; $peerId < $linkParams->{$peertype}{count}; $peerId ++) {		
-		my $adrStart = $linkParams->{$peertype}{address_start} + 
-			($peerId * $linkParams->{$peertype}{address_step});
-		next unless(ref($linkParams->{$peertype}{parameter}) eq 'ARRAY');
-		my $channelHash = HM485::Util::getArrayEntryWithId($linkParams->{$peertype}{parameter}, "channel");
-		next unless($channelHash);
-		my $chHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-						$channelHash, $adrStart, $linkParams->{$peertype}{address_step});
-		next unless(($chHash->{value} < 255) && ($chHash->{value} == $ch));
-        my $peeringHash = HM485::Util::getArrayEntryWithId($linkParams->{$peertype}{parameter}, $peertype);			
-		my $adrHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-							$peeringHash, $adrStart, $linkParams->{$peertype}{address_step});
-		return $peerId if ($adrHash->{value} eq $hmwid);
-	}
-	return undef;
+	$DB::single = 1;	
+		
+	my $peers = getLinksFromDevice($hash);
+    # do we have this type of peers?	
+    return undef unless(defined($peers->{$peertype.'s'})); 	
+	foreach my $peerid (keys($peers->{$peertype.'s'})) {
+		next unless($peers->{$peertype.'s'}{$peerid}{$peertype} eq $hmwid 
+		        and $peers->{$peertype.'s'}{$peerid}{channel} == $channel );
+		return $peerid;	
+	};
+	# not found
+	return undef;	
+		
+	# return undef unless(ref($linkParams->{$peertype}) eq 'HASH');
+	# for (my $peerId = 0 ; $peerId < $linkParams->{$peertype}{count}; $peerId ++) {		
+		# my $adrStart = $linkParams->{$peertype}{address_start} + 
+			# ($peerId * $linkParams->{$peertype}{address_step});
+		# next unless(ref($linkParams->{$peertype}{parameter}) eq 'ARRAY');
+		# my $channelHash = HM485::Util::getArrayEntryWithId($linkParams->{$peertype}{parameter}, "channel");
+		# next unless($channelHash);
+		# my $chHash = HM485::ConfigurationManager::writeConfigParameter($hash,
+						# $channelHash, $adrStart, $linkParams->{$peertype}{address_step});
+		# next unless(($chHash->{value} < 255) && ($chHash->{value} == $ch));
+        # my $peeringHash = HM485::Util::getArrayEntryWithId($linkParams->{$peertype}{parameter}, $peertype);			
+		# my $adrHash = HM485::ConfigurationManager::writeConfigParameter($hash,
+							# $peeringHash, $adrStart, $linkParams->{$peertype}{address_step});
+		# return $peerId if ($adrHash->{value} eq $hmwid);
+	# }
+	# return undef;
 }	
 
 # Determine peer role for channel hash
@@ -67,6 +91,7 @@ sub getPeerRole($){
 	# channel?
 	return undef unless(defined($channelHash->{devHash}));
 	# not buffered, determine
+	# $DB::single = 1 if($channelHash->{devHash}{DEF} eq '00000001');
 	my $linkParams = getLinkParams($channelHash->{devHash});
 	if (exists($linkParams->{sensor}{channels})) {
 	    my @channels = split(' ',$linkParams->{sensor}{channels});
@@ -152,8 +177,6 @@ sub getPeerableChannels($) {
 }
 
 
-
-
 sub getDevNameByHmwId($) {
 	my ($hmwId) = @_;
 	
@@ -218,7 +241,16 @@ sub getLinkParams($) {
 					my $params   = HM485::Device::getValueFromDefinitions(
 						$deviceKey . '/channels/' . $subType . $valuePrafix
 					);
-				
+					
+					# special for virtual (HMW_CENTRAL)
+					# TODO: Shouldn't it be like that for everything?
+					if(!defined($params->{peer_param})) {
+                        my $linkRoles = HM485::Device::getValueFromDefinitions(
+						           $deviceKey . '/channels/' . $subType . '/link_roles/');
+                        $params->{peer_param} = 'actuator' if(defined($linkRoles->{source}));
+						$params->{peer_param} = 'sensor' if(defined($linkRoles->{target}));
+                    };
+					
 					if ($params->{peer_param}) {
 						my $peertype = $params->{peer_param};
 						if (ref($linkParams->{$peertype}) eq 'HASH') {
@@ -264,6 +296,53 @@ sub getChannelsFromDevice($) {
 	
 	return $retVal;
 }
+
+
+sub addCentralPeering($$$$$) {
+# adds a peering to the virtual device
+    my ($virtHash,$ownRole,$peerHmwId,$peerChan,$ownChan) = @_;
+	my $actsen = $ownRole eq 'actuator' ? 'sensor' : 'actuator';
+	my $peerId = getFreePeerId ($virtHash, $actsen);
+	$virtHash->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen} = $peerHmwId.'_'.$peerChan;
+	$virtHash->{cache}{peers}{$actsen.'s'}{$peerId}{channel} = $ownChan;
+	
+	my $peerHash = $main::modules{HM485}{defptr}{$peerHmwId.'_'.$peerChan};
+	if (!$peerHash) {
+	    $peerHash->{NAME} = 'unknown_'.$peerHmwId.'_'.$peerChan;
+	};
+	$virtHash->{'peer_'.substr($actsen,0,3).'_'.$peerId} = 'channel_'.$ownChan.
+								($ownRole eq 'actuator' ? ' ← ' : ' → '). $peerHash->{NAME};
+};
+
+
+sub updateCentralPeerings($) {
+# updates peerings to central (virtual) device
+# prerequisite: Peerings are already in device cache
+# returns number of added peerings
+	my ($devHash) = @_;
+
+# find virtual device: the device with the HMID of the IO-Device
+	my $virtDev = $main::modules{HM485}{defptr}{$devHash->{IODev}{hmwId}};
+	return unless defined $virtDev;
+	return unless $virtDev->{virtual};
+# delete all peerings in virtual device to/from this device  
+	foreach my $actsen ('actuator','sensor') {
+		foreach my $peerId (keys %{$virtDev->{cache}{peers}{$actsen.'s'}}) {
+			next unless substr($virtDev->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},0,8) eq $devHash->{DEF};
+			delete $virtDev->{cache}{peers}{$actsen.'s'}{$peerId};
+			delete $virtDev->{'peer_'.substr($actsen,0,3).'_'.$peerId};
+		};
+	};
+# add all peerings to/from the virtual device 
+	foreach my $actsen ('actuator','sensor') {
+		foreach my $peerId (keys %{$devHash->{cache}{peers}{$actsen.'s'}}) {
+			next unless substr($devHash->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},0,8) eq $virtDev->{DEF};
+            addCentralPeering($virtDev, $actsen, 
+			                  $devHash->{DEF}, $devHash->{cache}{peers}{$actsen.'s'}{$peerId}{channel}, 
+							  substr($devHash->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},9,2));
+		};
+	};	
+};
 
 
 sub getLinksFromDevice($) {
@@ -341,7 +420,6 @@ sub getLinksFromDevice($) {
 						if (!$peerHash) {
 						    $peerHash->{NAME} = 'unknown_'.$peers->{sensors}{$peerId}{sensor};
 						};
-						if (!$peerHash) { $peerHash->{NAME} = 'unknown_'.$peers->{sensors}{$peerId}{sensor}};
 						$devHash->{'peer_sen_'.$peerId} = 'channel_'.$peers->{sensors}{$peerId}{channel}.
 								' ← '. $peerHash->{NAME};
 					}	
@@ -359,6 +437,8 @@ sub getLinksFromDevice($) {
 			$devHash->{cache}{peers}{sensors} = {};
 		}
         # print Dumper($peers);
+		# the virtual device does not have own storage
+		updateCentralPeerings($devHash);
 	}
 	return $peers;
 }
