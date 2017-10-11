@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0808 2017-10-07 21:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0809 2017-10-11 21:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.08
+	Version 0.8.09
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -94,14 +94,6 @@ sub HM485_QueueStepFailed($$);
 sub HM485_QueueStepSuccess($$);
 
 
-# Default get commands for device
-my %getsDev = (
-	'config'  => 'noArg'
-);
-
-# Default get commands for channel
-my %getsCh = ('state' => 'noArg',
-              'config' => 'noArg');
 
 my $defStart = 5;
 
@@ -175,6 +167,8 @@ sub HM485_Initialize($) {
 sub HM485_DefineCentralAfter($) {
 	my ($hash) = @_;
 
+	# The reading "state" does not make that much sense, but "ACK" is soothing
+    HM485_ReadingUpdate($hash,'state','ACK');
 	# set default room, if no room assigned
 	CommandAttr(undef, $hash->{NAME} . ' room HM485') unless AttrVal($hash->{NAME}, 'room', undef);
 	# Channels anlegen 
@@ -203,7 +197,7 @@ sub HM485_DefineCentralAfter($) {
 			next unless $peered;
      	    delete $peerDev->{cache}{peers};
 		};		
-        # cache it (agein in peer and here)
+        # cache it (again in peer and here)
         HM485::PeeringManager::getLinksFromDevice($peerDev); 			
 	};
 	HM485_SetConfigStatus($hash,'OK');
@@ -527,7 +521,11 @@ sub HM485_Set($@) {
 			}
 		}
 	}else{
-        $devHash = $hash;
+	# the virtual/central device does not really have a "set"
+		if($hash->{virtual}){
+			return "No set implemented for the central device ".$hash->{NAME};
+		};
+		$devHash = $hash;
         %sets = ('reset' => 'noArg',
              'getConfig' => 'noArg',
                    'raw' => '' );
@@ -587,8 +585,8 @@ sub HM485_Set($@) {
 	    if ($cmd eq 'config') {
 		    return (HM485_SetConfig($hash, @params),1);
 		};	
-		# config command would be possible
-		$sets{'config'} = '';
+		# config command would be possible, unless it is the central device
+		$sets{'config'} = '' unless $devHash->{virtual};
 	};
 
     # now we only have peer, unpeer and peeringdetails left
@@ -814,23 +812,29 @@ sub HM485_Get($@) {
 	my $name = $params[0];
 	my $cmd  = $params[1];
 	my $args = $params[2] ? $params[2] : "";
-	my %gets = $chNr > 0 ? %getsCh : %getsDev;
+	my %gets; 
 	my $msg  = '';
 	my $data = '';
 	
 	my $peered;
     if($chNr){	
-		$gets{'peerlist'} = 'noArg';
+		%gets = ('state' => 'noArg',
+                 'config' => 'noArg') unless $hash->{devHash}{virtual};
+ 	    $gets{'peerlist'} = 'noArg';
 		$peered = HM485::PeeringManager::getPeeredChannels($hash);
 		if (@{$peered}) {
 			$gets{'peeringdetails'} = join(",", @{$peered});
 		};
-	}
+	}elsif($hash->{virtual}) {
+			return "No get implemented for the central device ".$hash->{NAME};
+	}else{
+		%gets = ('config'  => 'noArg'); 
+	};
 	
 	if (@params < 2) {
 		$msg =  '"get ' . $name . '" needs one or more parameter';
 
-	} else {
+	} else {	
 		if(!defined($gets{$cmd})) {
 			my $arguments = ' ';
 			foreach my $arg (sort keys %gets) {
@@ -1303,8 +1307,9 @@ sub HM485_SetPeer($@) {
 
 	
 	if($sensorHash->{devHash}{virtual}){
-	    $sensorHash->{devHash}{cache}{peers}{actuators}{$freeAct}{actuator} = $actuatorHash->{DEF};
-		$sensorHash->{devHash}{cache}{peers}{actuators}{$freeAct}{channel} = $sensorHash->{chanNo};
+		HM485::PeeringManager::addCentralPeering($sensorHash->{devHash}, 'sensor', 
+		                                         $actuatorHash->{devHash}{DEF}, $actuatorHash->{chanNo}, 
+												 $sensorHash->{chanNo});
 	}else{	
 		my $convActSettings = HM485::PeeringManager::convertPeeringsToEepromData(
 					$sensorHash, $validatedConfig->{actuator}, "actuator");
@@ -2136,21 +2141,28 @@ sub HM485_SendCommand($$$;$) {
 		$data     = $param[2];
 	}
 	$hmwId = substr($hmwId, 0, 8);
-			
-	if ( $data && length( $data) > 1) {
-		# on send need the hash of the main device
-		my $devHash 	= $modules{HM485}{defptr}{$hmwId};
-		if (!$devHash) {
-			$devHash = {
-				IODev => $hash,
-				NAME  => '.tmp',
-			};
-		}
+
+	# do nothing if there is no data	
+	return unless($data && length( $data) > 1);
 	
-		my %params = (hash => $devHash, hmwId => $hmwId, data => $data, queued => $queued);
-		InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
-		HM485::Util::Log3( $devHash, 5, 'HM485_SendCommand: '.$data);
+	# on send need the hash of the main device
+	my $devHash 	= $modules{HM485}{defptr}{$hmwId};
+	if (!$devHash) {
+		$devHash = {
+			IODev => $hash,
+			NAME  => '.tmp',
+		};
 	}
+
+	# warnung ausgeben, wenn an Zentrale geschickt und ignorieren		
+    if(substr($hmwId,0,6) eq '000000'){
+		HM485::Util::Log3( $devHash, 2, 'HM485_SendCommand: Cannot send to central device '.$hmwId);
+		return;	
+	};	
+		
+	my %params = (hash => $devHash, hmwId => $hmwId, data => $data, queued => $queued);
+	InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
+	HM485::Util::Log3( $devHash, 5, 'HM485_SendCommand: '.$data);
 } 
 
 =head2

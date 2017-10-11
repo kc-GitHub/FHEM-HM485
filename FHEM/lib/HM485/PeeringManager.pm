@@ -44,41 +44,17 @@ sub getFreePeerId ($$) {
 
 sub getPeerId ($$$$) {
 	my ($hash, $hmwid, $channel, $isAct) = @_;
-
-# TODO: remove old coding	
-#	my $ch 			= int($channel) -1;
 	my $peertype 	= $isAct ? 'actuator' : 'sensor';
-#	my $linkParams 	= getLinkParams($hash);
-		
-	$DB::single = 1;	
-		
 	my $peers = getLinksFromDevice($hash);
     # do we have this type of peers?	
     return undef unless(defined($peers->{$peertype.'s'})); 	
-	foreach my $peerid (keys($peers->{$peertype.'s'})) {
-		next unless($peers->{$peertype.'s'}{$peerid}{$peertype} eq $hmwid 
+	foreach my $peerid (keys %{$peers->{$peertype.'s'}}) {
+				next unless($peers->{$peertype.'s'}{$peerid}{$peertype} eq $hmwid 
 		        and $peers->{$peertype.'s'}{$peerid}{channel} == $channel );
 		return $peerid;	
 	};
 	# not found
 	return undef;	
-		
-	# return undef unless(ref($linkParams->{$peertype}) eq 'HASH');
-	# for (my $peerId = 0 ; $peerId < $linkParams->{$peertype}{count}; $peerId ++) {		
-		# my $adrStart = $linkParams->{$peertype}{address_start} + 
-			# ($peerId * $linkParams->{$peertype}{address_step});
-		# next unless(ref($linkParams->{$peertype}{parameter}) eq 'ARRAY');
-		# my $channelHash = HM485::Util::getArrayEntryWithId($linkParams->{$peertype}{parameter}, "channel");
-		# next unless($channelHash);
-		# my $chHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-						# $channelHash, $adrStart, $linkParams->{$peertype}{address_step});
-		# next unless(($chHash->{value} < 255) && ($chHash->{value} == $ch));
-        # my $peeringHash = HM485::Util::getArrayEntryWithId($linkParams->{$peertype}{parameter}, $peertype);			
-		# my $adrHash = HM485::ConfigurationManager::writeConfigParameter($hash,
-							# $peeringHash, $adrStart, $linkParams->{$peertype}{address_step});
-		# return $peerId if ($adrHash->{value} eq $hmwid);
-	# }
-	# return undef;
 }	
 
 # Determine peer role for channel hash
@@ -91,7 +67,6 @@ sub getPeerRole($){
 	# channel?
 	return undef unless(defined($channelHash->{devHash}));
 	# not buffered, determine
-	# $DB::single = 1 if($channelHash->{devHash}{DEF} eq '00000001');
 	my $linkParams = getLinkParams($channelHash->{devHash});
 	if (exists($linkParams->{sensor}{channels})) {
 	    my @channels = split(' ',$linkParams->{sensor}{channels});
@@ -306,6 +281,9 @@ sub addCentralPeering($$$$$) {
 	$virtHash->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen} = $peerHmwId.'_'.$peerChan;
 	$virtHash->{cache}{peers}{$actsen.'s'}{$peerId}{channel} = $ownChan;
 	
+	# delete channel cache of virtual device
+	delete $virtHash->{cache}{$ownChan};
+	
 	my $peerHash = $main::modules{HM485}{defptr}{$peerHmwId.'_'.$peerChan};
 	if (!$peerHash) {
 	    $peerHash->{NAME} = 'unknown_'.$peerHmwId.'_'.$peerChan;
@@ -329,6 +307,9 @@ sub updateCentralPeerings($) {
 	foreach my $actsen ('actuator','sensor') {
 		foreach my $peerId (keys %{$virtDev->{cache}{peers}{$actsen.'s'}}) {
 			next unless substr($virtDev->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},0,8) eq $devHash->{DEF};
+			# delete channel cache of virtual device
+			delete $virtDev->{cache}{$virtDev->{cache}{peers}{$actsen.'s'}{$peerId}{channel}};
+			# delete peering from peer cache of virtual device
 			delete $virtDev->{cache}{peers}{$actsen.'s'}{$peerId};
 			delete $virtDev->{'peer_'.substr($actsen,0,3).'_'.$peerId};
 		};
@@ -649,6 +630,15 @@ sub sendUnpeer($$;$) {
 		my $peerId   = HM485::PeeringManager::getPeerId($pdevHash,$hmwId,$ch,$isAct);
 		# if we do not find the peering, this can just be a broken link
 		next unless(defined($peerId));
+		# for virtual devices, just remove the peering from the cache
+		if($pdevHash->{virtual}){
+			# delete channel cache of virtual device
+			delete $pdevHash->{cache}{$ch};
+			# delete peering from peer cache of virtual device
+			delete $pdevHash->{cache}{peers}{$senAct.'s'}{$peerId};
+			delete $pdevHash->{'peer_'.substr($senAct,0,3).'_'.$peerId};
+			next;
+        }; 
 		#write FF into address and channel
 		my $config;
 		$config->{$senAct}{'value'}    = 'FFFFFFFFFF';
