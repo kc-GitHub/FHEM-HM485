@@ -3,33 +3,34 @@ DIR FHEM/lib/HM485
 DIR FHEM/lib/HM485/Devices/xml
 DIR FHEM/lib/HM485/HM485d
 MOV FHEM/lib/HM485/helper/xmlHelper.pl unused
-UPD 2017-09-15_22:30:23 44117 FHEM/00_HM485_LAN.pm
-UPD 2017-10-11_21:15:43 107985 FHEM/10_HM485.pm
-UPD 2017-05-13_08:39:35 172 FHEM/lib/HM485/Communication.pm
-UPD 2017-05-13_08:39:35 11152 FHEM/lib/HM485/ConfigurationManager.pm
-UPD 2017-05-13_08:39:35 2563 FHEM/lib/HM485/Constants.pm
-UPD 2017-10-07_22:06:39 49473 FHEM/lib/HM485/Device.pm
-UPD 2017-05-13_08:39:35 2195 FHEM/lib/HM485/Devices/xml/hmw_central.xml
-UPD 2017-05-13_08:39:35 194 FHEM/lib/HM485/Devices/xml/hmw_generic.xml
-UPD 2017-05-13_08:39:35 8452 FHEM/lib/HM485/Devices/xml/hmw_io12_sw14_dr.xml
-UPD 2017-05-13_08:39:35 17895 FHEM/lib/HM485/Devices/xml/hmw_io12_sw7_dr.xml
-UPD 2017-05-13_08:39:35 17202 FHEM/lib/HM485/Devices/xml/hmw_io12_sw7_dr_V3_02.xml
-UPD 2017-05-13_08:39:35 18339 FHEM/lib/HM485/Devices/xml/hmw_io_12_fm.xml
-UPD 2017-05-13_08:39:35 18406 FHEM/lib/HM485/Devices/xml/hmw_io_4_fm.xml
-UPD 2017-05-13_08:39:35 17445 FHEM/lib/HM485/Devices/xml/hmw_io_4_fm_V3_02.xml
-UPD 2017-05-13_08:39:35 17824 FHEM/lib/HM485/Devices/xml/hmw_io_sr_fm.xml
-UPD 2017-05-13_08:39:35 25898 FHEM/lib/HM485/Devices/xml/hmw_lc_bl1_dr.xml
-UPD 2017-05-13_08:39:35 25203 FHEM/lib/HM485/Devices/xml/hmw_lc_bl1_dr_V3_02.xml
-UPD 2017-05-13_08:39:35 26288 FHEM/lib/HM485/Devices/xml/hmw_lc_dim1l_dr.xml
-UPD 2017-05-13_08:39:35 17858 FHEM/lib/HM485/Devices/xml/hmw_lc_sw2_dr.xml
-UPD 2017-05-13_08:39:35 17165 FHEM/lib/HM485/Devices/xml/hmw_lc_sw2_dr_V3_02.xml
-UPD 2017-05-13_08:39:35 3024 FHEM/lib/HM485/Devices/xml/hmw_sen_sc_12_dr.xml
-UPD 2017-05-13_08:39:35 10528 FHEM/lib/HM485/HM485d/DevIo485.pm
-UPD 2017-05-13_08:39:35 271 FHEM/lib/HM485/HM485d/HM485DaemonStart.bat
-UPD 2017-05-13_08:39:35 26219 FHEM/lib/HM485/HM485d/HM485_Protocol.pm
-UPD 2017-05-13_08:39:35 12740 FHEM/lib/HM485/HM485d/HM485d.pl
-UPD 2017-05-13_08:39:35 11048 FHEM/lib/HM485/HM485d/ServerTools.pm
-UPD 2017-10-11_21:02:53 23851 FHEM/lib/HM485/PeeringManager.pm
-UPD 2017-05-13_08:39:35 9615 FHEM/lib/HM485/Util.pm
-UPD 2017-09-11_21:56:03 8540 FHEM/lib/HM485/XmlConverter.pm
-UPD 2017-05-13_08:39:35 12096 www/pgm2/hm485.js
+MOV FHEM/lib/HM485/Communication.pm unused
+MOV FHEM/lib/HM485/FhemWebHelper.pm unused
+UPD 2017-11-10_23:04:52 44824 FHEM/00_HM485_LAN.pm
+UPD 2017-11-13_22:10:27 115270 FHEM/10_HM485.pm
+UPD 2017-05-13_07:39:35 11152 FHEM/lib/HM485/ConfigurationManager.pm
+UPD 2017-05-13_07:39:35 2563 FHEM/lib/HM485/Constants.pm
+UPD 2017-10-12_20:06:42 49473 FHEM/lib/HM485/Device.pm
+UPD 2017-05-13_07:39:35 2195 FHEM/lib/HM485/Devices/xml/hmw_central.xml
+UPD 2017-05-13_07:39:35 194 FHEM/lib/HM485/Devices/xml/hmw_generic.xml
+UPD 2017-05-13_07:39:35 8452 FHEM/lib/HM485/Devices/xml/hmw_io12_sw14_dr.xml
+UPD 2017-05-13_07:39:35 17895 FHEM/lib/HM485/Devices/xml/hmw_io12_sw7_dr.xml
+UPD 2017-05-13_07:39:35 17202 FHEM/lib/HM485/Devices/xml/hmw_io12_sw7_dr_V3_02.xml
+UPD 2017-05-13_07:39:35 18339 FHEM/lib/HM485/Devices/xml/hmw_io_12_fm.xml
+UPD 2017-05-13_07:39:35 18406 FHEM/lib/HM485/Devices/xml/hmw_io_4_fm.xml
+UPD 2017-05-13_07:39:35 17445 FHEM/lib/HM485/Devices/xml/hmw_io_4_fm_V3_02.xml
+UPD 2017-05-13_07:39:35 17824 FHEM/lib/HM485/Devices/xml/hmw_io_sr_fm.xml
+UPD 2017-05-13_07:39:35 25898 FHEM/lib/HM485/Devices/xml/hmw_lc_bl1_dr.xml
+UPD 2017-05-13_07:39:35 25203 FHEM/lib/HM485/Devices/xml/hmw_lc_bl1_dr_V3_02.xml
+UPD 2017-05-13_07:39:35 26288 FHEM/lib/HM485/Devices/xml/hmw_lc_dim1l_dr.xml
+UPD 2017-05-13_07:39:35 17858 FHEM/lib/HM485/Devices/xml/hmw_lc_sw2_dr.xml
+UPD 2017-05-13_07:39:35 17165 FHEM/lib/HM485/Devices/xml/hmw_lc_sw2_dr_V3_02.xml
+UPD 2017-05-13_07:39:35 3024 FHEM/lib/HM485/Devices/xml/hmw_sen_sc_12_dr.xml
+UPD 2017-05-13_07:39:35 10528 FHEM/lib/HM485/HM485d/DevIo485.pm
+UPD 2017-05-13_07:39:35 271 FHEM/lib/HM485/HM485d/HM485DaemonStart.bat
+UPD 2017-05-13_07:39:35 26219 FHEM/lib/HM485/HM485d/HM485_Protocol.pm
+UPD 2017-05-13_07:39:35 12740 FHEM/lib/HM485/HM485d/HM485d.pl
+UPD 2017-05-13_07:39:35 11048 FHEM/lib/HM485/HM485d/ServerTools.pm
+UPD 2017-11-07_22:51:00 23826 FHEM/lib/HM485/PeeringManager.pm
+UPD 2017-11-10_22:15:51 11884 FHEM/lib/HM485/Util.pm
+UPD 2017-09-11_20:56:03 8540 FHEM/lib/HM485/XmlConverter.pm
+UPD 2017-05-13_07:39:35 12096 www/pgm2/hm485.js

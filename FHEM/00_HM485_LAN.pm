@@ -85,7 +85,7 @@ sub HM485_LAN_Initialize($) {
 	
 	$hash->{AttrList}   = 'hmwId do_not_notify:0,1 HM485d_bind:0,1 ' .
 	                     'HM485d_startTimeout HM485d_device ' . 
-	                     'HM485d_serialNumber HM485d_logfile ' .
+	                     'HM485d_serialNumber HM485d_logfile HM485d_highPriority:0,1 ' .
 	                     'HM485d_detach:0,1 HM485d_logVerbose:0,1,2,3,4,5 ' . 
 	                     'HM485d_gpioTxenInit HM485d_gpioTxenCmd0 ' . 
 	                     'HM485d_gpioTxenCmd1 '.
@@ -152,7 +152,7 @@ sub HM485_LAN_Define($$) {
 			HM485::Util::Log3($hash, 1, 'HM485 device is none, commands will be echoed only');
 		} else {
 			# Make sure HM485_LAN_Connect starts after HM485_LAN_Define is ready 
-			InternalTimer(gettimeofday(), 'HM485_LAN_ConnectOrStartHM485d', $hash, 0);
+			HM485::Util::PQadd(\&HM485_LAN_ConnectOrStartHM485d, [$hash]);
 		}
 				
 	} else {
@@ -608,6 +608,23 @@ sub HM485_LAN_Set($@) {
 	return $msg;
 }
 
+
+# set nice -10, if possible
+sub HM485_LAN_HM485dRenice($;$) {
+	my ($hash,$val) = @_;
+	return unless defined $hash->{HM485d_STATE};
+    return unless $hash->{HM485d_STATE} eq 'started' or $hash->{HM485d_STATE} eq 'opened';
+    return unless $hash->{HM485d_PID};	
+	return unless AttrVal($hash->{NAME}, 'HM485d_bind',0);
+	$val = AttrVal($hash->{NAME}, 'HM485d_highPriority',undef) unless defined $val;
+	# if still not defined, then the attribute is not used at all
+	return unless defined $val;
+	my $nice = $val ? "-10" : "0";
+	my $ret = qx(sudo renice $nice $hash->{HM485d_PID} 2>&1);
+	HM485::Util::Log3($hash, 2, 'Renice: '.$ret);
+};
+
+
 =head2
 	Implements AttrFn function.
 	Here we validate user values of some attr's
@@ -622,7 +639,7 @@ sub HM485_LAN_Set($@) {
 	@return undef | string    if attr value was wrong
 =cut
 sub HM485_LAN_Attr (@) {
-	my (undef, $name, $attr, $val) =  @_;
+	my ($cmd, $name, $attr, $val) =  @_;
 	my $hash = $defs{$name};
 
 	if ($attr eq 'hmwId') {
@@ -640,6 +657,10 @@ sub HM485_LAN_Attr (@) {
 		}
 		$hash->{hmwId} = $val;
 	}
+	if($attr eq "HM485d_highPriority"){
+		$val = 0 if($cmd eq "del"); 
+		HM485_LAN_HM485dRenice($hash,$val);
+    };	
 	return undef;
 }
 
@@ -657,7 +678,9 @@ sub HM485_LAN_discoveryStart($) {
 	HM485_LAN_setDiscoveryCancelTimer($hash);
 
 	HM485_LAN_setBroadcastSleepMode($hash, 1);
-	InternalTimer(gettimeofday(), 'HM485_LAN_doDiscovery', $hash, 0);
+	# a little bit higher priority, as this should happen soon
+	# after start of the cancel timer
+	HM485::Util::PQadd( \&HM485_LAN_Write, [$hash,HM485::CMD_DISCOVERY], -10);
 }
 
 sub HM485_LAN_setDiscoveryCancelTimer($) {
@@ -685,20 +708,9 @@ sub HM485_LAN_cancelDiscovery($) {
 	$hash->{discoveryRunning} = 0;	
 }
 
-=head2
-	Send the discovery command to the interface
-
-	@param	hash    hash of device addressed
-=cut
-sub HM485_LAN_doDiscovery($) {
-	my ($hash) =  @_;
-	HM485_LAN_Write($hash, HM485::CMD_DISCOVERY);
-}
 
 =head2
 	Complete the discovery
-
-
 	@param	hash    hash of device addressed
 =cut
 sub HM485_LAN_discoveryEnd($) {
@@ -771,7 +783,7 @@ sub HM485_LAN_Init($) {
 	my $name = $hash->{NAME};
 
 	HM485::Util::Log3($hash, 3, 'connected to device ' . $dev);
-	# $hash->{STATE} = 'open';
+	HM485_LAN_HM485dRenice($hash);
 	
 	delete ($hash->{HM485dStartTimeout});
 
@@ -800,7 +812,7 @@ sub HM485_LAN_parseIncommingCommand($$) {
 	if ($msgCmd == HM485::CMD_DISCOVERY_END) {
 		my $foundDevices = hex($msgData);
 		HM485::Util::Log3($hash, 4, 'Do action after discovery Found Devices: ' . $foundDevices);
-		InternalTimer(gettimeofday() + 0, 'HM485_LAN_discoveryEnd', $hash, 0);
+		HM485::Util::PQadd(\&HM485_LAN_discoveryEnd, [$hash]);
 
 	} elsif ($msgCmd == HM485::CMD_DISCOVERY_RESULT) {
 		HM485_LAN_setDiscoveryCancelTimer($hash);
@@ -1000,7 +1012,9 @@ sub HM485_LAN_openDev($;$) {
 	if ($hash->{STATE} ne 'opened') {
 		# if we must reconnect, connection can reappear after 60 seconds 
 		$retVal = DevIo_OpenDev($hash, $reconnect, 'HM485_LAN_Init');
-	}
+	}else{
+		HM485_LAN_HM485dRenice($hash);
+	};
 
 	return $retVal;
 }
@@ -1089,8 +1103,7 @@ sub HM485_LAN_HM485dGetPid($$) {
 	my $ps = 'ps axwwo pid,args | grep "' . $HM485dCommandLine . '" | grep -v grep';
 	my @result = `$ps`;
 	foreach my $psResult (@result) {
-		$psResult =~ s/[\n\r]//g;
-
+        $psResult =~ /(^[\t ]*[0-9]*)\s/;
 		if ($psResult) {
 			$psResult =~ /(^.*)\s.*perl.*/;
 			$retVal = $1;

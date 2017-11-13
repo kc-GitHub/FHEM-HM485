@@ -238,7 +238,9 @@ sub getLinkParams($) {
 					}
 				}		
 			}
-		}  else {
+		}
+		# no channels or no channels which can be peered
+		if(!$linkParams) {
 			$linkParams->{actuator}{channels} = '00';
 			$linkParams->{sensor}{channels} = '00';
 		}
@@ -296,33 +298,32 @@ sub addCentralPeering($$$$$) {
 sub updateCentralPeerings($) {
 # updates peerings to central (virtual) device
 # prerequisite: Peerings are already in device cache
-# returns number of added peerings
 	my ($devHash) = @_;
 
-# find virtual device: the device with the HMID of the IO-Device
-	my $virtDev = $main::modules{HM485}{defptr}{$devHash->{IODev}{hmwId}};
-	return unless defined $virtDev;
-	return unless $virtDev->{virtual};
-# delete all peerings in virtual device to/from this device  
-	foreach my $actsen ('actuator','sensor') {
-		foreach my $peerId (keys %{$virtDev->{cache}{peers}{$actsen.'s'}}) {
-			next unless substr($virtDev->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},0,8) eq $devHash->{DEF};
-			# delete channel cache of virtual device
-			delete $virtDev->{cache}{$virtDev->{cache}{peers}{$actsen.'s'}{$peerId}{channel}};
-			# delete peering from peer cache of virtual device
-			delete $virtDev->{cache}{peers}{$actsen.'s'}{$peerId};
-			delete $virtDev->{'peer_'.substr($actsen,0,3).'_'.$peerId};
+# find virtual devices in IO-Device
+    foreach my $virtDev (values %{$devHash->{IODev}{centrals}}) {
+		next unless $virtDev->{virtual};
+# 		delete all peerings in virtual device to/from this device  
+		foreach my $actsen ('actuator','sensor') {
+			foreach my $peerId (keys %{$virtDev->{cache}{peers}{$actsen.'s'}}) {
+				next unless substr($virtDev->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},0,8) eq $devHash->{DEF};
+			# 	delete channel cache of virtual device
+				delete $virtDev->{cache}{$virtDev->{cache}{peers}{$actsen.'s'}{$peerId}{channel}};
+			# 	delete peering from peer cache of virtual device
+				delete $virtDev->{cache}{peers}{$actsen.'s'}{$peerId};
+				delete $virtDev->{'peer_'.substr($actsen,0,3).'_'.$peerId};
+			};
 		};
-	};
-# add all peerings to/from the virtual device 
-	foreach my $actsen ('actuator','sensor') {
-		foreach my $peerId (keys %{$devHash->{cache}{peers}{$actsen.'s'}}) {
-			next unless substr($devHash->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},0,8) eq $virtDev->{DEF};
-            addCentralPeering($virtDev, $actsen, 
+# 		add all peerings to/from the virtual device 
+		foreach my $actsen ('actuator','sensor') {
+			foreach my $peerId (keys %{$devHash->{cache}{peers}{$actsen.'s'}}) {
+				next unless substr($devHash->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},0,8) eq $virtDev->{DEF};
+				addCentralPeering($virtDev, $actsen, 
 			                  $devHash->{DEF}, $devHash->{cache}{peers}{$actsen.'s'}{$peerId}{channel}, 
 							  substr($devHash->{cache}{peers}{$actsen.'s'}{$peerId}{$actsen},9,2));
-		};
-	};	
+			};
+		};	
+	};
 };
 
 

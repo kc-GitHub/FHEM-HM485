@@ -337,4 +337,81 @@ sub Log3($$$){
   main::Log3($hash,$level,$name.': '.$text);
 }
 
-1;
+
+# Function queue handling
+# queues data structure
+# Each queue has a priority
+# For each priority, there can be multiple queues
+# if this is the case, elements are processed round robin
+# prioQueues: 
+#    HASH { priority -> 
+#           queues:
+#              ARRAY ( HASH { function,
+#                             arguments } )
+# add: function, arguments, priority
+
+ use List::Util qw(min);
+ use feature qw(current_sub);
+ use Scalar::Util qw(looks_like_number);
+
+  my %prioQueues;
+  my $queueRunning = 0;
+
+  use Sub::Identify qw(sub_name); 
+  
+ sub PQprocess($) {
+
+ 	my $start = main::gettimeofday();
+	my $dauer = 0;
+	while(1){
+		my $prio = min(keys %prioQueues);
+		my $toCall = shift(@{$prioQueues{$prio}});
+		delete $prioQueues{$prio} unless @{$prioQueues{$prio}};
+		&{$toCall->{function}}(@{$toCall->{arguments}});
+		$dauer = (main::gettimeofday() - $start) * 1000;
+	# if(sub_name($toCall->{function}) eq "HM485_Set") {
+		# Log3(undef,3,"PQprocess: ".sub_name($toCall->{function})." ".$toCall->{arguments}[1]);
+	# }else{
+		# Log3(undef,3,"PQprocess: ".sub_name($toCall->{function})." ".$dauer);
+	#};
+	# allow to process very fast stuff together
+		last unless($dauer < 5 and %prioQueues);
+	};	
+	
+	if(%prioQueues) {
+		main::InternalTimer(main::gettimeofday(),__SUB__,"HM485::PrioQueue");
+	}else{
+		$queueRunning = 0;
+	};	
+ };
+
+ 
+# add entry to PrioQueues
+ sub PQadd($$;$) {
+    my ($function, $arguments, $nice) = @_;
+	$nice =   0 if(not defined($nice) or  not looks_like_number($nice));
+    $nice = -20 if($nice <-20);
+    $nice =  19 if($nice > 19);
+
+	$prioQueues{$nice} = [] unless defined $prioQueues{$nice};
+	push(@{$prioQueues{$nice}},{"function" => $function, "arguments" => $arguments});
+
+	# start timer if not anyway running
+	if(not $queueRunning) {
+		main::InternalTimer(main::gettimeofday(),\&PQprocess,"HM485::PrioQueue");
+		$queueRunning = 1;
+	};	
+ };
+
+
+ # TODO:
+# The following PrioQueue implementation uses the PrioQueue mechanism of fhem.pl
+# However, this does currently not work with apptime. Once this is fixed, the
+# PrioQueue implementation from above should be replaced by the below.
+#sub PQadd ($$;$) {
+#    my ($func, $params, $niceness) = @_;
+#	main::PrioQueue_add(sub {&{${$_[0]}[0]}(@{${$_[0]}[1]})}, [$func, $params], $niceness);
+#};
+
+
+1; 

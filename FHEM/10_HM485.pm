@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0809 2017-10-11 21:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0810 2017-11-13 21:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.09
+	Version 0.8.10
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -33,7 +33,7 @@ use lib::HM485::Util;
 use lib::HM485::ConfigurationManager;
 use lib::HM485::PeeringManager;
 
-use Scalar::Util qw(looks_like_number);
+use Scalar::Util qw(looks_like_number weaken);
 
 use vars qw {%attr %defs %modules %data $FW_ME};
 
@@ -79,10 +79,10 @@ sub HM485_ProcessEvent($$);
 sub HM485_CheckForAutocreate($$;$$);
 sub HM485_SendCommand($$$;$);
 #sub HM485_SendCommandState($);
-sub HM485_DoSendCommand($);
+sub HM485_DoSendCommand($$$$);
 sub HM485_ProcessChannelState($$$$;$);
 sub HM485_ChannelUpdate($$$);
-sub HM485_ChannelDoUpdate($);
+sub HM485_ChannelDoUpdate($$$$);
 sub HM485_ProcessEepromData($$$);
 
 # External helper functions
@@ -92,7 +92,6 @@ sub HM485_DevStateIcon($);
 sub HM485_GetNewMsgQueue($$$$$);
 sub HM485_QueueStepFailed($$);
 sub HM485_QueueStepSuccess($$);
-
 
 
 my $defStart = 5;
@@ -106,13 +105,7 @@ my $currentQueueIndex = -1; #index of current queue
 # It seems that it only works properly like this
 sub HM485_ReadingUpdate($$$) {
 	my ($hash, $name, $value) = @_;
-	
-    if($name){  # do it later
-		InternalTimer(gettimeofday(),'HM485_ReadingUpdate',[$hash,$name, $value],0);
-	}else{	# this is the "later" call
-	    ($hash, $name, $value) = @$hash;
-		readingsSingleUpdate($hash, $name, $value, 1);
-	}
+	HM485::Util::PQadd(\&readingsSingleUpdate, [$hash, $name, $value, 1]);
 }
 
 
@@ -159,7 +152,7 @@ sub HM485_Initialize($) {
 	$hash->{'AttrList'}  =	$attrlist.' model firmwareVersion serialNr ';   
 	                                       # deprecated, but to avoid error messages
 	# remove deprecated attributes after init
-    InternalTimer(gettimeofday(), sub {$hash->{'AttrList'} = $attrlist}, $hash, 0);	
+	HM485::Util::PQadd(sub {$hash->{'AttrList'} = $attrlist}, [$hash]);
 }
 
 
@@ -167,6 +160,11 @@ sub HM485_Initialize($) {
 sub HM485_DefineCentralAfter($) {
 	my ($hash) = @_;
 
+	# enter it into the list of virtual devices
+	if($hash->{IODev}) {   # just in case
+		$hash->{IODev}{centrals}{$hash->{DEF}} = $hash;
+        weaken($hash->{IODev}{centrals}{$hash->{DEF}});    	
+	};
 	# The reading "state" does not make that much sense, but "ACK" is soothing
     HM485_ReadingUpdate($hash,'state','ACK');
 	# set default room, if no room assigned
@@ -198,7 +196,8 @@ sub HM485_DefineCentralAfter($) {
      	    delete $peerDev->{cache}{peers};
 		};		
         # cache it (again in peer and here)
-        HM485::PeeringManager::getLinksFromDevice($peerDev); 			
+		# this needs to be done asynchronously, as we might just have created the channels
+        HM485::Util::PQadd(\&HM485::PeeringManager::getLinksFromDevice, [$peerDev]); 			
 	};
 	HM485_SetConfigStatus($hash,'OK');
 	return undef;
@@ -208,7 +207,7 @@ sub HM485_DefineCentralAfter($) {
 # define the central device
 sub HM485_DefineCentral($$;$) {
 	my ($hash, $hmwid, $iodevname) = @_;
-
+    
 	return 'Device ' . $hmwid . ' already defined.'
 	     if ($modules{'HM485'}{'defptr'}{$hmwid}); 
 
@@ -224,7 +223,8 @@ sub HM485_DefineCentral($$;$) {
 		AssignIoPort($hash, $iodevname); 
 		HM485::Util::Log3($hash->{IODev}, 2, 'Assigned '.$hmwid.' as '.$hash->{NAME});
 	}else{
-        InternalTimer(gettimeofday(), 'AssignIoPort',$hash,0);
+	    # queue with high priority
+        HM485::Util::PQadd(\&AssignIoPort, [$hash], -10);
     }			
 	
 	$modules{HM485}{defptr}{$hmwid} = $hash;
@@ -234,7 +234,7 @@ sub HM485_DefineCentral($$;$) {
 		return "Device files outdated" ;
 	};	
 	# stuff to do after fhem.cfg is processed
-	InternalTimer (gettimeofday(), 'HM485_DefineCentralAfter', $hash, 0);
+	HM485::Util::PQadd(\&HM485_DefineCentralAfter, [$hash]);
 	return undef;
 }
 
@@ -262,9 +262,8 @@ sub HM485_Define($$) {
 	my $chNr   = (length($hmwId) > 8) ? substr($hmwId, 9, 2) : undef;
 	my $addr   = substr($hmwId, 0, 8);
 	
-    # "The" virtual device?
-	# If the hmwId belongs to a "central", then this must be the virtual device
-	# TODO: Maybe this should automatically be created for each HM485_LAN	
+    # A virtual device?
+	# If the hmwId belongs to a "central", then this must be a virtual device
     if(not $chNr and substr($addr,0,6) eq '000000'){
         # the virtual device
 		return HM485_DefineCentral($hash, $hmwId, $a[3]);
@@ -293,7 +292,8 @@ sub HM485_Define($$) {
 		    AssignIoPort($hash, $a[3]); 
 		    HM485::Util::Log3($hash->{IODev}, 2, 'Assigned '.$addr.' as '.$name);
 		}else{
-            InternalTimer(gettimeofday(), 'AssignIoPort',$hash,0);
+		    # assign IO port with high priority
+		    HM485::Util::PQadd(\&AssignIoPort,[$hash],-10);
         }			
 	}
 	$modules{HM485}{defptr}{$hmwId} = $hash;
@@ -302,20 +302,34 @@ sub HM485_Define($$) {
 		HM485_ReadingUpdate($hash, 'configStatus', 'PENDING');
         # We can always use WaitForConfig. It will do it's job eventually in any case.	
 		$hash->{FailedConfigReads} = 0;
-		InternalTimer (gettimeofday(), 'HM485_WaitForConfigCond', $hash, 0);
-	}else{
-		# get peer role for channels 
-		# do this async. because otherwise, cache will be deleted with each channel
-	    InternalTimer (gettimeofday(), 'HM485::PeeringManager::getPeerRole', $hash, 0);
+		HM485::Util::PQadd(\&HM485_WaitForConfigCond, [$hash]);
     };
 	# delete deprecated attributes
-	InternalTimer(gettimeofday(), 
-	      sub { delete($attr{$name}{model}); 
-				delete($attr{$name}{firmwareVersion}); 
-				delete($attr{$name}{serialNr});
-		  }, $hash, 0);
+	HM485::Util::PQadd(sub { delete($attr{$name}{model}); 
+				        delete($attr{$name}{firmwareVersion}); 
+				        delete($attr{$name}{serialNr});
+		              }, [$hash], 10);
 	return undef;
 }
+
+
+# Refresh cache of all peers
+# This is mainly to re-determine the name of the channel 
+# which is deleted or renamed.
+# The routine could be smarter, but deletions or renamings 
+# should not happen that often.
+sub HM485_RefreshPeersCache($) {
+	my ($chHash) = @_;
+	# channel at all?
+	return unless $chHash->{devHash};
+	# for each peered channel
+	foreach my $peeredChannel (@{HM485::PeeringManager::getPeeredChannels($chHash)}) {
+		my $peeredHash = $main::defs{$peeredChannel};
+		next unless defined $peeredHash;
+		next unless defined $peeredHash->{devHash};
+		HM485_RefreshCache($peeredHash->{devHash});
+	};
+};
 
 
 =head2
@@ -332,7 +346,13 @@ sub HM485_Undefine($$) {
 	my ($hmwid, $chnr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 	
 	if ($chnr > 0 ){  
-		# this is a channel, delete it from the device
+		# this is a channel
+		# inform peers
+		HM485_RefreshPeersCache($hash);
+		# in case the channel does not have peers,
+		# we need to refresh the "set" caches of other devices
+		HM485_RefreshCache(undef);
+		# delete it from the device                           
 		delete $hash->{devHash}{'channel_' . $chnr};
 	} else {
 		# Delete each channel of device
@@ -343,6 +363,7 @@ sub HM485_Undefine($$) {
 	delete($modules{HM485}{defptr}{$hmwid});
 	return undef;
 }
+
 
 =head2
 	Implements the rename function
@@ -361,6 +382,10 @@ sub HM485_Rename($$) {
 		my $devHash = $hash->{devHash};
 		$hash->{device} = $devHash->{NAME};
 		$devHash->{'channel_' . $chNr} = $name;
+		# inform peers
+		HM485_RefreshPeersCache($hash);
+		# refresh own cache
+		HM485_RefreshCache($devHash);
 	} else{
 		# we are a device - inform channels if exist
 		foreach my $devName ( grep(/^channel_/, keys %{$hash})) {
@@ -504,6 +529,26 @@ sub HM485_Set($@) {
 	return '"set ' . $name . '" needs one or more parameter' unless(@params >= 2);
 	
 	my $cmd   = $params[1];
+	
+	# buffering for "?" to make FHEMWEB more responsive
+    if($cmd eq "?") {
+		if(defined($hash->{devHash})) {
+			# channel
+			return $hash->{devHash}{cache}{$hash->{chanNo}}{sets} 
+				if(defined($hash->{devHash}{cache}{$hash->{chanNo}}{sets}));
+			# buffer it
+			$hash->{devHash}{cache}{$hash->{chanNo}}{sets} = HM485_Set($hash, $name, "??");
+			$hash->{devHash}{cache}{$hash->{chanNo}}{sets} =~ s/\?\?/\?/g;
+		}else{
+			# device
+			return $hash->{cache}{sets} 
+				if(defined($hash->{cache}{sets}));
+			# buffer it
+			$hash->{cache}{sets} = HM485_Set($hash, $name, "??");
+			$hash->{cache}{sets} =~ s/\?\?/\?/g;
+		}        
+	};
+	
 	my $value = $params[2];
 	
 	# Default set commands for device
@@ -897,7 +942,6 @@ sub HM485_FhemwebShowConfig($$$) {
 	my $configReady = ($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
 	
 	# do we have anything peered with this one?
-	# TODO: This is relatively expensive
 	my ($hmwId, $chNr) = HM485::Util::getHmwIdAndChNrFromHash($hash);
     my $isChannel = $chNr ? "yes" : "no";
 	# if this is a channel, does it have peerings?
@@ -926,7 +970,7 @@ sub HM485_FhemwebShowConfig($$$) {
 		    $hasConfig = 'yes';
 		    last;
 	    };
-	}else{
+	}elsif(not $devHash->{virtual}){
         # see above...
 		$hasConfig = "yes";
     };	
@@ -942,8 +986,8 @@ sub HM485_SetConfigStatus($$) {
 	HM485_ReadingUpdate($hash, 'configStatus', $status);
 	if($status eq 'OK') {
 		$hash->{FailedConfigReads} = 0;
-		# trigger peerings re-read
-		InternalTimer(gettimeofday(), "HM485::PeeringManager::getLinksFromDevice", $hash,0);
+		# trigger cache re-read
+		HM485_RefreshCache($hash);
 	};
 	if($status eq 'FAILED') {
 		my $maxReads = HM485_GetConfigReadRetries($hash);
@@ -1077,7 +1121,8 @@ sub HM485_CreateAndReadChannels($$) {
 	HM485_CreateChannels( $devHash);
 	
 	# Create R-Readings
-	HM485_UpdateConfigReadings($devHash); 
+	# this needs the channels, which might not have been created yet
+	HM485::Util::PQadd(\&HM485_UpdateConfigReadings, [$devHash]); 
 
 	# State der Channels ermitteln
 	my $configHash = HM485::Device::getValueFromDefinitions( $deviceKey . '/channels/');
@@ -1095,7 +1140,8 @@ sub HM485_CreateAndReadChannels($$) {
 			}
 		}
 	}
-	HM485_QueueStart($devHash, $queue);
+	# make sure the channels exist before asking them
+	HM485::Util::PQadd(\&HM485_QueueStart, [$devHash, $queue]);
 }
 
 
@@ -1197,27 +1243,41 @@ sub HM485_CreateChannels($) {
 			my $chHmwId = $hmwId . '_' . $txtCh;
 				
 			if (!$modules{HM485}{defptr}{$chHmwId}) {
-				CommandDefine(undef, $devName . ' ' . ' HM485 ' . $chHmwId); # HM485_Define wird aufgerufen
+			    # Call define for the channel. This is usually for the first definition, as 
+				# otherwise the channel is already defined via fhem.cfg
+			    HM485::Util::PQadd(\&CommandDefine, [undef, $devName . ' ' . ' HM485 ' . $chHmwId]);
+				# sub type in Attribut schreiben fuer Default-Sortierung in FHEMWEB 
+                HM485::Util::PQadd(\&CommandAttr, [undef, $devName." subType ".$subType]);					
+				if($subType eq 'blind') {
+					# Blinds go up and down by default (but only by default)
+					HM485::Util::PQadd(\&CommandAttr, [undef, $devName . ' webCmd up:down']);
+				};	
+				# room 
+			    if(defined($room) && $room) {
+				    HM485::Util::PQadd(\&CommandAttr, [undef, $devName . ' room ' . $room]);
+				};	
 			} else {
+			    # This means we are starting up and fhem.cfg has just been processed
+				# so we anyway wait for startup being ready and we can do everything directly
 				# Channel- Name aus define wird gesucht, um weitere Attr zuzuweisen
 				my $devHash = $modules{HM485}{defptr}{$chHmwId};
 				$devName    = $devHash->{NAME};
-			};
-			# sub type in Attribut schreiben fuer Default-Sortierung in FHEMWEB 
-                  CommandAttr(undef, $devName." subType ".$subType);					
-			if($subType eq 'blind') {
-				# Blinds go up and down by default (but only by default)
-				my $val = AttrVal($devName, 'webCmd', undef);
-				if(!defined($val)){
-					CommandAttr(undef, $devName . ' webCmd up:down');
-				};
-			}
-			# copy room if there is no room yet
-			# this is mainly for proper autocreate
-			if(defined($room) && $room) {
-				my $croom = AttrVal($devName, 'room', undef);
-				if(!$croom) {
-					CommandAttr(undef, $devName . ' room ' . $room);
+				# sub type in Attribut schreiben fuer Default-Sortierung in FHEMWEB,
+				# falls noch nicht vorhanden
+                CommandAttr(undef, $devName." subType ".$subType) unless AttrVal($devName, 'subType', undef);					
+				if($subType eq 'blind') {
+					# Blinds go up and down by default (but only by default)
+					my $val = AttrVal($devName, 'webCmd', undef);
+					if(!defined($val)){
+						CommandAttr(undef, $devName . ' webCmd up:down');
+					};
+				}
+				# copy room if there is no room yet
+				if(defined($room) && $room) {
+					my $croom = AttrVal($devName, 'room', undef);
+					if(!$croom) {
+						CommandAttr(undef, $devName . ' room ' . $room);
+					}
 				}
 			}
 		} 
@@ -1360,7 +1420,6 @@ sub HM485_SetPeer($@) {
 		HM485::Device::internalUpdateEEpromData($actuatorHash->{devHash},$adr . $size . $value);
 		HM485_SendCommand($actuatorHash, $actuatorHash->{DEF}, '57' . $adr . $size . $value);
 	}
-	#todo verify the correct sending, then send 0x43
 	HM485_SendCommand($sensorHash, $sensorHash->{DEF}, '43') unless $sensorHash->{devHash}{virtual};
 	HM485_SendCommand($actuatorHash, $actuatorHash->{DEF}, '43') unless $actuatorHash->{devHash}{virtual};
 	return '';
@@ -1374,18 +1433,18 @@ sub HM485_SetUnpeer($@) {
 	shift(@values);
 	
 	my $peered	 = HM485::PeeringManager::getPeeredChannels($hash);
-	my $msg = '';
-	
 	if (@values == 1 && grep {$_ eq $values[0]} @{$peered}) {
-		
 		my ($senHmwId, $senCh) = HM485::Util::getHmwIdAndChNrFromHash($hash);
 		my $actHmwId 	   	   = HM485::PeeringManager::getHmwIdByDevName($values[0]);
+		# if this does not lead to anything, even though the argument is in $peered, then
+		# the peered channed has probably been deleted or renamed just now
+		if(not $actHmwId) {
+			return 'set unpeer: channel '.$values[0].' does not exist anymore. It probably has been deleted or renamed. Try again in a few seconds. The peering should then appear with its new name or as "unknown..." channel, which you can then select to unpeer.';
+		};
         my $fromAct = (HM485::PeeringManager::getPeerRole($hash) eq "actuator") ? 1 : 0;		
-		$msg = HM485::PeeringManager::sendUnpeer($senHmwId, $actHmwId, $fromAct);
-	} else {
-		$msg = 'set unpeer argument "' . $values[0] . '" must be one of ' . join(',', @{$peered});
-	}
-	return $msg;
+		return HM485::PeeringManager::sendUnpeer($senHmwId, $actHmwId, $fromAct);
+	};
+	return 'set unpeer argument "' . $values[0] . '" must be one of ' . join(',', @{$peered});
 }
 
 
@@ -1813,6 +1872,88 @@ sub HM485_GetHashByHmwid ($) {
 	return $retVal;
 }
 
+
+my $HM485_CacheRefreshProcessing = 0;
+my %HM485_DevicesToRefresh;
+
+# recursion 
+sub HM485_RefreshCache($);
+
+sub HM485_RefreshCacheNow($) {
+	#if we are (still) running get-config-queues, then do not disturb them
+	if($#msgQueueList >= 0 or $HM485_CacheRefreshProcessing){ 
+	    # check again later
+	    HM485_RefreshCache(undef);
+		return;
+	};	
+	$HM485_CacheRefreshProcessing = 1;
+	# devices to refresh are completely refreshed
+    foreach my $devHash (values %HM485_DevicesToRefresh) {
+		# this only makes sense if configStatus is ok
+		# when this becomes "OK" (again), it will anyway re-trigger cache refresh
+		next unless($devHash->{READINGS}{configStatus}{VAL} eq 'OK');
+		# virtual devices cannot be refreshed completely
+		if($devHash->{virtual}) {
+			my $peers = $devHash->{cache}{peers};
+			delete $devHash->{cache};
+			$devHash->{cache}{peers} = $peers;
+		}else{	
+			delete $devHash->{cache};
+		};	
+		HM485::Util::PQadd(\&HM485::PeeringManager::getLinkParams, [$devHash], 15);
+		HM485::Util::PQadd(\&HM485::PeeringManager::getLinksFromDevice, [$devHash], 15);
+		#we simply run set ? for the device and all channels
+		HM485::Util::PQadd(\&HM485_Set, [$devHash, $devHash->{NAME}, "?"], 16);
+		# every key starting with channel_
+		foreach my $chanKey (grep(/^channel_/,keys %{$devHash})) {
+			my $chanHash = $main::defs{$devHash->{$chanKey}};
+			next unless $chanHash;
+			# HM485::Util::PQadd(\&HM485::PeeringManager::getPeerRole, [$chanHash], 17);
+			HM485::Util::PQadd(\&HM485_Set, [$chanHash, $chanHash->{NAME}, "?"], 18);
+		};	
+    };
+	# for all other devices, the "sets" cache of peerable channels are refreshed only
+    foreach my $chHash (values %{$main::modules{HM485}{defptr}}) {
+	    # only channels 
+		next unless(defined($chHash->{devHash}));
+		# only channels where we already know that they can be peered
+		next unless defined($chHash->{peerRole});
+		next if($chHash->{peerRole} eq "none");
+		# this only makes sense if configStatus is ok
+		# when this becomes "OK", it will anyway re-trigger cache refresh
+		next unless($chHash->{devHash}{READINGS}{configStatus}{VAL} eq 'OK');
+		# only if device not anyway in refresh list
+		next if(defined %HM485_DevicesToRefresh{$chHash->{devHash}{NAME}});
+		# now we only delete the sets cache for the channel 
+		HM485::Util::PQadd(sub {delete $chHash->{devHash}{cache}{$chHash->{chanNo}}{sets}}, [], 18);
+		HM485::Util::PQadd(\&HM485_Set, [$chHash, $chHash->{NAME}, "?"], 18);
+    };
+	# make array empty
+	%HM485_DevicesToRefresh = ();
+	HM485::Util::PQadd(sub {$HM485_CacheRefreshProcessing = 0}, [], 18);	
+};
+
+
+sub HM485_RefreshCache($) {
+	my ($devHash) = @_; 
+	if($devHash) {
+		# Clear the cache of the device immediately
+		if($devHash->{virtual}) {
+			my $peers = $devHash->{cache}{peers};
+			delete $devHash->{cache};
+			$devHash->{cache}{peers} = $peers;
+		}else{	
+			delete $devHash->{cache};
+		};	
+		# add device to the devices to refresh
+		$HM485_DevicesToRefresh{$devHash->{NAME}} = $devHash;
+	};
+	# make sure this happens at most once per second
+	RemoveInternalTimer("HM485::RefreshCacheTimer");
+	InternalTimer(gettimeofday() + 1,\&HM485_RefreshCacheNow,"HM485::RefreshCacheTimer");
+}
+
+
 ###############################################################################
 # Communication related functions
 ###############################################################################
@@ -1962,7 +2103,6 @@ sub HM485_ProcessResponse($$$) {
 sub HM485_SetStateNack($$) {
 	my ($hash, $msgData) = @_;
 	my $hmwId = substr( $msgData, 2, 8);	
-
 	my $devHash = HM485_GetHashByHmwid($hmwId);
 	
 	my $txt = 'RESPONSE TIMEOUT';
@@ -2002,7 +2142,8 @@ sub HM485_SetStateAck($$$) {
 		if ($devHash->{NAME}) {
            	# especially while startup, there are lots of ACKs and it is unlikely
 			# that anybody needs them, except when it was not ACK before
-			return if($devHash->{READINGS}{state}{VAL} eq 'ACK');	
+			my $oldstate = $devHash->{READINGS}{state}{VAL};
+			return if(defined($oldstate) and $oldstate eq 'ACK');	
 			HM485_ReadingUpdate($devHash, 'state', 'ACK');
 		}
 	}
@@ -2160,24 +2301,19 @@ sub HM485_SendCommand($$$;$) {
 		return;	
 	};	
 		
-	my %params = (hash => $devHash, hmwId => $hmwId, data => $data, queued => $queued);
-	InternalTimer(gettimeofday(), 'HM485_DoSendCommand', \%params, 0);
+	# my %params = (hash => $devHash, hmwId => $hmwId, data => $data, queued => $queued);
+	# queue with highest priority
+	HM485::Util::PQadd(\&HM485_DoSendCommand, [$devHash,$hmwId,$data,$queued], -19);
 	HM485::Util::Log3( $devHash, 5, 'HM485_SendCommand: '.$data);
 } 
 
 =head2
 	Send a command to device
-	
-	@param	hash    parameter hash
 =cut
-sub HM485_DoSendCommand($) {
-	my ($paramsHash) = @_;
+sub HM485_DoSendCommand($$$$) {
+	my ($hash,$hmwId,$data,$queued) = @_;
 
-	my $hmwId       = $paramsHash->{hmwId};
-	my $data        = $paramsHash->{data};
-	my $queued      = $paramsHash->{queued};
 	my $requestType = substr( $data, 0, 2);  # z.B.: 53
-	my $hash        = $paramsHash->{hash};
 	my $ioHash      = $hash->{IODev};
 
 	my %params      = (target => $hmwId, data   => $data);
@@ -2226,7 +2362,6 @@ sub HM485_ProcessChannelState($$$$;$) {
 	  return;
 	}
 	if(!HM485::Device::getDeviceKeyFromHash($hash)) {	
-	    $DB::single = 1;
         HM485::Util::Log3( $hash, 3, 'HM485_ProcessChannelState: hmwId = ' . $hmwId . ' No Device Key');
         return;
 	};
@@ -2255,30 +2390,26 @@ sub HM485_ChannelUpdate($$$) {
 	my ($chHash, $valueHash, $target) = @_;
 	my $name = $chHash->{NAME};
 
-	if ($valueHash && !AttrVal($name, 'ignore', 0)) {
-		my %params = (chHash => $chHash, valueHash => $valueHash, doTrigger => 1, target => $target);
-		if (AttrVal($name, 'do_not_notify', 0)) {
-			$params{doTrigger} = 0;
-		}
-		
-		InternalTimer(gettimeofday(), 'HM485_ChannelDoUpdate', \%params, 1);
+	return unless($valueHash && !AttrVal($name, 'ignore', 0));
+	
+	#my %params = (chHash => $chHash, valueHash => $valueHash, doTrigger => 1, target => $target);
+	my $doTrigger = 1;
+	if (AttrVal($name, 'do_not_notify', 0)) {
+		$doTrigger = 0;
 	}
+	HM485::Util::PQadd(\&HM485_ChannelDoUpdate, [$chHash,$valueHash,$doTrigger,$target]);
 }
+
 
 =head2
 	perform an update of a channel
 	
 	@param	hash    parameter hash
 =cut
-sub HM485_ChannelDoUpdate($) {
-	my ($params)    = @_;
+sub HM485_ChannelDoUpdate($$$$) {
+	my ($chHash, $valueHash, $doTrigger, $target)    = @_;
 	
-	my $chHash    = $params->{chHash};
-	my $valueHash = $params->{valueHash};
 	my $name      = $chHash->{NAME};
-	my $doTrigger = $params->{doTrigger} ? 1 : 0;
-	my $target    = $params->{target};
-	
 	my $state = undef;  # in case we do not update state anyway, use the last parameter
     my $updateState = 1;
 	
@@ -2446,7 +2577,7 @@ sub HM485_QueueStart($$) {
 	if($queue->{successFn}) {
 	  # the success function is called via internal timer
 	  # because it is usually called asynchronously for non-empty queues
-	  InternalTimer(gettimeofday(), 'HM485_QueueSuccessViaTimer', $queue, 0);
+	  HM485::Util::PQadd(\&HM485_QueueSuccessViaTimer, [$queue]);
 	};  
 	return;
   };
@@ -2569,13 +2700,21 @@ sub HM485_QueueStepFailed($$) {
 	<br><br>
 	<b>How to create an HMW device in FHEM</b><br>
 	Usually, it is not needed to create any HMW device manually. You should either use the discovery mode (see <a href="#HM485_LAN">HM485_LAN</a>) or you make the device send any message over the bus by e.g. pressing a button on the device. In both cases, FHEM automatically detects the new device and creates it in FHEM. The device is automatically assigned to the correct HM485_LAN, in case you have more than one.<br>
-	The device is also automatically paired, i.e. the physical device itself then knows that it is connected to a central device and sends messages directed to this device accordingly. 
+	The device is also automatically paired, i.e. the physical device itself then knows that it is connected to a central (in our case FHEM) and sends messages to the central accordingly. 
+	<br><br>
+	<b>Virtual central devices</b><br>
+	It is possible to create virtual ("central") devices in FHEM, which have 50 "key" channels. This means that there is no real (physical) device, but the channels appear in FHEM like real channels and they can be peered with actor channels. This includes using all peering configurations as well as the <code>set ... press_short</code> and <code>set ... press_long</code> commands.<br>
+	In most cases, a virtual device is created like this:<br>
+	<code>define &lt;name&gt; HM485 00000001</code><br>
+	See the documentation for <code>define</code> and <code>set</code> for further details.	
 	<br><br>
     <b>Define</b>
 	<ul>
 		<code>define &lt;name&gt; HM485 &lt;hmwid&gt; [&lt;io-device&gt;]</code><br>
 		&lt;hmwid&gt; is the address of the device. This is an 8-digit hex code, which is unique to each device. For original HMW devices, this is set at the factory and cannot be changed.<br>
-		&lt;io-device&gt; is the name of the IO-device (HM485_LAN) of the gateway where the device is attached to. This can be omitted if you have only one gateway. 		
+		The address of a real device is always greater than 255 (000000FF). If you use an address between 00000001 and 000000FF, then FHEM creates a virtual (central) device.<br>		
+		&lt;io-device&gt; is the name of the IO-device (HM485_LAN) of the gateway where the device is attached to. This can be omitted if you have only one gateway.<br> 
+		When you have multiple gateways and you are creating a virtual device, then you should always add the IO-device to the <code>define</code> command. It is recommended to use the same address (HMWId) for the virtual device and the IO-device. However, this is not mandatory. 	
 	</ul>	
 	<br>
 	<b>Set</b>
@@ -2651,6 +2790,14 @@ sub HM485_QueueStepFailed($$) {
 		<br>
 		HMW channels, which support <code>set ... on</code> and <code>set ... off</code> also support the <b>set extensions</b>. (See <a href="#setExtensions">here for details</a>.) However, <code>set ... toggle</code> is an exception. <code>toggle</code> is not implemented via set extensions, but by the HM485 Module itself, and only available for switch channels. Other set extension commands (like <code>on-for-timer</code>) are available for all channels which have <code>set on/off</code>, including e.g. shutters. 
 		<br><br>
+		Peerable "key" or "sensor" channels provide the following two special commands.
+		<ul>
+		<li><code>set &lt;key-channel&gt; <b>press_short</b></code><br>
+			<code>set &lt;key-channel&gt; <b>press_long</b></code><br>
+		These commands simulate a key press for the channel. This means that a message is sent to all peered (actor) channels, as if the key on the real device was pressed. This is especially useful for virtual (central) devices, as it allows to trigger peering functionality without a real key (sensor) channel.  	
+		</li>
+		</ul>		
+		<br>
 		<b>Get</b>
 		<br>
 		The get option <code>config</code> is available on device and channel level. <code>state</code>, <code>peeringdetails</code> and <code>peerlist</code> are for channels. The options <code>config</code>, <code>peerlist</code> and <code>peeringdetails</code> are normally only needed internally. From a user's perspective, it is better to use the "Device Configuration", "Channel Configuration" and "Peering Configuration" dialogs.  
@@ -2743,7 +2890,8 @@ sub HM485_QueueStepFailed($$) {
 		</li>
 		<br>
 		<li><b>subType</b>: Type of a channel, like e.g. "switch", "key" or "blind"<br>
-		    This attribute is used by FHEMWEB to group devices (in this case channels) if attribute <code>group</code> is not set. Do not try to change it. You cannot change the behaviour of the channel by changing <code>subType</code>. In addition, it is re-determined automatically when the configuration is read from the device, i.e. in most cases with the next FHEM restart.  
+		    This attribute is used by FHEMWEB to group devices (in this case channels) if attribute <code>group</code> is not set. It is automatically determined when the device is first created, but you can also change it. However, it is not possible to change the behaviour of a channel by changing the <code>subType</code> attribute.
+		</li>		
 		</ul>	
 </ul>
 =end html
