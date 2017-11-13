@@ -1923,7 +1923,7 @@ sub HM485_RefreshCacheNow($) {
 		# when this becomes "OK", it will anyway re-trigger cache refresh
 		next unless($chHash->{devHash}{READINGS}{configStatus}{VAL} eq 'OK');
 		# only if device not anyway in refresh list
-		next if(defined %HM485_DevicesToRefresh{$chHash->{devHash}{NAME}});
+		next if(defined $HM485_DevicesToRefresh{$chHash->{devHash}{NAME}});
 		# now we only delete the sets cache for the channel 
 		HM485::Util::PQadd(sub {delete $chHash->{devHash}{cache}{$chHash->{chanNo}}{sets}}, [], 18);
 		HM485::Util::PQadd(\&HM485_Set, [$chHash, $chHash->{NAME}, "?"], 18);
