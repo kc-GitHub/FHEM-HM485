@@ -356,7 +356,7 @@ sub Log3($$$){
   my %prioQueues;
   my $queueRunning = 0;
 
-  use Sub::Identify qw(sub_name); 
+  # use Sub::Identify qw(sub_name); 
   
  sub PQprocess($) {
 
