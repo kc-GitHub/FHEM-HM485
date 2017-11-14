@@ -351,7 +351,6 @@ sub Log3($$$){
 # add: function, arguments, priority
 
  use List::Util qw(min);
- use feature qw(current_sub);
  use Scalar::Util qw(looks_like_number);
 
   my %prioQueues;
@@ -379,7 +378,7 @@ sub Log3($$$){
 	};	
 	
 	if(%prioQueues) {
-		main::InternalTimer(main::gettimeofday(),__SUB__,"HM485::PrioQueue");
+		main::InternalTimer(main::gettimeofday(),\&PQprocess,"HM485::PrioQueue");
 	}else{
 		$queueRunning = 0;
 	};	
