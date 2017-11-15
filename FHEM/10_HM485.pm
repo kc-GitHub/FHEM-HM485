@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0810 2017-11-13 21:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0811 2017-11-15 14:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.10
+	Version 0.8.11
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -152,7 +152,7 @@ sub HM485_Initialize($) {
 	$hash->{'AttrList'}  =	$attrlist.' model firmwareVersion serialNr ';   
 	                                       # deprecated, but to avoid error messages
 	# remove deprecated attributes after init
-	HM485::Util::PQadd(sub {$hash->{'AttrList'} = $attrlist}, [$hash]);
+	HM485::Util::PQadd(sub {$hash->{'AttrList'} = $attrlist}, [$hash],11);
 }
 
 
@@ -2230,6 +2230,11 @@ sub HM485_ProcessEvent($$) {
 # TODO: Is this really good? Could cause multiple getConfig-Like things
 sub HM485_CheckForAutocreate($$;$$) {
 	my ($ioHash, $hmwId, $requestType, $msgData) = @_;
+	
+	# It seems that when working with the original eq3 gateway, it can
+	# happen that it seems that the central device is sending something
+	# We need to ignore this for autocreate
+	return if(substr($hmwId,0,6) eq '000000');
 	
 	my $logTxt = 'Device %s not defined yet. We need the %s for autocreate';
 
