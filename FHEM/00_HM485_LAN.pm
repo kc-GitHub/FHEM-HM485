@@ -185,6 +185,7 @@ sub HM485_LAN_Ready($) {
 	my $HM485dBind   = AttrVal($name, 'HM485d_bind', 0);
 	my $HM485dDevice = AttrVal($name, 'HM485d_device', undef);
 	if ($HM485dBind && $HM485dDevice) {
+		HM485_LAN_updateHM485dCommandLine($hash);
 		my $pid = HM485_LAN_HM485dGetPid($hash, $hash->{HM485d_CommandLine});
 		if(!($pid && kill(0, $pid))) {
 			# seems it is not really running, try to start it
