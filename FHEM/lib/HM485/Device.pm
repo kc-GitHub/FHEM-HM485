@@ -780,21 +780,20 @@ sub convertFrameDataToValue($$$) {
 		foreach my $valueMapEntry (@$valueMap) { 
 			HM485::Util::Log3( $hash, 5, 'Device:convertFrameDataToValue: deviceKey = ' . $deviceKey . ' valId = ' . $valId . ' value1 = ' . $frameData->{params}{$valId}{val});
 		
-			$frameData->{params}{$valId}{val} = dataConversion(
+			my $convertedValue = dataConversion(
 				$frameData->{params}{$valId}{val},					
 				$valueMapEntry->{conversion},
 				'from_device'
 			);
-			HM485::Util::Log3($hash, 5, 'Device:convertFrameDataToValue: value2 = ' . $frameData->{params}{$valId}{val});
+			HM485::Util::Log3($hash, 5, 'Device:convertFrameDataToValue: value2 = ' . $convertedValue);
 			$frameData->{value}{$valueMapEntry->{name}} = valueToControl(
-				$valueMapEntry,
-				$frameData->{params}{$valId}{val},
-			);
+				$valueMapEntry, $convertedValue);
 		}
 	}
 
 	return $frameData;
 }
+
 
 =head2
 	Map values to control specific values
