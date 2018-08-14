@@ -463,4 +463,10 @@ sub DoTrigger($$) {
 	ServerTools_serialReconnect();
 }
 
+
+sub readingsSingleUpdate($$$$) {
+  # do nothing
+  # This sub is a dummy because TcpServerUtils.pm tries to call it.
+};  
+
 1;
