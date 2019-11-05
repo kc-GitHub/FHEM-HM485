@@ -311,13 +311,9 @@ sub convertSettingsToEepromData($$) {
 		my $value = $configData->{$config}{'value'};
 		my $optText = undef;
 		
-		if ($configData->{$config}{'config'}{'logical'}{'type'} && 
-			$configData->{$config}{'config'}{'logical'}{'type'} eq 'option') {
-		} else {
-			$value = HM485::Device::dataConversion(
-				$value, $configData->{$config}{'config'}{'conversion'}, 'to_device'
-			);
-		}
+		$value = HM485::Device::dataConversion(
+			$value, $configData->{$config}{'config'}{'conversion'}, 'to_device'
+		);
 
 		my $adrKey = int($adrId);
 

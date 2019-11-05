@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0814 2018-08-14 14:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0814 2019-11-05 12:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.14
+	Version 0.8.15
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -579,7 +579,7 @@ sub HM485_Set($@) {
 	
 	# first handle stuff which should be "fast"
 	# i.e. not config or so
-	if($isChannel && defined($sets{$cmd})) {
+	if($isChannel && exists($sets{$cmd})) {
 		if ($cmd eq 'press_long' || $cmd eq 'press_short') {
 			my $counter = $hash->{'READINGS'}{'sim_counter'}{'VAL'} ?
 						  $hash->{'READINGS'}{'sim_counter'}{'VAL'} : 0;
