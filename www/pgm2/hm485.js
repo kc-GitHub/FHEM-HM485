@@ -4,7 +4,15 @@ function FW_HM485ConfigSaveClicked(name) {
     if(submitBtn.attr('disabled')) return;	
 	var configValue = '';
 	$( ".argHM485config" ).each(function() {
-		configValue += $(this).attr('name') + ' ' + $(this).val() + ' ';
+		// check if there is a special_value and whether it is clicked
+		var special = $("#HM485-config-" + $(this).attr('name') + "-special_value");
+		var val = $(this).val();
+		if(special) {
+            if(special.is(':checked')) {
+				val = special.val();
+			};
+		};	
+		configValue += $(this).attr('name') + ' ' + val + ' ';
     });
 	var cmd = '/fhem?XHR=1&cmd=set ' + name + ' config ' + configValue;
     FW_cmd(cmd,FW_HM485SaveClickedCallback);		

@@ -1094,10 +1094,23 @@ sub dataConvertValue ($$$) {
 		
 		if ($dir eq 'to_device') {
 			$retVal = $retVal + $offset;
-			$retVal = int($retVal * $factor); 
+			# the following performs a proper rounding to int
+			# as in perl, numbers are also strings, it should always work
+			$retVal = sprintf("%.0f", $retVal * $factor); 
 		} else {
-			$retVal = $retVal / $factor;
-			$retVal = sprintf("%.2f", $retVal - $offset);
+			$retVal = $retVal / $factor - $offset;
+			# try to be smart determining the number of 
+			# decimals
+			# first round to 8 decimals to avoid stuff like 1.999999999999
+			# and remove trailing zeroes (this is what the g means)
+			$retVal = sprintf("%.8g",$retVal);
+			my (undef,$after) = split(/\./,$retVal);
+			# to stay (more or less) compatible to what we have done before,
+			# put one or two trailing zeroes (even though this might not make
+			# complete sense for integer_integer_scale)
+			if((defined($after) ? length($after) : 0) < 2) {
+				$retVal = sprintf("%.2f",$retVal);
+			};
 		}
 	
 	} elsif ($type eq 'boolean_integer') {

@@ -311,6 +311,13 @@ sub convertSettingsToEepromData($$) {
 		my $value = $configData->{$config}{'value'};
 		my $optText = undef;
 		
+		# care for special_value
+		if (defined($configHash->{logical}) &&
+		        defined($configHash->{logical}{special_value}) &&
+			    $value eq $configHash->{logical}{special_value}{id}) {
+			$value = $configHash->{logical}{special_value}{value};
+		};		
+		
 		$value = HM485::Device::dataConversion(
 			$value, $configData->{$config}{'config'}{'conversion'}, 'to_device'
 		);
