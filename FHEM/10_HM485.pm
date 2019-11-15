@@ -1,9 +1,9 @@
 =head1
 	10_HM485.pm
 
-# $Id: 10_HM485.pm 0814 2019-11-05 12:00:00Z ThorstenPferdekaemper $	
+# $Id: 10_HM485.pm 0816 2019-11-15 14:00:00Z ThorstenPferdekaemper $	
 	
-	Version 0.8.15
+	Version 0.8.16
 				 
 =head1 SYNOPSIS
 	HomeMatic Wired (HM485) Modul for FHEM
@@ -1958,6 +1958,37 @@ sub HM485_RefreshCache($) {
 # Communication related functions
 ###############################################################################
 
+sub HM485_ContinuousLevel($$) {
+	# continuous level display for shutter devices 
+	# (HMW_LC_BL1_DR)
+	my ($hash,$msgData) = @_;
+	# $hash: device hash (not channel hash)
+	# $msgData: incoming message
+	# only if there is a message
+	return unless $msgData;  
+	# only if message type is 69 (channel state) and channel 3 (i.e. 02)
+	return unless substr( $msgData, 0, 4) eq '6902';
+	# only if it is still moving (00 is "not moving")
+	return if substr( $msgData, 6, 2) eq '00';
+	# is this a shutter?
+	return unless uc( HM485::Device::getDeviceKeyFromHash($hash)) eq 'HMW_LC_BL1_DR';
+	# is logging switched on?
+	my $chHash = HM485_GetHashByHmwid( $hash->{DEF} . '_03');
+	my $logging	= ReadingsVal( $chHash->{'NAME'}, 'R-logging', 'off');
+	return unless $logging eq 'on';
+	# ok, continuous level display is active for this one
+	# remove old timer, if any
+	my $arg = $hash . ' ' . $hash->{DEF} . ' 5302';  # 5302: Get state for channel 3 (02)
+	RemoveInternalTimer($arg,'HM485_SendCommand');
+	# get logging time
+	my $loggingTime = ReadingsVal( $hash->{'NAME'}, 'R-logging_time', 2);
+	# do not make this smaller than 1,5 seconds, as we otherwise might have too
+	# much traffic on the bus
+	$loggingTime = 1.5 if $loggingTime < 1.5;
+	InternalTimer(gettimeofday() + $loggingTime, 'HM485_SendCommand', $arg, 0);
+};
+
+
 =head2
 	Parse a response frame depends on the $requestType
 	
@@ -1978,17 +2009,14 @@ sub HM485_ProcessResponse($$$) {
 		my $hmwId       = $ioHash->{'.waitForResponse'}{$msgId}{hmwId};
 		my $requestData = $ioHash->{'.waitForResponse'}{$msgId}{requestData};
 		my $hash        = $modules{HM485}{defptr}{$hmwId};
-		my $chHash		= undef;
-		my $Logging		= 'off';
-		my $chNr 		= $msgData ? substr( $msgData, 2, 2) : undef;
-		my $deviceKey	= '';
-		my $LoggingTime = 2;
 		
 		# Check if main device exists or we need create it
 		if ( $hash->{DEF} && $hash->{DEF} eq $hmwId) {
-			$deviceKey 	= uc( HM485::Device::getDeviceKeyFromHash($hash));
+			# do coninuous level display, if shutter and needed
+			HM485_ContinuousLevel($hash,$msgData);
+		
 			if ($requestType ne '52') { 
-				HM485::Util::Log3( $ioHash, 5, 'HM485_ProcessResponse: deviceKey = ' . $deviceKey . ' requestType = ' . $requestType . ' requestData = ' . $requestData . ' msgData = ' . $msgData);
+				HM485::Util::Log3( $ioHash, 5, 'HM485_ProcessResponse: device = ' . $hmwId . ' requestType = ' . $requestType . ' requestData = ' . $requestData . ' msgData = ' . $msgData);
 			}
             # special handling for 0x73 and ACK instead of proper response
             # we assume that the device has a matching "INFO_LEVEL" message
@@ -2000,61 +2028,15 @@ sub HM485_ProcessResponse($$$) {
 				return;
             };   			
 			
-			if (grep $_ ne $requestType, ('68', '6E', '76')) {
-				if ( $deviceKey eq 'HMW_LC_BL1_DR' && ( defined( $msgData) && $msgData)) {
-					if ( $chNr lt "FF") {
-						$chHash 	= HM485_GetHashByHmwid( $hmwId . '_' . sprintf( "%02d", $chNr+1));
-						$Logging	= ReadingsVal( $chHash->{'NAME'}, 'R-logging', 'off');
-						$LoggingTime = ReadingsVal( $hash->{'NAME'}, 'R-logging_time', 2);
-					}
-				}
-			}
-					
-			if (grep $_ eq $requestType, ('53', '78')) {                # S (level_get), x (level_set) reports State
-				if ( $deviceKey eq 'HMW_LC_BL1_DR') { # or $deviceKey eq 'HMW_LC_DIM1L_DR') {
-					if ( $Logging eq 'on') {
-						if ( $msgData && $msgData ne '') {
-							my $bewegung = substr( $msgData, 6, 2);  		# Fuer Rolloaktor 10 = hoch, 20 = runter, 00 = Stillstand 
-							$data = '5302';									# Channel 03 Level abfragen
-							my %params = (hash => $hash, hmwId => $hmwId, data => $data);
-							if ( $bewegung ne '00') {
-								# kontinuierliche Levelabfrage starten, wenn sich Rollo bewegt, 
-								# es nicht ganz zu ist (und nicht ganz geöffnet ist)			
-								InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0); 
-							}
-						}
-					}
-				}
-				
+			if (grep $_ eq $requestType, ('53','78','4B','CB','73')) { 
+				# S (level_get), x (level_set), K (Key), Ë (Key-sim), s ( Aktor setzen) => report State
 				HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
-				
-			} elsif (grep $_ eq $requestType, ('4B', 'CB')) {       # K (Key), Ë (Key-sim) report State
-				if ( $deviceKey eq 'HMW_LC_BL1_DR') {
-					if ( $Logging eq 'on') {
-						my $bewegung = substr( $msgData, 6, 2);  		# Fuer Rolloaktor 10 = hoch, 20 = runter, 00 = Stillstand 
-						$data = '5302';									# Channel 03 Level abfragen
-						my %params = (hash => $hash, hmwId => $hmwId, data => $data);
-						if ( $bewegung ne '00') {
-							InternalTimer(gettimeofday() + $LoggingTime, 'HM485_SendCommand', $hash . ' ' . $hmwId . ' ' . $data, 0);
-						}
-					}
-				}
-			
-				HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
-			
 			} elsif ($requestType eq '52') {                                # R (report Eeprom Data)
 				HM485_ProcessEepromData($hash, $requestData, $msgData);
 
 			} elsif (grep $_ eq $requestType, ('68', '6E', '76')) {         # h (module type), n (serial number), v (firmware version)
 				HM485_SetAttributeFromResponse($hash, $requestType, $msgData);
-	
-#			} elsif ($requestType eq '70') {                                # p (report packet size, only in bootloader mode)
-
-#			} elsif ($requestType eq '72') {                                # r (report firmwared data, only in bootloader mode)
-			} elsif ($requestType eq '73') {                                # s ( Aktor setzen)
-					HM485_ProcessChannelState($hash, $hmwId, $msgData, 'response');
 			}
-
 		} else {
 		 	HM485_CheckForAutocreate($ioHash, $hmwId, $requestType, $msgData);
 		}
@@ -2197,17 +2179,8 @@ sub HM485_ProcessEvent($$) {
 		# Check if main device exists or we need create it
 		if ( $devHash->{DEF} && $devHash->{DEF} eq $hmwId) {
 			HM485_ProcessChannelState($devHash, $hmwId, $msgData, 'frame', $target);
-			my $deviceKey = HM485::Device::getDeviceKeyFromHash($devHash);
-			my $event = substr( $msgData, 0, 2);
-			if ( $event eq '4B') {
-				# Taster wurde gedrueckt 4B
-				if ( uc( $deviceKey) eq 'HMW_LC_BL1_DR') { # or $deviceKey eq 'HMW_LC_DIM1L_DR') {
-					my $data = '5302';
-					#my %params = (hash => $devHash, hmwId => $hmwId, data => $data);
-					# kontinuierliche Abfrage des Levels starten
-					InternalTimer( gettimeofday() + 2, 'HM485_SendCommand', $devHash . ' ' . $hmwId . ' ' . $data, 0); 
-				}
-			}
+			# continuous level check for shutters
+			HM485_ContinuousLevel($devHash,$msgData);
 		} else {
 			HM485_CheckForAutocreate($ioHash, $hmwId);
 		}
