@@ -212,7 +212,7 @@ sub ServerTools_serverRead($) {
 sub ServerTools_serverClientClose($) {
 	my ($hash) = @_;
 
-	TcpServer_Close($hash);
+	TcpServer_Close($hash,1,1);
 	if ($clientCount > 0) {
 		$clientCount--;
 	}
