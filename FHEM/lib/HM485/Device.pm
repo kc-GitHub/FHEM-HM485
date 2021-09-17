@@ -1207,6 +1207,12 @@ sub getEmptyEEpromMap($) {
 	my $addrMax = 1024;
 	my $adrCount = 0;
 	my $hexBlock;
+	
+	my $myEepromSize = getValueFromDefinitions($deviceKey . '/eep_size');
+	if ($myEepromSize>0) {
+		$addrMax = $myEepromSize;
+	}
+
 											# 64
 	for ($blockCount = 0; $blockCount < ($addrMax / $blockLen); $blockCount++) {
 		my $blockStart = $blockCount * $blockLen;  # 16
@@ -1252,6 +1258,12 @@ sub getRawEEpromData($;$$$$) {
 	my $blockStart = 0;
 	my $blockCount = 0;
 	
+	my $deviceKey = getDeviceKeyFromHash($hash);
+	my $myEepromSize = getValueFromDefinitions($deviceKey . '/eep_size');
+	if ($myEepromSize>0) {
+		$addrMax = $myEepromSize;
+	}
+
 	$start        = defined($start) ? $start : 0;		# 8
 	$len          = defined($len) ? $len : $addrMax;	# 1
 	$hex          = defined($hex) ? $hex : 0;
@@ -1297,6 +1309,12 @@ sub setRawEEpromData($$$$) {
 	my $blockStart = 0;
 	my $blockCount = 0;
 	
+	my $deviceKey = getDeviceKeyFromHash($hash);
+	my $myEepromSize = getValueFromDefinitions($deviceKey . '/eep_size');
+	if ($myEepromSize>0) {
+		$addrMax = $myEepromSize;
+	}
+
 	$start = hex($start);
 	
 	if ($start > 0) {
