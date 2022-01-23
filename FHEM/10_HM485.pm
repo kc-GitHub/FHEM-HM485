@@ -125,7 +125,7 @@ sub HM485_Initialize($) {
 	my $initResult = HM485::Device::init();
 	HM485::Util::Log3($hash, 1, $initResult) if ($initResult);
 	
-	$hash->{'Match'}          = '^FD.*';
+	$hash->{'Match'}          = '^.*';
 	$hash->{'DefFn'}          = 'HM485_Define';
 	$hash->{'UndefFn'}        = 'HM485_Undefine';
 	$hash->{'RenameFn'}       = 'HM485_Rename';
