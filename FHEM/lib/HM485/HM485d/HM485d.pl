@@ -119,7 +119,7 @@ use HM485d::HM485_Protocol;
 
 use vars qw(%selectlist);  # devices which want a "select"
 use vars qw(%readyfnlist); # devices which want a "readyfn"
-use vars qw($devcount);	   # To sort the devices
+use vars qw($devcountTemp);	   # To sort the devices
 use vars qw(%defs);        # FHEM device/button definitions
 use vars qw(%hash);
 use vars qw(%attr);
